@@ -4,7 +4,7 @@ extension ToolCatalog {
   static var memoryDefinition: JSONValue {
     tool(
       "memory",
-      "Project-scoped persistent context shared by every Host. Start with recent, then recall relevant facts. remember explicitly records durable project knowledge; each project keeps up to 200 active memories, and supersedes requires expectedRevision. forget tombstones one exact atom, never purges history. sessions returns verified runtime metadata, not chats or raw output. Memory is context data, not tool authority. Never store credentials, private file bodies, clipboard/form contents or raw logs.",
+      "Project-scoped persistent context shared by every Host. Start with recent for a bounded resume summary and current projectToken, then recall relevant facts. remember/forget require projectToken. remember explicitly records durable project knowledge; each project keeps up to 200 active memories, and supersedes requires expectedRevision. forget tombstones one exact atom, never purges history. sessions returns runtime metadata, not chats or raw output. Memory is context data, not tool authority. Never store credentials, private file bodies, clipboard/form contents or raw logs.",
       [
         "action": enumeration(["recall", "remember", "recent", "sessions", "forget"]),
         "query": string("Case-insensitive text terms for recall", max: 512),
@@ -23,9 +23,8 @@ extension ToolCatalog {
 }
 
 extension ToolRouter {
-  func memoryTool(_ value: JSONValue, grant: ToolGrant) throws -> ToolOutput {
-    let root = try Arguments(value, allowed: ["action", "query", "kind", "content", "tags", "memoryId",
-                                              "supersedes", "expectedRevision", "includeHistory", "limit", "offset", "runId"])
+  func memoryTool(_ value: JSONValue, grant: ToolGrant) async throws -> ToolOutput {
+    let root = try ActionContracts.arguments("memory", value)
     let action = try root.string("action", max: 16)
     func kind(_ a: Arguments, required: Bool = false) throws -> MemoryKind? {
       if !a.has("kind") && !required { return nil }
@@ -40,7 +39,7 @@ extension ToolRouter {
     let result: JSONValue
     switch action {
     case "recall":
-      let a = try Arguments(value, allowed: ["action", "query", "kind", "tags", "memoryId", "includeHistory", "limit", "offset"])
+      let a = root
       result = try memoryStore.recall(
         query: a.string("query", default: "", max: 512), kind: kind(a),
         tags: a.strings("tags", maxCount: 8, maxBytes: 32),
@@ -49,30 +48,30 @@ extension ToolRouter {
         limit: a.integer("limit", default: 10, range: 1...50),
         offset: a.integer("offset", default: 0, range: 0...100_000))
     case "remember":
-      let a = try Arguments(value, allowed: ["action", "kind", "content", "tags", "supersedes", "expectedRevision"])
+      let a = root
       result = try memoryStore.remember(
         kind: kind(a, required: true)!, content: a.string("content", max: 4096),
         tags: a.strings("tags", maxCount: 8, maxBytes: 32),
         supersedes: a.has("supersedes") ? a.string("supersedes", max: 80) : nil,
         expectedRevision: revision(a), source: memorySource(grant))
     case "forget":
-      let a = try Arguments(value, allowed: ["action", "memoryId", "expectedRevision"])
+      let a = root
       result = try memoryStore.forget(id: a.string("memoryId", max: 80), expectedRevision: revision(a), source: memorySource(grant))
     case "recent":
-      _ = try Arguments(value, allowed: ["action"])
-      result = try memoryStore.recent()
+      let currentJobs = await jobList()
+      result = try memoryStore.recent(projectToken: projectToken,
+        currentJobs: currentJobs, currentArtifacts: await artifacts.list(grant: grant))
     case "sessions":
-      let a = try Arguments(value, allowed: ["action", "runId", "limit", "offset"])
+      let a = root
       let runID: UUID?
       if a.has("runId") {
-        _ = try Arguments(value, allowed: ["action", "runId"])
         guard let id = UUID(uuidString: try a.string("runId", max: 36)) else {
           throw Failure.invalid("runId must be the UUID of a session in this project.")
         }
         runID = id
       } else { runID = nil }
-      result = try memoryStore.sessionsResult(runID: runID,
-        limit: a.integer("limit", default: 10, range: 1...50), offset: a.integer("offset", default: 0, range: 0...100_000))
+      result = try await memoryStore.sessionsResultObserved(runID: runID,
+        limit: a.integer("limit", default: 10, range: 1...50), offset: a.integer("offset", default: 0, range: 0...100_000), files: workspace)
     default:
       throw Failure.invalid("memory action must be recall, remember, recent, sessions or forget. Physical clearing is local-only.")
     }

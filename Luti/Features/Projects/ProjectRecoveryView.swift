@@ -1,8 +1,9 @@
 import SwiftUI
 
-struct ProjectRecoverySection: View {
+struct ProjectRecoveryView: View {
   let model: AppModel
   let project: ApprovedProject
+  let back: () -> Void
   @State private var checkpoints: [ProjectCheckpointManifest] = []
   @State private var review: RecoveryReview?
   @State private var previewingID: String?
@@ -11,58 +12,60 @@ struct ProjectRecoverySection: View {
   @State private var loading = true
 
   var body: some View {
-    Group {
-      if loading || !checkpoints.isEmpty || error != nil {
-        VStack(alignment: .leading, spacing: 10) {
-          HStack {
-            Text(L10n.text("recovery.title"))
-              .font(.system(size: 13, weight: .semibold))
-              .foregroundStyle(MDTheme.onSurfaceVariant)
-            Spacer()
-            if !loading {
-              MDIconActionButton(
-                symbol: "arrow.clockwise",
-                label: L10n.text("context.refresh"),
-                action: { refreshID += 1 })
-                .accessibilityIdentifier("refresh-recovery")
-            }
-          }
+    VStack(spacing: 0) {
+      MDDetailHeader(title: L10n.text("recovery.title"), back: back) {
+        MDIconActionButton(
+          symbol: "arrow.clockwise",
+          label: L10n.text("context.refresh"),
+          action: { refreshID += 1 })
+          .disabled(loading)
+          .accessibilityIdentifier("refresh-recovery")
+      }
+      MDPage {
+        if !loading {
+          Text(L10n.format("recovery.count", checkpoints.count))
+            .font(.system(size: 12))
+            .foregroundStyle(MDTheme.onSurfaceVariant)
+        }
 
-          if loading {
-            MDLoadingState(title: L10n.text("recovery.loading"), size: 36)
-          } else if !checkpoints.isEmpty {
-            MDList {
-              ForEach(Array(checkpoints.enumerated()), id: \.element.id) { index, checkpoint in
-                MDNavigationRow(
-                  title: checkpoint.createdAt.formatted(date: .abbreviated, time: .shortened),
-                  symbol: checkpoint.status == "ready" ? "arrow.uturn.backward.circle" : "clock.arrow.circlepath",
-                  subtitle: L10n.format(
-                    "recovery.checkpointSummary", checkpoint.affectedCount, checkpoint.reason),
-                  detail: statusTitle(checkpoint.status),
-                  position: MDListRowPosition(index: index, count: checkpoints.count),
-                  iconTone: checkpoint.status == "ready" ? .orange : .gray
-                ) {
-                  if checkpoint.status == "ready", !model.active, !model.contextBusy {
-                    Task { await openReview(checkpoint) }
-                  }
+        if loading {
+          MDLoadingState(title: L10n.text("recovery.loading"), size: 36)
+        } else if checkpoints.isEmpty, error == nil {
+          MDEmptyState(
+            title: L10n.text("recovery.empty"),
+            message: L10n.text("recovery.emptyDescription"),
+            symbol: "arrow.uturn.backward.circle")
+        } else if !checkpoints.isEmpty {
+          MDList {
+            ForEach(Array(checkpoints.enumerated()), id: \.element.id) { index, checkpoint in
+              MDNavigationRow(
+                title: checkpoint.createdAt.formatted(date: .abbreviated, time: .shortened),
+                symbol: checkpoint.status == "ready" ? "arrow.uturn.backward.circle" : "clock.arrow.circlepath",
+                subtitle: L10n.format(
+                  "recovery.checkpointSummary", checkpoint.affectedCount, checkpoint.reason),
+                detail: statusTitle(checkpoint.status),
+                position: MDListRowPosition(index: index, count: checkpoints.count),
+                iconTone: checkpoint.status == "ready" ? .orange : .gray
+              ) {
+                if checkpoint.status == "ready", !model.active, !model.contextBusy {
+                  Task { await openReview(checkpoint) }
                 }
-                .disabled(
-                  checkpoint.status != "ready" || model.active || model.contextBusy
-                    || previewingID != nil)
-                .accessibilityIdentifier("checkpoint-" + checkpoint.id)
               }
+              .disabled(
+                checkpoint.status != "ready" || model.active || model.contextBusy
+                  || previewingID != nil)
+              .accessibilityIdentifier("checkpoint-" + checkpoint.id)
             }
-            Text(L10n.text(model.active ? "recovery.stopBeforeRestore" : "recovery.restoreSafety"))
-              .font(.system(size: 12))
-              .foregroundStyle(MDTheme.onSurfaceVariant)
           }
+          Text(L10n.text(model.active ? "recovery.stopBeforeRestore" : "recovery.restoreSafety"))
+            .font(.system(size: 12))
+            .foregroundStyle(MDTheme.onSurfaceVariant)
+        }
 
-          if let error {
-            InlineNotice(
-              text: error, icon: "exclamationmark.triangle", color: MDTheme.error)
-              .textSelection(.enabled)
-          }
-
+        if let error {
+          InlineNotice(
+            text: error, icon: "exclamationmark.triangle", color: MDTheme.error)
+            .textSelection(.enabled)
         }
       }
     }

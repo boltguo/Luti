@@ -97,6 +97,13 @@ extension ProjectContextStore {
       journal.jobs[index].status = "interrupted"
       // The outcome of a process after loss of ownership is unknown, not success.
       journal.jobs[index].terminal = true
+      if var evidence = journal.jobs[index].validation {
+        evidence.resultKind = "incomplete"
+        evidence.processOutcome = "unknown"
+        evidence.tests?.status = "unknown"
+        evidence.input?.freshness = "unknown"
+        journal.jobs[index].validation = evidence
+      }
     }
   }
 
@@ -189,7 +196,7 @@ extension ProjectContextStore {
         if let path = safePath(file["path"]), !journal.readFiles.contains(path) { journal.readFiles.append(path) }
       }
     }
-    if tool == "edit_files", result["applied"] == true, result["dryRun"] != true {
+    if ["edit_files", "import_artifact"].contains(tool), result["applied"] == true, result["dryRun"] != true {
       let paths = (result["files"].array ?? []).filter { $0["wouldChange"] == true }.map { $0["path"] }
         + [result["path"]]
       for value in paths {
@@ -232,7 +239,7 @@ extension ProjectContextStore {
           cwd: safePath(arguments["cwd"]) ?? safePath(task["cwd"]) ?? ".",
           purpose: purpose, taskId: taskID))
     }
-    for value in [result["artifact"], result] {
+    for value in [result["artifact"], result["source"], result] {
       guard let resource = value["resource"].string, resource.hasPrefix("luti://"),
             resource.utf8.count <= 256, !journal.artifacts.contains(where: { $0.id == resource }) else { continue }
       journal.artifacts.append(SessionArtifact(id: resource,
@@ -250,11 +257,28 @@ extension ProjectContextStore {
       let counts = value["testSummary"]
       let tests: SessionTestCounts?
       if let passed = counts["passed"].int, let failed = counts["failed"].int {
-        tests = SessionTestCounts(passed: max(0, passed), failed: max(0, failed), skipped: max(0, counts["skipped"].int ?? 0))
+        tests = SessionTestCounts(passed: max(0, passed), failed: max(0, failed),
+          skipped: max(0, counts["skipped"].int ?? 0), errors: max(0, counts["errors"].int ?? 0),
+          total: counts["total"].int)
       } else { tests = nil }
-      let job = SessionJob(id: id, status: status, terminal: value["terminal"] == true,
-                           exitCode: value["exitCode"].int, tests: tests)
-      if let index = journal.jobs.firstIndex(where: { $0.id == id }) { journal.jobs[index] = job }
+      var validation = try? ContextCoding.decode(ValidationEvidence.self, value["validation"].data())
+      // Current is an observation made for this query, not an enduring assertion.
+      // Persist only launch/end observations; querying refreshes it from the files.
+      validation?.input?.current = nil
+      validation?.input?.freshness = "unknown"
+      var job = SessionJob(id: id, status: status, terminal: value["terminal"] == true,
+                           exitCode: value["exitCode"].int, tests: tests, validation: validation)
+      if let index = journal.jobs.firstIndex(where: { $0.id == id }) {
+        let prior = journal.jobs[index]
+        if prior.validationOmitted == true, prior.terminal, job.terminal,
+           prior.status == job.status, prior.exitCode == job.exitCode, prior.tests == job.tests {
+          // Periodic lifecycle reconciliation must not rehydrate, discard and
+          // recount the same deliberately omitted evidence on every UI tick.
+          job.validation = nil
+          job.validationOmitted = true
+        }
+        journal.jobs[index] = job
+      }
       else { journal.jobs.append(job) }
 
       if value["terminal"] == true {
@@ -300,9 +324,22 @@ extension ProjectContextStore {
     journal.omittedFacts += cap(&journal.jobs, 64)
     journal.omittedFacts += cap(&journal.diagnostics, 64)
     journal.omittedFacts += cap(&journal.artifacts, 32)
+    let latestValidation = journal.jobs.indices.filter { journal.jobs[$0].validation != nil }.max {
+      let left = journal.jobs[$0].validation!.observedAt
+      let right = journal.jobs[$1].validation!.observedAt
+      return left == right ? $0 < $1 : left < right
+    }
     var data = try ContextCoding.encode(journal)
     while data.count > Self.maxSessionBytes {
-      if !journal.calls.isEmpty { journal.calls.removeFirst() }
+      if let oldEvidence = journal.jobs.indices.first(where: {
+        $0 != latestValidation && journal.jobs[$0].validation != nil
+      }) {
+        // Optional hash detail must not crowd out the session's actual work.
+        // Keep the newest evidence, plus every compact Job and test observation.
+        journal.jobs[oldEvidence].validation = nil
+        journal.jobs[oldEvidence].validationOmitted = true
+      }
+      else if !journal.calls.isEmpty { journal.calls.removeFirst() }
       else if !journal.readFiles.isEmpty { journal.readFiles.removeFirst() }
       else if !journal.touchedFiles.isEmpty { journal.touchedFiles.removeFirst() }
       else if !journal.artifacts.isEmpty { journal.artifacts.removeFirst() }
@@ -353,5 +390,24 @@ extension ProjectContextStore {
               "sessions": .array(try rows.map { try ContextCoding.json($0.metadata) }),
               "totalCount": .int(journals.count), "nextOffset": next < journals.count ? .int(next) : .null]
     }
+  }
+
+  func sessionsResultObserved(runID: UUID?, limit: Int, offset: Int,
+                              files: WorkspaceFiles) async throws -> JSONValue {
+    let result = try sessionsResult(runID: runID, limit: limit, offset: offset)
+    guard let runID else { return result }
+    var journal = try ContextCoding.decode(SessionJournal.self, result["session"].data())
+    guard journal.runId == runID else { return result }
+    for index in journal.jobs.indices {
+      if let evidence = journal.jobs[index].validation {
+        journal.jobs[index].validation = await evidence.refreshed(using: files)
+      }
+    }
+    let tests = journal.jobs.filter { job in
+      job.tests != nil || journal.commands.contains { $0.id == job.id && $0.purpose == "test" }
+    }
+    let builds = journal.jobs.filter { job in journal.commands.contains { $0.id == job.id && $0.purpose == "build" } }
+    return result.adding("session", try ContextCoding.json(journal))
+      .adding("tests", try ContextCoding.json(tests)).adding("builds", try ContextCoding.json(builds))
   }
 }

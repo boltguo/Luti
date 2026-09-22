@@ -333,6 +333,10 @@
 
 /* recovery */
 "recovery.title" = "恢复";
+"recovery.description" = "本地文件恢复记录";
+"recovery.count" = "%ld 条恢复记录";
+"recovery.empty" = "暂无恢复记录";
+"recovery.emptyDescription" = "修改文件时产生的可恢复检查点会显示在这里。";
 "recovery.loading" = "正在读取恢复检查点…";
 "recovery.checkpointSummary" = "%ld 个文件 · %@";
 "recovery.restore" = "恢复";
@@ -498,3 +502,15 @@
 "menu.checkForUpdates" = "检查更新…";
 "projects.skills" = "技能";
 "connection.tunnelToken" = "隧道令牌";
+
+// Project continuation and validation evidence
+"context.resumeCounts" = "%d 个改动文件 · %d 条验证记录";
+"validation.kind.running" = "正在验证";
+"validation.kind.incomplete" = "验证证据不完整";
+"validation.kind.no_tests" = "未发现测试用例";
+"validation.kind.tests_recognized" = "已识别测试结果";
+"validation.kind.command_only" = "仅有命令执行结果";
+"validation.kind.build_only" = "仅有构建结果";
+"validation.observedFiles" = "已观察输入文件：%d";
+"validation.stale" = "输入文件已变化，需要重新验证。";
+"validation.scopeNotice" = "所观察的文件不能证明完整工程正确。";

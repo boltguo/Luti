@@ -1,8 +1,15 @@
 import Foundation
 
 extension ToolRouter {
-  func extendedTool(_ name: String, _ value: JSONValue) async throws -> ToolOutput? {
+  func extendedTool(_ name: String, _ value: JSONValue, grant: ToolGrant = .local) async throws -> ToolOutput? {
     switch name {
+    case "import_artifact":
+      try requireExecution(.workspaceWrite)
+      let a = try Arguments(value, allowed: ["resource", "path", "dryRun"])
+      return ToolOutput(try await ArtifactImporter.importArtifact(
+        resource: a.string("resource", max: 256), path: a.string("path"),
+        dryRun: a.flag("dryRun", default: false), artifacts: artifacts,
+        workspace: workspace, checkpoints: checkpoints, runID: activity.runID, grant: grant))
     case "list_directory":
       let a = try Arguments(value, allowed: ["path", "depth", "maxEntries", "includeHidden"])
       return ToolOutput(try await workspace.listDirectory(path: a.string("path", default: "."),
@@ -27,7 +34,7 @@ extension ToolRouter {
         let path = try a.string("path")
         let bytes = try await workspace.binary(path)
         let artifact = try await artifacts.insert(
-          bytes, name: (path as NSString).lastPathComponent)
+          bytes, name: (path as NSString).lastPathComponent, source: .project)
         return ToolOutput(
           artifact.metadata.adding("mode", "file"),
           content: [artifact.link])
@@ -41,7 +48,7 @@ extension ToolRouter {
         name += ".zip"
       }
       let bytes = try await workspace.archive(paths: paths)
-      let artifact = try await artifacts.insert(bytes, name: name, mimeType: "application/zip")
+      let artifact = try await artifacts.insert(bytes, name: name, mimeType: "application/zip", source: .project)
       return ToolOutput(
         artifact.metadata
           .adding("mode", "archive")
@@ -78,15 +85,16 @@ extension ToolRouter {
           "path_action action must be createDirectory, copy, move or delete.")
       }
     case "inspect_project":
-      let a = try Arguments(value, allowed: ["path"])
-      return ToolOutput(try await ProjectInspector(workspace: workspace).inspect(path: a.string("path", default: ".")))
+      let a = try Arguments(value, allowed: ["path", "view"])
+      return ToolOutput(try await ProjectInspector(workspace: workspace).inspect(
+        path: a.string("path", default: "."), view: a.string("view", default: "full", max: 16)))
     case "code_query":
       try requireExecution(.codeIntelligence)
       let a = try Arguments(
         value,
         allowed: ["path", "action", "line", "column", "includeDeclaration", "maxResults"])
       let path = try a.string("path")
-      let service = CodeQueryService(workspace: workspace)
+      let service = code
       let provider = try service.provider(for: path)
       try validateExecutionExecutable(provider.executable, cwd: workspace.root)
       return ToolOutput(
@@ -112,154 +120,20 @@ extension ToolRouter {
       default:
         throw Failure.invalid("skills action must be list or read.")
       }
-    case "browser_session":
+    case "browser_session", "browser_observe", "browser_action", "browser_transfer",
+         "browser_inspect", "browser_dialog":
       try requireExecution(.browserAutomation)
-      let postFields: Set<String> = [
-        "waitForText", "waitForUrlContains", "waitForState", "waitTimeoutMs",
-      ]
-      let root = try Arguments(
-        value,
-        allowed: postFields.union(["action", "tabId", "url", "width", "height"]))
-      let action = try root.string("action", max: 16)
-      let internalName: String
-      switch action {
-      case "open":
-        _ = try Arguments(value, allowed: ["action", "url", "width", "height"])
-        internalName = "browser_open"
-      case "navigate":
-        _ = try Arguments(
-          value, allowed: postFields.union(["action", "tabId", "url"]))
-        internalName = "browser_navigate"
-      case "close":
-        _ = try Arguments(value, allowed: ["action", "tabId"])
-        internalName = "browser_close"
-      default:
-        throw Failure.invalid("browser_session action must be open, navigate or close.")
+      let a = try ActionContracts.arguments(name, value)
+      let action = try a.string("action", max: 32)
+      guard let internalName = ActionContracts.rules[name]?[action]?.backend else {
+        throw Failure.invalid("Unknown browser action.")
       }
-      let args = try BrowserArguments.validate(internalName, value.removing(["action"]))
+      let forwarded = name == "browser_dialog" ? value : value.removing(["action"])
+      let args = try BrowserArguments.validate(internalName, forwarded)
       let output = try await browser.call(internalName, args)
-      return ToolOutput(
-        output.data.adding("action", .string(action)),
+      return ToolOutput(output.data.adding("action", .string(action)),
         content: output.extraContent, isError: output.isError)
-
-    case "browser_observe":
-      try requireExecution(.browserAutomation)
-      let root = try Arguments(
-        value,
-        allowed: [
-          "action", "tabId", "state", "text", "urlContains", "timeoutMs",
-          "scopeSnapshotId", "scopeRef", "depth", "fullPage",
-        ])
-      let action = try root.string("action", max: 16)
-      let internalName: String
-      switch action {
-      case "tabs":
-        _ = try Arguments(value, allowed: ["action"])
-        internalName = "browser_tabs"
-      case "wait":
-        _ = try Arguments(
-          value, allowed: ["action", "tabId", "state", "text", "urlContains", "timeoutMs"])
-        internalName = "browser_wait"
-      case "snapshot":
-        _ = try Arguments(
-          value, allowed: ["action", "tabId", "scopeSnapshotId", "scopeRef", "depth"])
-        internalName = "browser_snapshot"
-      case "screenshot":
-        _ = try Arguments(
-          value, allowed: ["action", "tabId", "scopeSnapshotId", "scopeRef", "fullPage"])
-        internalName = "browser_screenshot"
-      default:
-        throw Failure.invalid(
-          "browser_observe action must be tabs, wait, snapshot or screenshot.")
-      }
-      let args = try BrowserArguments.validate(internalName, value.removing(["action"]))
-      let output = try await browser.call(internalName, args)
-      return ToolOutput(
-        output.data.adding("action", .string(action)),
-        content: output.extraContent, isError: output.isError)
-
-    case "browser_action":
-      try requireExecution(.browserAutomation)
-      let postFields: Set<String> = [
-        "waitForText", "waitForUrlContains", "waitForState", "waitTimeoutMs",
-      ]
-      let common: Set<String> = ["action", "tabId", "snapshotId", "ref"]
-      let root = try Arguments(
-        value,
-        allowed: common.union(postFields).union(["text", "key", "value", "checked"]))
-      let action = try root.string("action", max: 16)
-      let internalName: String
-      let extra: Set<String>
-      switch action {
-      case "click":
-        internalName = "browser_click"; extra = []
-      case "hover":
-        internalName = "browser_hover"; extra = []
-      case "fill":
-        internalName = "browser_fill"; extra = ["text"]
-      case "press":
-        internalName = "browser_press"; extra = ["key"]
-      case "select":
-        internalName = "browser_select"; extra = ["value"]
-      case "check":
-        internalName = "browser_check"; extra = ["checked"]
-      default:
-        throw Failure.invalid(
-          "browser_action action must be click, hover, fill, press, select or check.")
-      }
-      _ = try Arguments(value, allowed: common.union(postFields).union(extra))
-      let args = try BrowserArguments.validate(internalName, value.removing(["action"]))
-      let output = try await browser.call(internalName, args)
-      return ToolOutput(
-        output.data.adding("action", .string(action)),
-        content: output.extraContent, isError: output.isError)
-
-    case "browser_transfer":
-      try requireExecution(.browserAutomation)
-      let postFields: Set<String> = [
-        "waitForText", "waitForUrlContains", "waitForState", "waitTimeoutMs",
-      ]
-      let common: Set<String> = ["action", "tabId", "snapshotId", "ref"]
-      let root = try Arguments(
-        value, allowed: common.union(postFields).union(["path"]))
-      let action = try root.string("action", max: 16)
-      let internalName: String
-      switch action {
-      case "upload":
-        _ = try Arguments(value, allowed: common.union(postFields).union(["path"]))
-        internalName = "browser_upload"
-      case "download":
-        _ = try Arguments(value, allowed: common)
-        internalName = "browser_download"
-      default:
-        throw Failure.invalid("browser_transfer action must be upload or download.")
-      }
-      let args = try BrowserArguments.validate(internalName, value.removing(["action"]))
-      let output = try await browser.call(internalName, args)
-      return ToolOutput(
-        output.data.adding("action", .string(action)),
-        content: output.extraContent, isError: output.isError)
-
-    case "browser_inspect":
-      try requireExecution(.browserAutomation)
-      let root = try Arguments(value, allowed: ["action", "tabId", "limit"])
-      let action = try root.string("action", max: 32)
-      let internalName: String
-      switch action {
-      case "console": internalName = "browser_console"
-      case "networkErrors": internalName = "browser_network_errors"
-      case "network": internalName = "browser_network"
-      default:
-        throw Failure.invalid(
-          "browser_inspect action must be console, networkErrors or network.")
-      }
-      let args = try BrowserArguments.validate(internalName, value.removing(["action"]))
-      let output = try await browser.call(internalName, args)
-      return ToolOutput(
-        output.data.adding("action", .string(action)),
-        content: output.extraContent, isError: output.isError)
-
-    case "browser_dialog", "browser_evaluate":
+    case "browser_evaluate":
       try requireExecution(.browserAutomation)
       let args = try BrowserArguments.validate(name, value)
       return try await browser.call(name, args)
@@ -506,20 +380,20 @@ extension ToolRouter {
     }
   }
 
-  func resources() async -> JSONValue {
+  func resources(grant: ToolGrant = .local) async -> JSONValue {
     if switching {
-      let screens = await images.list()["resources"].array ?? []
+      let screens = await images.list(grant: grant)["resources"].array ?? []
       return ["resources": .array(screens)]
     }
     projectCallsInFlight += 1
     defer { projectCallsInFlight -= 1 }
     let store = artifacts
-    let screens = await images.list()["resources"].array ?? []
-    let files = await store.list().map { $0.removing(["type"]) }
+    let screens = await images.list(grant: grant)["resources"].array ?? []
+    let files = await store.list(grant: grant).map { $0.removing(["type"]) }
     return ["resources": .array(screens + files)]
   }
 
-  func readResource(_ uri: String) async throws -> JSONValue {
+  func readResource(_ uri: String, grant: ToolGrant = .local) async throws -> JSONValue {
     if uri.hasPrefix("luti://artifact/") {
       guard !switching else {
         throw Failure(
@@ -529,9 +403,9 @@ extension ToolRouter {
       projectCallsInFlight += 1
       defer { projectCallsInFlight -= 1 }
       let store = artifacts
-      return try await store.read(uri)
+      return try await store.read(uri, grant: grant)
     }
-    return try await images.read(uri)
+    return try await images.read(uri, grant: grant)
   }
 }
 

@@ -90,20 +90,20 @@ import XCTest
       contextDataRoot: first.contextDataRoot)
     addTeardownBlock { await router.stop() }
 
-    let list = await router.call("projects", arguments: ["action": "list"])
+    let list = await router.callInCurrentProject("projects", arguments: ["action": "list"])
     XCTAssertEqual(list.data["projects"].array?.compactMap { $0["id"].string }, ["a", "b"])
     XCTAssertEqual(list.data["projects"].array?.filter { $0["active"] == true }.count, 1)
 
-    let switched = await router.call(
+    let switched = await router.callInCurrentProject(
       "projects", arguments: ["action": "switch", "projectId": "b"])
     XCTAssertEqual(switched.data["changed"], true)
     XCTAssertEqual(switched.data["project"]["id"], "b")
 
-    let blocked = await router.call(
+    let blocked = await router.callInCurrentProject(
       "projects", arguments: ["action": "switch", "projectId": "c"])
     XCTAssertTrue(blocked.isError)
     XCTAssertEqual(blocked.data["error"], "project_not_enabled")
-    let current = await router.call("projects", arguments: ["action": "current"])
+    let current = await router.callInCurrentProject("projects", arguments: ["action": "current"])
     XCTAssertEqual(current.data["project"]["id"], "b")
   }
 

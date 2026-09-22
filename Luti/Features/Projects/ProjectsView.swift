@@ -117,6 +117,7 @@ private struct ProjectDetailView: View {
   private enum Page: Hashable {
     case root
     case context(ProjectContextSelection)
+    case recovery
     case clearContext
   }
 
@@ -149,6 +150,11 @@ private struct ProjectDetailView: View {
           model: model,
           project: project,
           selection: selection,
+          back: { page = .root })
+      case .recovery:
+        ProjectRecoveryView(
+          model: model,
+          project: project,
           back: { page = .root })
       case .clearContext:
         ProjectContextClearView(
@@ -211,8 +217,8 @@ private struct ProjectDetailView: View {
           model: model,
           project: project,
           openContext: { page = .context($0) },
+          openRecovery: { page = .recovery },
           openClearContext: { page = .clearContext })
-        ProjectRecoverySection(model: model, project: project)
         skillsSection
         MDSection(title: L10n.text("projects.projectActions")) {
           MDButtonRun {

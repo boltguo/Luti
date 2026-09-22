@@ -294,18 +294,18 @@ import XCTest
                              scopes: scopes, resource: "https://fixture.invalid/mcp"))
     }
     let writer = grant("Writer Host", [.projectWrite]), reader = grant("Reader Host", [.projectRead])
-    let write = await router.call("memory", arguments: ["action": "remember", "kind": "decision", "content": "Shared project fact"], grant: writer)
+    let write = await router.callInCurrentProject("memory", arguments: ["action": "remember", "kind": "decision", "content": "Shared project fact"], grant: writer)
     XCTAssertFalse(write.isError)
     XCTAssertEqual(write.data["memory"]["source"]["host"], "Writer Host")
-    let recalled = await router.call("memory", arguments: ["action": "recall"], grant: reader)
+    let recalled = await router.callInCurrentProject("memory", arguments: ["action": "recall"], grant: reader)
     XCTAssertEqual(recalled.data["totalMatches"], 1)
-    let denied = await router.call("memory", arguments: ["action": "remember", "kind": "decision", "content": "not allowed"], grant: reader)
+    let denied = await router.callInCurrentProject("memory", arguments: ["action": "remember", "kind": "decision", "content": "not allowed"], grant: reader)
     XCTAssertEqual(denied.data["error"], "insufficient_scope")
     for args: JSONValue in [
       ["action": "clear"], ["action": "purge"], ["action": "recent", "projectId": "other"],
       ["action": "remember", "kind": "goal", "content": "forged", "source": ["host": "Someone Else"]]
     ] {
-      let output = await router.call("memory", arguments: args)
+      let output = await router.callInCurrentProject("memory", arguments: args)
       XCTAssertTrue(output.isError)
     }
     await router.stop()
@@ -318,15 +318,15 @@ import XCTest
     let router = try ToolRouter(workspace: a.files, jobs: JobManager(helper: Fixture.helper), images: ImageStore(),
       computer: NoComputerBackend(), activity: activity, executionPolicy: .readOnly,
       approvedProjects: [pa, pb], activeProjectID: "a", helper: Fixture.helper, contextDataRoot: a.contextDataRoot)
-    let first = await router.call("memory", arguments: ["action": "remember", "kind": "goal", "content": "Only in project A"])
+    let first = await router.callInCurrentProject("memory", arguments: ["action": "remember", "kind": "goal", "content": "Only in project A"])
     XCTAssertFalse(first.isError)
-    let toB = await router.call("projects", arguments: ["action": "switch", "projectId": "b"])
+    let toB = await router.callInCurrentProject("projects", arguments: ["action": "switch", "projectId": "b"])
     XCTAssertFalse(toB.isError)
-    let recallB = await router.call("memory", arguments: ["action": "recall"])
+    let recallB = await router.callInCurrentProject("memory", arguments: ["action": "recall"])
     XCTAssertEqual(recallB.data["totalMatches"], 0)
-    let toA = await router.call("projects", arguments: ["action": "switch", "projectId": "a"])
+    let toA = await router.callInCurrentProject("projects", arguments: ["action": "switch", "projectId": "a"])
     XCTAssertFalse(toA.isError)
-    let recallA = await router.call("memory", arguments: ["action": "recall"])
+    let recallA = await router.callInCurrentProject("memory", arguments: ["action": "recall"])
     XCTAssertEqual(recallA.data["totalMatches"], 1)
     await router.stop()
     let sa = try store(a, project: pa)
@@ -343,15 +343,15 @@ import XCTest
     let f = try Fixture(); defer { f.remove() }
     try f.write("input.txt", "PRIVATE_BODY_FIXTURE")
     let router = try f.router(execution: true)
-    let read = await router.call("read_files", arguments: ["paths": ["input.txt"]])
+    let read = await router.callInCurrentProject("read_files", arguments: ["paths": ["input.txt"]])
     XCTAssertFalse(read.isError)
-    let dry = await router.call("edit_files", arguments: ["action": "create", "path": "dry.txt", "content": "DRY_CONTENT_FIXTURE", "dryRun": true])
+    let dry = await router.callInCurrentProject("edit_files", arguments: ["action": "create", "path": "dry.txt", "content": "DRY_CONTENT_FIXTURE", "dryRun": true])
     XCTAssertFalse(dry.isError)
-    let created = await router.call("edit_files", arguments: ["action": "create", "path": "actual.txt", "content": "PRIVATE_CREATED_FIXTURE"])
+    let created = await router.callInCurrentProject("edit_files", arguments: ["action": "create", "path": "actual.txt", "content": "PRIVATE_CREATED_FIXTURE"])
     XCTAssertFalse(created.isError)
-    let exported = await router.call("export_artifact", arguments: ["path": "actual.txt"])
+    let exported = await router.callInCurrentProject("export_artifact", arguments: ["path": "actual.txt"])
     XCTAssertFalse(exported.isError)
-    let process = await router.call("run_process", arguments: ["program": "/bin/echo", "args": ["PRIVATE_ARGV_AND_STDOUT_FIXTURE"], "syncWait": 2])
+    let process = await router.callInCurrentProject("run_process", arguments: ["program": "/bin/echo", "args": ["PRIVATE_ARGV_AND_STDOUT_FIXTURE"], "syncWait": 2])
     XCTAssertFalse(process.isError)
     await router.stop()
     let s = try store(f)
@@ -381,7 +381,7 @@ import XCTest
       #"{"scripts":{"test":"/bin/echo TASK_BODY_NOT_FOR_JOURNAL"}}"#)
     let router = try f.router(execution: true)
 
-    let output = await router.call(
+    let output = await router.callInCurrentProject(
       "run_process",
       arguments: ["taskId": "task:test", "syncWait": 3, "timeout": 20])
     XCTAssertFalse(output.isError)
@@ -402,7 +402,7 @@ import XCTest
     let f = try Fixture(); defer { f.remove() }
     try f.write("src/app.ts", "const value = 1")
     let router = try f.router(execution: true, permissionMode: .fullProjectAccess)
-    let output = await router.call(
+    let output = await router.callInCurrentProject(
       "run_process",
       arguments: [
         "program": "/bin/sh",
@@ -510,7 +510,7 @@ import XCTest
     let f = try Fixture(); defer { f.remove() }
     let router = try f.router(execution: true)
     let running = Task {
-      await router.call("run_process", arguments: ["program": "/bin/sleep", "args": ["5"], "syncWait": 3])
+      await router.callInCurrentProject("run_process", arguments: ["program": "/bin/sleep", "args": ["5"], "syncWait": 3])
     }
     var sawRunning = false
     for _ in 0..<100 {
@@ -527,7 +527,7 @@ import XCTest
     XCTAssertNotNil(finished.finishedAt)
     XCTAssertFalse(finished.calls.contains { $0.status == "running" })
     try s.clear(.all)
-    let refused = await router.call("memory", arguments: ["action": "recent"])
+    let refused = await router.callInCurrentProject("memory", arguments: ["action": "recent"])
     XCTAssertTrue(refused.isError)
     _ = await router.jobList()
     await router.stop()

@@ -215,6 +215,93 @@ import XCTest
       await browser.stop(); await artifacts.stop(); await workspace.shutdown(); throw error
     }
   }
+  func testRealBrowserDownloadImportsIntoProjectAndCanBeRead() async throws {
+    guard BrowserInstallation.chromeAvailable else {
+      throw XCTSkip("Google Chrome is required for the browser integration test.")
+    }
+    let node = try await BrowserInstallation.shared.prepare()
+    let f = try Fixture(); defer { f.remove() }
+    let script = #"""
+    const http = require('node:http'), fs = require('node:fs');
+    const server = http.createServer((req,res) => {
+      if(req.url==='/sample.csv') {
+        res.writeHead(200, {
+          'Content-Type':'text/csv; charset=utf-8',
+          'Content-Disposition':'attachment; filename="sample.csv"'
+        });
+        res.end('name,value\nsample,42\n');
+      } else {
+        res.writeHead(200, {'Content-Type':'text/html'});
+        res.end('<!doctype html><title>Download fixture</title><a href="/sample.csv" download>Download sample</a>');
+      }
+    });
+    server.listen(0,'127.0.0.1',()=>fs.writeFileSync(process.argv[1],String(server.address().port)));
+    """#
+    let portFile = f.root.appendingPathComponent("port")
+    let server = Process()
+    server.executableURL = node
+    server.arguments = ["-e", script, portFile.path]
+    server.environment = ProcessPolicy.baseEnvironment
+    server.standardOutput = FileHandle.nullDevice
+    server.standardError = FileHandle.nullDevice
+    try server.run()
+    defer { if server.isRunning { server.terminate() } }
+    var port: String?
+    for _ in 0..<100 {
+      if let value = try? String(contentsOf: portFile, encoding: .utf8) { port = value; break }
+      try await Task.sleep(for: .milliseconds(30))
+    }
+    let url = "http://127.0.0.1:" + (try XCTUnwrap(port))
+    let router = try f.router(execution: true)
+    // Exercise the real download provider headlessly with the exact artifact
+    // store the public import tool resolves for this project's current runtime.
+    let artifacts = await router.artifacts
+    let browser = BrowserProvider(workspace: f.files, artifacts: artifacts, headless: true)
+    do {
+      let opened = try await browser.call("browser_open", ["url": .string(url)])
+      let tab = try XCTUnwrap(opened.data["tabId"].string)
+      let snapshot = try await browser.call("browser_snapshot", ["tabId": .string(tab)])
+      let link = try ref(
+        in: XCTUnwrap(snapshot.data["snapshot"].string), role: "link", label: "Download sample")
+      let downloaded = try await browser.call(
+        "browser_download",
+        ["tabId": .string(tab), "snapshotId": snapshot.data["snapshotId"], "ref": .string(link)])
+      let resource = try XCTUnwrap(downloaded.data["artifact"]["resource"].string)
+      let csv = "name,value\nsample,42\n"
+      let sha256 = Budget.sha256(Data(csv.utf8))
+      XCTAssertEqual(downloaded.data["artifact"]["name"], "sample.csv")
+      XCTAssertEqual(downloaded.data["artifact"]["sha256"].string, sha256)
+      XCTAssertFalse(FileManager.default.fileExists(atPath: f.root.appendingPathComponent("sample.csv").path))
+
+      let imported = await router.callInCurrentProject(
+        "import_artifact", arguments: ["resource": .string(resource), "path": "sample.csv"])
+      XCTAssertFalse(imported.isError)
+      XCTAssertEqual(imported.data["effect"], "confirmed")
+      XCTAssertEqual(imported.data["sha256"].string, sha256)
+      XCTAssertEqual(imported.data["source"]["resource"].string, resource)
+      XCTAssertEqual(imported.data["checkpoint"]["status"], "ready")
+      let checkpointID = try XCTUnwrap(imported.data["checkpoint"]["id"].string)
+      let checkpoints = try ProjectCheckpointStore(
+        project: ApprovedProject(url: f.root), dataRoot: f.contextDataRoot)
+      let checkpoint = try XCTUnwrap(checkpoints.recent().first { $0.id == checkpointID })
+      XCTAssertEqual(checkpoint.pathAction?.sourceArtifactResource, resource)
+      XCTAssertEqual(checkpoint.pathAction?.expectedAfter.first?.sha256, sha256)
+
+      let read = await router.callInCurrentProject("read_files", arguments: ["paths": ["sample.csv"]])
+      XCTAssertFalse(read.isError)
+      let file = try XCTUnwrap(read.data["files"].array?.first)
+      XCTAssertEqual(file["failure"], .null)
+      XCTAssertEqual(file["content"].string, csv)
+      XCTAssertEqual(file["sha256"].string, sha256)
+      await browser.stop()
+      await router.stop()
+    } catch {
+      await browser.stop()
+      await router.stop()
+      throw error
+    }
+  }
+
   private func ref(in text: String, role: String, label: String) throws -> String {
     let line = try XCTUnwrap(text.components(separatedBy: "\n").first { $0.contains(role + " \"" + label + "\"") })
     return try ref(in: line)

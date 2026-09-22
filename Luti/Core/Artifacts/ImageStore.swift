@@ -76,7 +76,8 @@ public actor ImageStore {
     images.append(record)
     return record
   }
-  public func read(_ uri: String) throws -> JSONValue {
+  public func read(_ uri: String, grant: ToolGrant = .local) throws -> JSONValue {
+    try grant.authorize(scopes: [.computerRead], operation: "screenshot read")
     guard open else { throw Failure.stopped }
     expire()
     guard let image = images.first(where: { $0.uri == uri }) else {
@@ -93,8 +94,11 @@ public actor ImageStore {
       ]
     ]
   }
-  public func list() -> JSONValue {
+  public func list(grant: ToolGrant = .local) -> JSONValue {
     expire()
+    guard (try? grant.authorize(scopes: [.computerRead], operation: "screenshot read")) != nil else {
+      return ["resources": []]
+    }
     return [
       "resources": .array(
         images.map {

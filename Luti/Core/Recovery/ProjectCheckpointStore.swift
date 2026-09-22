@@ -29,6 +29,7 @@ struct PathActionCheckpointRecord: Codable, Sendable, Equatable {
   var restoreRoot: String?
   var before: [CheckpointTreeEntryRecord]
   var expectedAfter: [CheckpointTreeEntryRecord]
+  var sourceArtifactResource: String? = nil
 }
 
 struct ProjectCheckpointManifest: Codable, Sendable, Identifiable, Equatable {
@@ -113,7 +114,7 @@ final class ProjectCheckpointStore: @unchecked Sendable {
         "Inspect or clear this project's recovery data locally before continuing.")
     }
     if let pathAction = manifest.pathAction {
-      guard ["createDirectory", "copy", "move", "delete"].contains(pathAction.action) else {
+      guard ["createDirectory", "copy", "move", "delete", "import"].contains(pathAction.action) else {
         throw Failure.invalid("Checkpoint contains an unknown path action.")
       }
       let entries = pathAction.before + pathAction.expectedAfter
@@ -312,10 +313,11 @@ final class ProjectCheckpointStore: @unchecked Sendable {
     destination: String? = nil,
     restoreRoot: String? = nil,
     before: [WorkspaceCheckpointTreeEntry] = [],
-    expectedAfter: [WorkspaceCheckpointTreeEntry] = []
+    expectedAfter: [WorkspaceCheckpointTreeEntry] = [],
+    sourceArtifactResource: String? = nil
   ) throws -> ProjectCheckpointManifest {
     try Self.lock.withLock {
-      guard ["createDirectory", "copy", "move", "delete"].contains(action),
+      guard ["createDirectory", "copy", "move", "delete", "import"].contains(action),
             before.count <= Self.maxTreeEntries,
             expectedAfter.count <= Self.maxTreeEntries
       else {
@@ -346,12 +348,13 @@ final class ProjectCheckpointStore: @unchecked Sendable {
           destination: destination,
           restoreRoot: restoreRoot,
           before: beforeRecords,
-          expectedAfter: afterRecords)
+          expectedAfter: afterRecords,
+          sourceArtifactResource: sourceArtifactResource)
         let manifest = ProjectCheckpointManifest(
           id: id,
           projectKey: projectKey,
           runId: runID,
-          tool: "path_action",
+          tool: action == "import" ? "import_artifact" : "path_action",
           reason: Budget.prefix(action, bytes: 64),
           createdAt: now,
           updatedAt: now,
@@ -392,7 +395,7 @@ final class ProjectCheckpointStore: @unchecked Sendable {
 
       if !uncertain {
         switch record.action {
-        case "createDirectory", "copy":
+        case "createDirectory", "copy", "import":
           guard !record.expectedAfter.isEmpty else {
             throw Failure.invalid("Created-tree checkpoint has no verified post-state.")
           }

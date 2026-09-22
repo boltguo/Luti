@@ -21,18 +21,18 @@ import XCTest
     let f = try Fixture(); defer { f.remove() }
     let router = try f.router(execution: true)
 
-    let createDirectory = await router.call(
+    let createDirectory = await router.callInCurrentProject(
       "path_action",
       arguments: ["action": "createDirectory", "path": "src/deep", "recursive": true])
     XCTAssertFalse(createDirectory.isError)
 
-    let create = await router.call(
+    let create = await router.callInCurrentProject(
       "edit_files",
       arguments: ["action": "create", "path": "src/deep/a.txt", "content": "hello\n"])
     XCTAssertFalse(create.isError)
     let original = try await f.files.text("src/deep/a.txt")
 
-    let edit = await router.call(
+    let edit = await router.callInCurrentProject(
       "edit_files",
       arguments: [
         "action": "edit", "path": "src/deep/a.txt",
@@ -43,11 +43,11 @@ import XCTest
     let editedFile = try await f.files.text("src/deep/a.txt")
     XCTAssertEqual(editedFile.text, "edited\n")
 
-    let copy = await router.call(
+    let copy = await router.callInCurrentProject(
       "path_action",
       arguments: ["action": "copy", "source": "src", "destination": "copy"])
     XCTAssertFalse(copy.isError)
-    let move = await router.call(
+    let move = await router.callInCurrentProject(
       "path_action",
       arguments: ["action": "move", "source": "copy", "destination": "moved"])
     XCTAssertFalse(move.isError)
@@ -59,26 +59,26 @@ import XCTest
     -edited
     +patched
     """
-    let patched = await router.call(
+    let patched = await router.callInCurrentProject(
       "edit_files", arguments: ["action": "patch", "patch": .string(patch)])
     XCTAssertFalse(patched.isError)
     let patchedFile = try await f.files.text("moved/deep/a.txt")
     XCTAssertEqual(patchedFile.text, "patched\n")
 
-    let deleted = await router.call(
+    let deleted = await router.callInCurrentProject(
       "path_action",
       arguments: ["action": "delete", "path": "moved", "recursive": true])
     XCTAssertFalse(deleted.isError)
     XCTAssertFalse(FileManager.default.fileExists(atPath: f.root.appendingPathComponent("moved").path))
 
-    let crossEdit = await router.call(
+    let crossEdit = await router.callInCurrentProject(
       "edit_files",
       arguments: [
         "action": "patch", "patch": .string(patch), "path": "src/deep/a.txt",
       ])
     XCTAssertTrue(crossEdit.isError)
 
-    let crossPath = await router.call(
+    let crossPath = await router.callInCurrentProject(
       "path_action",
       arguments: [
         "action": "copy", "source": "src", "destination": "copy2", "recursive": true,

@@ -333,6 +333,10 @@
 
 /* recovery */
 "recovery.title" = "復旧";
+"recovery.description" = "ローカルファイルの復旧記録";
+"recovery.count" = "復旧チェックポイント %ld 件";
+"recovery.empty" = "復旧チェックポイントはありません";
+"recovery.emptyDescription" = "ファイル変更前に作成された復旧可能なチェックポイントがここに表示されます。";
 "recovery.loading" = "復旧チェックポイントを読み込み中…";
 "recovery.checkpointSummary" = "%ldファイル · %@";
 "recovery.restore" = "復元";
@@ -498,3 +502,15 @@
 "menu.checkForUpdates" = "アップデートを確認…";
 "projects.skills" = "Skills";
 "connection.tunnelToken" = "Tunnel Token";
+
+// Project continuation and validation evidence
+"context.resumeCounts" = "変更ファイル %d 件 · 検証記録 %d 件";
+"validation.kind.running" = "検証中";
+"validation.kind.incomplete" = "検証の根拠が不完全です";
+"validation.kind.no_tests" = "テストケースが見つかりません";
+"validation.kind.tests_recognized" = "テスト結果を認識しました";
+"validation.kind.command_only" = "コマンドの実行結果のみ";
+"validation.kind.build_only" = "ビルド結果のみ";
+"validation.observedFiles" = "確認した入力ファイル：%d";
+"validation.stale" = "入力が変更されました。再検証が必要です。";
+"validation.scopeNotice" = "確認したファイルだけではプロジェクト全体の正しさは保証されません。";

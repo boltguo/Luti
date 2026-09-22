@@ -87,7 +87,7 @@ actor BrowserProvider {
       defer { try? FileManager.default.removeItem(at: file) }
       let bytes = try PrivateFiles.read(file, max: ArtifactStore.maxBytes)
       let preview = try ImagePreview.make(bytes)
-      let artifact = try await artifacts.insert(bytes, name: "browser-screenshot.png", mimeType: "image/png")
+      let artifact = try await artifacts.insert(bytes, name: "browser-screenshot.png", mimeType: "image/png", source: .browser)
       return ToolOutput([
         "tabId": result["tabId"], "url": result["url"],
         "scoped": result["scoped"], "scopeRef": result["scopeRef"],
@@ -107,7 +107,7 @@ actor BrowserProvider {
       let file = scratch.appendingPathComponent(filename)
       defer { try? FileManager.default.removeItem(at: file) }
       let bytes = try PrivateFiles.read(file, max: ArtifactStore.maxBytes)
-      let artifact = try await artifacts.insert(bytes, name: suggested)
+      let artifact = try await artifacts.insert(bytes, name: suggested, source: .browser)
       return ToolOutput(
         ["tabId": result["tabId"], "url": result["url"], "artifact": artifact.metadata],
         content: [artifact.link])

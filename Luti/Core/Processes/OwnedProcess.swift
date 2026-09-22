@@ -1,101 +1,5 @@
 import Foundation
 
-private enum TestOutputSummary {
-  static func parse(command: String, stdout: String, stderr: String, exitCode: Int32?) -> JSONValue? {
-    guard let exitCode else { return nil }
-    let lowerCommand = command.lowercased()
-    let output = stdout + "\n" + stderr
-
-    func captures(_ pattern: String, in text: String) -> [String]? {
-      guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else {
-        return nil
-      }
-      let range = NSRange(text.startIndex..<text.endIndex, in: text)
-      guard let match = regex.matches(in: text, range: range).last else { return nil }
-      return (1..<match.numberOfRanges).map { index in
-        let range = match.range(at: index)
-        guard range.location != NSNotFound, let swiftRange = Range(range, in: text) else { return "" }
-        return String(text[swiftRange])
-      }
-    }
-
-    func count(_ label: String, in text: String) -> Int {
-      guard let values = captures(#"(\d+)\s+"# + NSRegularExpression.escapedPattern(for: label), in: text),
-        let value = Int(values[0])
-      else { return 0 }
-      return value
-    }
-
-    if lowerCommand.contains("xcodebuild") || lowerCommand.contains("swift test")
-      || output.contains("Test Suite '")
-    {
-      if let values = captures(
-        #"Executed\s+(\d+)\s+tests?,\s+with\s+(\d+)\s+failures?(?:\s+\((\d+)\s+unexpected\))?"#,
-        in: output),
-        let total = Int(values[0]), let failed = Int(values[1])
-      {
-        let unexpected = values.count > 2 ? (Int(values[2]) ?? 0) : 0
-        return [
-          "framework": "xctest",
-          "status": exitCode == 0 && failed == 0 ? "passed" : "failed",
-          "total": .int(total), "passed": .int(max(0, total - failed)),
-          "failed": .int(failed), "unexpected": .int(unexpected),
-          "source": "bounded-process-output",
-        ]
-      }
-    }
-
-    if lowerCommand.contains("pytest") {
-      let passed = count("passed", in: output)
-      let failed = count("failed", in: output)
-      let skipped = count("skipped", in: output)
-      let errors = count("error", in: output) + count("errors", in: output)
-      let total = passed + failed + skipped + errors
-      if total > 0 {
-        return [
-          "framework": "pytest", "status": exitCode == 0 && failed == 0 && errors == 0 ? "passed" : "failed",
-          "total": .int(total), "passed": .int(passed), "failed": .int(failed),
-          "skipped": .int(skipped), "errors": .int(errors),
-          "source": "bounded-process-output",
-        ]
-      }
-    }
-
-    if lowerCommand.contains("vitest"), output.localizedCaseInsensitiveContains("Tests") {
-      let passed = count("passed", in: output)
-      let failed = count("failed", in: output)
-      let skipped = count("skipped", in: output)
-      if passed + failed + skipped > 0 {
-        return [
-          "framework": "vitest", "status": exitCode == 0 && failed == 0 ? "passed" : "failed",
-          "total": .int(passed + failed + skipped), "passed": .int(passed),
-          "failed": .int(failed), "skipped": .int(skipped),
-          "source": "bounded-process-output",
-        ]
-      }
-    }
-
-    if lowerCommand.contains("jest") || output.localizedCaseInsensitiveContains("Test Suites:") {
-      if let values = captures(
-        #"Tests:\s*(?:(\d+)\s+failed,?\s*)?(?:(\d+)\s+skipped,?\s*)?(?:(\d+)\s+passed,?\s*)?(\d+)\s+total"#,
-        in: output)
-      {
-        let failed = Int(values[0]) ?? 0
-        let skipped = Int(values[1]) ?? 0
-        let passed = Int(values[2]) ?? 0
-        let total = Int(values[3]) ?? (failed + skipped + passed)
-        return [
-          "framework": "jest", "status": exitCode == 0 && failed == 0 ? "passed" : "failed",
-          "total": .int(total), "passed": .int(passed), "failed": .int(failed),
-          "skipped": .int(skipped), "source": "bounded-process-output",
-        ]
-      }
-    }
-
-    return nil
-  }
-}
-
 /// Locked bounded storage with event-driven pipe draining. No permanently
 /// blocked GCD reader/waiter threads are needed for ordinary jobs.
 public final class OwnedProcess: @unchecked Sendable {
@@ -112,6 +16,7 @@ public final class OwnedProcess: @unchecked Sendable {
   private var exit: Int32?
   private var ended: Date?
   private var stopReason: String?
+  private var drainIncomplete = false
   private var stdinHandle: FileHandle?
   private var stdoutRead: FileHandle?
   private var stderrRead: FileHandle?
@@ -261,6 +166,7 @@ public final class OwnedProcess: @unchecked Sendable {
     let handles = lock.withLock { () -> [FileHandle] in
       guard exit != nil, ended == nil else { return [] }
       var values: [FileHandle] = []
+      drainIncomplete = stdoutOpen || stderrOpen
       if stdoutOpen, let stdoutRead { values.append(stdoutRead) }
       if stderrOpen, let stderrRead { values.append(stderrRead) }
       stdoutOpen = false
@@ -464,11 +370,13 @@ public final class OwnedProcess: @unchecked Sendable {
         let stdoutText = cleanTail(stdout)
         let stderrText = cleanTail(stderr)
         let safeCommand = redactor.clean(self.summary)
-        if let summary = TestOutputSummary.parse(
-          command: safeCommand, stdout: stdoutText, stderr: stderrText, exitCode: exit)
-        {
-          output = output.adding("testSummary", summary)
-        }
+        let evidence = ValidationEvidence.process(
+          command: safeCommand, stdout: stdoutText, stderr: stderrText, status: status,
+          terminal: true,
+          outputComplete: !drainIncomplete && stdoutCount <= tailLimit && stderrCount <= tailLimit,
+          observedAt: ended)
+        output = output.adding("validation", (try? ContextCoding.json(evidence)) ?? .null)
+        if let tests = evidence.tests { output = output.adding("testSummary", tests.json) }
         if let report = DiagnosticOutputParser.parse(
           command: safeCommand,
           cwd: cwd,

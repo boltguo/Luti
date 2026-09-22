@@ -3,6 +3,16 @@ import XCTest
 
 @testable import Luti
 
+extension ToolRouter {
+  /// Existing behavior tests explicitly act on the current project. Binding
+  /// regression tests use call directly with saved, absent or stale tokens.
+  func callInCurrentProject(_ name: String, arguments: JSONValue, grant: ToolGrant = .local) async -> ToolOutput {
+    let value = ProjectBindingContract.requiresToken(name, arguments: arguments)
+      ? arguments.adding("projectToken", .string(projectToken)) : arguments
+    return await call(name, arguments: value, grant: grant)
+  }
+}
+
 struct Fixture {
   let root: URL
   let files: WorkspaceFiles

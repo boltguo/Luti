@@ -15,7 +15,7 @@ import XCTest
     addTeardownBlock { await router.stop() }
 
     let original = try await f.files.text("source.txt")
-    let edit = await router.call(
+    let edit = await router.callInCurrentProject(
       "edit_files",
       arguments: [
         "action": "edit",
@@ -54,7 +54,7 @@ import XCTest
     addTeardownBlock { await router.stop() }
 
     let original = try await f.files.text("source.txt")
-    let edit = await router.call(
+    let edit = await router.callInCurrentProject(
       "edit_files",
       arguments: [
         "action": "edit",
@@ -90,7 +90,7 @@ import XCTest
     addTeardownBlock { await router.stop() }
 
     let original = try await f.files.text("source.txt")
-    let edit = await router.call(
+    let edit = await router.callInCurrentProject(
       "edit_files",
       arguments: [
         "action": "edit",
@@ -131,7 +131,7 @@ import XCTest
     addTeardownBlock { await router.stop() }
 
     let original = try await f.files.text("large.txt")
-    let edit = await router.call(
+    let edit = await router.callInCurrentProject(
       "edit_files",
       arguments: [
         "action": "edit",
@@ -159,7 +159,7 @@ import XCTest
     addTeardownBlock { await router.stop() }
 
     let original = try await f.files.text("source.txt")
-    let edit = await router.call(
+    let edit = await router.callInCurrentProject(
       "edit_files",
       arguments: [
         "action": "edit",
@@ -190,7 +190,7 @@ import XCTest
     addTeardownBlock { await router.stop() }
 
     let original = try await f.files.text("source.txt")
-    let edit = await router.call(
+    let edit = await router.callInCurrentProject(
       "edit_files",
       arguments: [
         "action": "edit",
@@ -220,7 +220,7 @@ import XCTest
     let router = try f.router(execution: true)
     addTeardownBlock { await router.stop() }
 
-    let created = await router.call(
+    let created = await router.callInCurrentProject(
       "edit_files",
       arguments: ["action": "create", "path": "new.txt", "content": "new\n"])
     XCTAssertFalse(created.isError)
@@ -258,7 +258,7 @@ import XCTest
     @@ -1 +0,0 @@
     -beta
     """
-    let output = await router.call(
+    let output = await router.callInCurrentProject(
       "edit_files", arguments: ["action": "patch", "patch": .string(patch)])
     XCTAssertFalse(output.isError)
     let checkpointID = try XCTUnwrap(output.data["checkpoint"]["id"].string)
@@ -288,7 +288,7 @@ import XCTest
     addTeardownBlock { await router.stop() }
     let original = try await f.files.text("source.txt")
 
-    let dry = await router.call(
+    let dry = await router.callInCurrentProject(
       "edit_files",
       arguments: [
         "action": "edit", "path": "source.txt",
@@ -300,7 +300,7 @@ import XCTest
     XCTAssertEqual(dry.data["applied"], false)
     XCTAssertEqual(try store(f).recent().count, 0)
 
-    let failed = await router.call(
+    let failed = await router.callInCurrentProject(
       "edit_files",
       arguments: [
         "action": "edit", "path": "source.txt",
@@ -316,7 +316,7 @@ import XCTest
     try f.write("source.txt", "before")
     let router = try f.router(execution: true)
     let original = try await f.files.text("source.txt")
-    let edit = await router.call(
+    let edit = await router.callInCurrentProject(
       "edit_files",
       arguments: [
         "action": "edit", "path": "source.txt",
@@ -353,7 +353,7 @@ import XCTest
     let router = try f.router(execution: true)
     addTeardownBlock { await router.stop() }
 
-    let created = await router.call(
+    let created = await router.callInCurrentProject(
       "path_action",
       arguments: [
         "action": "createDirectory", "path": "existing/a/b", "recursive": true,
@@ -385,7 +385,7 @@ import XCTest
     let router = try f.router(execution: true)
     addTeardownBlock { await router.stop() }
 
-    let copied = await router.call(
+    let copied = await router.callInCurrentProject(
       "path_action",
       arguments: ["action": "copy", "source": "src", "destination": "copy"])
     XCTAssertFalse(copied.isError)
@@ -413,7 +413,7 @@ import XCTest
     let router = try f.router(execution: true)
     addTeardownBlock { await router.stop() }
 
-    let copied = await router.call(
+    let copied = await router.callInCurrentProject(
       "path_action",
       arguments: ["action": "copy", "source": "src", "destination": "copy"])
     let checkpointID = try XCTUnwrap(copied.data["checkpoint"]["id"].string)
@@ -437,7 +437,7 @@ import XCTest
     let router = try f.router(execution: true)
     addTeardownBlock { await router.stop() }
 
-    let moved = await router.call(
+    let moved = await router.callInCurrentProject(
       "path_action",
       arguments: ["action": "move", "source": "src", "destination": "moved"])
     XCTAssertFalse(moved.isError)
@@ -463,7 +463,7 @@ import XCTest
     let router = try f.router(execution: true)
     addTeardownBlock { await router.stop() }
 
-    let moved = await router.call(
+    let moved = await router.callInCurrentProject(
       "path_action",
       arguments: ["action": "move", "source": "src", "destination": "moved"])
     let checkpointID = try XCTUnwrap(moved.data["checkpoint"]["id"].string)
@@ -498,7 +498,7 @@ import XCTest
 
     let router = try f.router(execution: true)
     addTeardownBlock { await router.stop() }
-    let deleted = await router.call(
+    let deleted = await router.callInCurrentProject(
       "path_action",
       arguments: ["action": "delete", "path": "trash", "recursive": true])
     XCTAssertFalse(deleted.isError)
@@ -533,7 +533,7 @@ import XCTest
 
     let router = try f.router(execution: true)
     addTeardownBlock { await router.stop() }
-    let deleted = await router.call(
+    let deleted = await router.callInCurrentProject(
       "path_action",
       arguments: ["action": "delete", "path": "deleted.txt", "recursive": false])
     XCTAssertFalse(deleted.isError)
@@ -561,7 +561,7 @@ import XCTest
     let router = try f.router(execution: true)
     addTeardownBlock { await router.stop() }
 
-    let deleted = await router.call(
+    let deleted = await router.callInCurrentProject(
       "path_action",
       arguments: ["action": "delete", "path": "trash", "recursive": true])
     let checkpointID = try XCTUnwrap(deleted.data["checkpoint"]["id"].string)
@@ -589,7 +589,7 @@ import XCTest
     let router = try f.router(execution: true)
     addTeardownBlock { await router.stop() }
 
-    let deleted = await router.call(
+    let deleted = await router.callInCurrentProject(
       "path_action",
       arguments: [
         "action": "delete", "path": "large-tree", "recursive": true,
@@ -605,7 +605,7 @@ import XCTest
     let f = try Fixture(); defer { f.remove() }
     try f.write("src/a.txt", "alpha\n")
     let router = try f.router(execution: true)
-    let copied = await router.call(
+    let copied = await router.callInCurrentProject(
       "path_action",
       arguments: ["action": "copy", "source": "src", "destination": "copy"])
     let checkpointID = try XCTUnwrap(copied.data["checkpoint"]["id"].string)
@@ -633,7 +633,7 @@ import XCTest
     let router = try f.router(execution: true)
     addTeardownBlock { await router.stop() }
     let original = try await f.files.text("source.txt")
-    let output = await router.call(
+    let output = await router.callInCurrentProject(
       "edit_files",
       arguments: [
         "action": "edit", "path": "source.txt",

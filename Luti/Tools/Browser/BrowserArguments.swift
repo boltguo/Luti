@@ -2,41 +2,9 @@ import Foundation
 
 enum BrowserArguments {
   static func validate(_ name: String, _ value: JSONValue) throws -> JSONValue {
-    let fields: Set<String>
-    let postFields: Set<String> = [
-      "waitForText", "waitForUrlContains", "waitForState", "waitTimeoutMs",
-    ]
-    switch name {
-    case "browser_tabs": fields = []
-    case "browser_open": fields = ["url", "width", "height"]
-    case "browser_navigate": fields = postFields.union(["tabId", "url"])
-    case "browser_snapshot":
-      fields = ["tabId", "scopeSnapshotId", "scopeRef", "depth"]
-    case "browser_close": fields = ["tabId"]
-    case "browser_screenshot":
-      fields = ["tabId", "fullPage", "scopeSnapshotId", "scopeRef"]
-    case "browser_click", "browser_hover":
-      fields = postFields.union(["tabId", "snapshotId", "ref"])
-    case "browser_download":
-      fields = ["tabId", "snapshotId", "ref"]
-    case "browser_fill":
-      fields = postFields.union(["tabId", "snapshotId", "ref", "text"])
-    case "browser_press":
-      fields = postFields.union(["tabId", "snapshotId", "ref", "key"])
-    case "browser_select":
-      fields = postFields.union(["tabId", "snapshotId", "ref", "value"])
-    case "browser_check":
-      fields = postFields.union(["tabId", "snapshotId", "ref", "checked"])
-    case "browser_upload":
-      fields = postFields.union(["tabId", "snapshotId", "ref", "path"])
-    case "browser_wait": fields = ["tabId", "state", "text", "urlContains", "timeoutMs"]
-    case "browser_console", "browser_network_errors", "browser_network":
-      fields = ["tabId", "limit"]
-    case "browser_dialog":
-      fields = postFields.union(["tabId", "dialogId", "action", "promptText"])
-    case "browser_evaluate": fields = ["tabId", "expression"]
-    default: throw Failure.invalid("Unknown browser tool.")
-    }
+    let fields: Set<String> = name == "browser_evaluate"
+      ? ["tabId", "expression"]
+      : try ActionContracts.browserFields(name, action: value["action"].string)
     let a = try Arguments(value, allowed: fields)
     var result = value
     if fields.contains("tabId") { _ = try a.string("tabId", max: 80) }

@@ -67,7 +67,7 @@ Cloudflareとngrokでは、設定後に完全な`/mcp` URLが表示され、そ�
 
 ## 機能
 
-Lutiは8領域・**29個のPublic MCP Tool**を公開します。
+Lutiは8領域・**30個のPublic MCP Tool**を公開します。
 
 | Domain | Public Tools | 範囲 |
 |---|---|---|
@@ -78,9 +78,17 @@ Lutiは8領域・**29個のPublic MCP Tool**を公開します。
 | Git | `git_query` | Status、Diff、Log、Show、Blame。読み取り専用 |
 | Browser | `browser_session`, `browser_observe`, `browser_action`, `browser_transfer`, `browser_inspect`, `browser_dialog`, `browser_evaluate` | Navigation、Action、Screenshot、Transfer、Console、Network、Dialog |
 | Computer | `computer_observe`, `computer_action`, `computer_wait` | macOSの観察、入力、状態待ち |
-| Skills & Artifacts | `skills`, `export_artifact` | Project Skillと不変Artifact |
+| Skills & Artifacts | `skills`, `export_artifact`, `import_artifact` | Project Skill、不変のエクスポート、制御されたインポート |
 
 プロジェクト固有の動作は、そのプロジェクトのmanifest、instructions、tasks、skillsで定義します。Public Toolを増やす必要はありません。
+
+最初に `memory(action=recent)` を呼び出すと、サイズを制限した再開概要と `projectToken` を取得できます。Projectへの書き込み、コマンド実行、Browserの変更、Project切り替え、Job入力にはこの値が必要です。Project切り替えやRuntime再起動で失効するため、不一致の場合は対象Projectを再確認してください。所有するJobの停止は古い値によって妨げられません。Project読み取り権限がない接続は、`projects(action=current)` で最小限のバインディングだけを取得できます。
+
+リソースの一覧、読み取り、インポートでは、Projectファイル、プロセスログ、ブラウザ成果物、画面キャプチャそれぞれの権限を確認します。ブラウザへのアップロードにはProject読み取り権限も必要です。`code_query` はインストール済みの言語サーバーを起動するため、Project読み取り・プロセス実行権限と現在の `projectToken` が必要です。言語サーバーは副作用を伴う場合があります。
+
+Jobの結果はプロセス終了と認識したテスト結果を分け、限定した入力ファイルの状態を記録します。`reportPath` でコマンドが生成するJUnit XMLを指定できます。変更のない既存レポート、不完全な出力、証明できない入力の一貫性はunknown、入力の変更はstaleとして扱います。Project全体の正しさを保証するものではありません。
+
+`import_artifact` は現在のProject Runtimeにある有効なArtifactを、最大32 MiBの新規Projectファイルとして復元記録付きで保存します。上書き、実行、展開は行いません。チャット添付は現在の対象外とし、具体的なHostが検証可能なファイルバインディングを提供する場合にのみAdapterを再評価します。
 
 ## コンテキストと復元
 

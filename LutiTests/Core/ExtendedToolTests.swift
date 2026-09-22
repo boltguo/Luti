@@ -28,9 +28,9 @@ import SwiftUI
     let beta = try XCTUnwrap(snapshot.skills.first)
     let content = try await ProjectSkillLibrary.read(project: b, skill: beta)
     XCTAssertTrue(content.contains("Beta"))
-    let current = await router.call("projects", arguments: ["action": "current"])
+    let current = await router.callInCurrentProject("projects", arguments: ["action": "current"])
     XCTAssertEqual(current.data["project"]["id"], "a")
-    let remoteSkills = await router.call("skills", arguments: ["action": "list"])
+    let remoteSkills = await router.callInCurrentProject("skills", arguments: ["action": "list"])
     XCTAssertEqual(remoteSkills.data["skills"].array?.first?["name"], "alpha")
     let stillReadable = try await first.files.text(".agents/skills/alpha/SKILL.md")
     XCTAssertTrue(stillReadable.text.contains("Alpha"))
@@ -141,6 +141,17 @@ import SwiftUI
     model.activeProjectID = project.id
     model.phase = .stopped
     model.permissions = PermissionState(screen: false, accessibility: true)
+    let contextStore = try ProjectContextStore(project: project, dataRoot: f.contextDataRoot)
+    let runID = UUID()
+    _ = try contextStore.remember(kind: .goal, content: "Finish the project import flow", tags: [],
+      supersedes: nil, expectedRevision: nil,
+      source: MemorySource(type: "model", runId: runID, host: "Review Host", clientId: nil, transport: "loopback"))
+    let date = Date()
+    var session = SessionJournal(runId: runID, projectKey: contextStore.projectKey,
+      startedAt: date, updatedAt: date, finishedAt: date, status: "completed")
+    session.touchedFiles = ["Sources/App.swift", "assets/reference.png"]
+    try PrivateFiles.atomicWrite(ContextCoding.encode(session), to: contextStore.sessionsDirectory
+      .appendingPathComponent(runID.uuidString.lowercased() + ".json"))
     let updater = AppUpdater(startingUpdater: false)
     let repo = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
     let output = repo.appendingPathComponent("build/ui-review-previews", isDirectory: true)
@@ -155,7 +166,10 @@ import SwiftUI
     }
     language.selection = .english
     var pages: [(String, AnyView)] = [
-      ("project-details", AnyView(ProjectsView(model: model, selectedProjectID: .constant(project.id))))
+      ("project-details", AnyView(ProjectsView(model: model, selectedProjectID: .constant(project.id)))),
+      ("project-resume", AnyView(ProjectContextSection(model: model, project: project,
+        openContext: { _ in }, openRecovery: {}, openClearContext: {}).padding(20))),
+      ("project-recovery", AnyView(ProjectRecoveryView(model: model, project: project, back: {})))
     ]
     for page in SettingsPage.allCases where page != .root {
       pages.append((page.rawValue, AnyView(SettingsView(
@@ -291,20 +305,20 @@ import SwiftUI
       computer: NoComputerBackend(), activity: ActivityStore(), executionPolicy: .readOnly,
       approvedProjects: projects, activeProjectID: "project-a", helper: Fixture.helper, contextDataRoot: first.contextDataRoot)
 
-    let list = await router.call("projects", arguments: ["action": "list"])
+    let list = await router.callInCurrentProject("projects", arguments: ["action": "list"])
     XCTAssertFalse(list.isError)
     XCTAssertEqual(list.data["projects"].array?.count, 2)
     XCTAssertEqual(list.data["activeProjectId"], "project-a")
     XCTAssertEqual(list.data["generation"], 1)
 
-    let firstSkills = await router.call("skills", arguments: ["action": "list"])
+    let firstSkills = await router.callInCurrentProject("skills", arguments: ["action": "list"])
     XCTAssertEqual(firstSkills.data["skills"].array?.first?["name"], "alpha")
 
-    let artifact = await router.call("export_artifact", arguments: ["path": "a.txt"])
+    let artifact = await router.callInCurrentProject("export_artifact", arguments: ["path": "a.txt"])
     XCTAssertFalse(artifact.isError)
     let oldArtifactURI = try XCTUnwrap(artifact.data["resource"].string)
 
-    let switched = await router.call(
+    let switched = await router.callInCurrentProject(
       "projects", arguments: ["action": "switch", "projectId": "project-b"])
     XCTAssertFalse(switched.isError)
     XCTAssertEqual(switched.data["changed"], true)
@@ -324,20 +338,20 @@ import SwiftUI
       XCTFail("Artifacts from the old project must be revoked after a switch.")
     } catch {}
 
-    let oldRead = await router.call("read_files", arguments: ["paths": ["a.txt"]])
+    let oldRead = await router.callInCurrentProject("read_files", arguments: ["paths": ["a.txt"]])
     XCTAssertTrue(oldRead.isError)
-    let newRead = await router.call("read_files", arguments: ["paths": ["b.txt"]])
+    let newRead = await router.callInCurrentProject("read_files", arguments: ["paths": ["b.txt"]])
     XCTAssertFalse(newRead.isError)
     XCTAssertEqual(newRead.data["files"].array?.first?["content"], "beta")
 
-    let secondSkills = await router.call("skills", arguments: ["action": "list"])
+    let secondSkills = await router.callInCurrentProject("skills", arguments: ["action": "list"])
     XCTAssertEqual(secondSkills.data["skills"].array?.first?["name"], "beta")
 
-    let denied = await router.call(
+    let denied = await router.callInCurrentProject(
       "projects", arguments: ["action": "switch", "projectId": "not-approved"])
     XCTAssertTrue(denied.isError)
     XCTAssertEqual(denied.data["error"], "project_not_approved")
-    let current = await router.call("projects", arguments: ["action": "current"])
+    let current = await router.callInCurrentProject("projects", arguments: ["action": "current"])
     XCTAssertEqual(current.data["project"]["id"], "project-b")
     XCTAssertEqual(current.data["generation"], 2)
 
@@ -362,7 +376,7 @@ import SwiftUI
       executionPolicy: .fullLocal(localApproval: true),
       approvedProjects: projects, activeProjectID: "project-a", helper: Fixture.helper, contextDataRoot: first.contextDataRoot)
 
-    let job = await router.call(
+    let job = await router.callInCurrentProject(
       "run_process",
       arguments: [
         "program": "/bin/sleep", "args": ["5"], "cwd": ".", "syncWait": 0, "timeout": 10,
@@ -370,19 +384,19 @@ import SwiftUI
     XCTAssertFalse(job.isError)
     let jobID = try XCTUnwrap(job.data["jobId"].string)
 
-    let blocked = await router.call(
+    let blocked = await router.callInCurrentProject(
       "projects", arguments: ["action": "switch", "projectId": "project-b"])
     XCTAssertTrue(blocked.isError)
     XCTAssertEqual(blocked.data["error"], "project_busy")
 
-    let currentBeforeStop = await router.call("projects", arguments: ["action": "current"])
+    let currentBeforeStop = await router.callInCurrentProject("projects", arguments: ["action": "current"])
     XCTAssertEqual(currentBeforeStop.data["project"]["id"], "project-a")
 
-    let stopped = await router.call(
+    let stopped = await router.callInCurrentProject(
       "job_action", arguments: ["action": "stop", "jobId": .string(jobID)])
     XCTAssertFalse(stopped.isError)
 
-    let switched = await router.call(
+    let switched = await router.callInCurrentProject(
       "projects", arguments: ["action": "switch", "projectId": "project-b"])
     XCTAssertFalse(switched.isError)
     XCTAssertEqual(switched.data["project"]["id"], "project-b")
@@ -396,7 +410,7 @@ import SwiftUI
     let bytes = Data((0..<100_000).map { UInt8($0 % 256) })
     try bytes.write(to: f.root.appendingPathComponent("sample.glb"))
     let router = try f.router()
-    let result = await router.call("export_artifact", arguments: ["path": "sample.glb"])
+    let result = await router.callInCurrentProject("export_artifact", arguments: ["path": "sample.glb"])
     XCTAssertFalse(result.isError)
     XCTAssertEqual(result.extraContent.first?["type"], "resource_link")
     XCTAssertFalse(result.mcp["content"].array!.first!["text"].string!.contains("base64"))
@@ -416,7 +430,7 @@ import SwiftUI
     try f.write("bundle/a.txt", "alpha")
     try f.write("bundle/b.txt", "beta")
     let router = try f.router()
-    let result = await router.call(
+    let result = await router.callInCurrentProject(
       "export_artifact",
       arguments: ["paths": ["bundle"], "name": "result"])
     XCTAssertFalse(result.isError)
@@ -432,7 +446,7 @@ import SwiftUI
     XCTAssertTrue(bytes.starts(with: [0x50, 0x4b, 0x03, 0x04]))
     XCTAssertTrue(String(decoding: bytes, as: UTF8.self).contains("bundle/a.txt"))
 
-    let both = await router.call(
+    let both = await router.callInCurrentProject(
       "export_artifact",
       arguments: ["path": "bundle/a.txt", "paths": ["bundle"]])
     XCTAssertTrue(both.isError)
@@ -466,7 +480,7 @@ import SwiftUI
     let router = try f.router()
     for tool in ["export_artifact", "read_image"] {
       for path in [".env", "../outside", "escape/passwd", "alias"] {
-        let result = await router.call(tool, arguments: ["path": .string(path)])
+        let result = await router.callInCurrentProject(tool, arguments: ["path": .string(path)])
         XCTAssertTrue(result.isError, tool + ":" + path)
       }
     }
@@ -495,23 +509,23 @@ import SwiftUI
     try f.write(".agents/skills/paint/references/guide.md", "guide")
     try f.write("nested/.agents/skills/ignored/SKILL.md", "---\nname: ignored\n---")
     let router = try f.router()
-    let list = await router.call("skills", arguments: ["action": "list"])
+    let list = await router.callInCurrentProject("skills", arguments: ["action": "list"])
     XCTAssertFalse(list.isError)
     XCTAssertEqual(list.data["skills"].array?.count, 1)
     XCTAssertEqual(list.data["skills"].array?.first?["description"], "Paint a picture with tools")
-    let read = await router.call(
+    let read = await router.callInCurrentProject(
       "skills",
       arguments: ["action": "read", "path": ".agents/skills/paint/SKILL.md"])
     XCTAssertFalse(read.isError)
     XCTAssertTrue(read.data["content"].string!.contains("# Instructions"))
     XCTAssertTrue(read.data["files"].array!.contains { $0["name"] == "guide.md" })
 
-    let crossAction = await router.call(
+    let crossAction = await router.callInCurrentProject(
       "skills",
       arguments: ["action": "list", "path": ".agents/skills/paint/SKILL.md"])
     XCTAssertTrue(crossAction.isError)
 
-    let denied = await router.call(
+    let denied = await router.callInCurrentProject(
       "skills",
       arguments: ["action": "read", "path": "nested/.agents/skills/ignored/SKILL.md"])
     XCTAssertTrue(denied.isError)
@@ -640,19 +654,27 @@ import SwiftUI
 
     let router = try f.router(execution: true)
     addTeardownBlock { await router.stop() }
-    let symbols = await router.call(
+    let languageServiceGrant = ToolGrant.remote(RequestContext(
+      transport: .loopback, clientID: "language-service", clientName: "Language service",
+      authorizationID: UUID(), scopes: [.projectRead, .processRun], resource: "http://localhost/mcp"))
+    let symbols = await router.callInCurrentProject(
       "code_query",
-      arguments: ["path": "src/app.ts", "action": "documentSymbols"])
+      arguments: ["path": "src/app.ts", "action": "documentSymbols"], grant: languageServiceGrant)
     XCTAssertFalse(symbols.isError)
     XCTAssertEqual(symbols.data["provider"], "typescript-language-server")
+    XCTAssertEqual(symbols.data["effect"], "possible")
     XCTAssertTrue(
       symbols.data["symbols"].array?.contains { $0["name"] == "Widget" } == true)
 
-    let diagnostics = await router.call(
+    let diagnostics = await router.callInCurrentProject(
       "code_query",
-      arguments: ["path": "src/app.ts", "action": "diagnostics"])
+      arguments: ["path": "src/app.ts", "action": "diagnostics"], grant: languageServiceGrant)
     XCTAssertTrue(diagnostics.isError)
     XCTAssertEqual(diagnostics.data["error"], "language_service_action_unavailable")
+    XCTAssertEqual(diagnostics.data["effect"], .null)
+    let events = await router.activity.snapshot()
+    XCTAssertEqual(events.first { $0.tool == "code_query" && $0.action == "documentSymbols" }?.effect, "possible")
+    XCTAssertEqual(events.first { $0.tool == "code_query" && $0.action == "diagnostics" }?.effect, "none")
   }
 
   func testLanguageServiceResolverFindsProjectLocalPythonProvider() throws {
@@ -746,6 +768,55 @@ import SwiftUI
         $0["kind"] == "test" && $0["program"] == "pnpm" && $0["args"].array == ["test"]
       } == true)
   }
+
+  func testSummaryInspectionUsesCanonicalTasksAndPreservesInstructionScope() async throws {
+    let f = try Fixture(); defer { f.remove() }
+    try f.write("AGENTS.md", "Root rules")
+    try f.write("CLAUDE.md", "Root Claude rules")
+    try f.write("demo/AGENTS.md", "Demo rules")
+    try f.write("other/AGENTS.md", "Unrelated rules")
+    try f.write("demo/package.json", #"{"scripts":{"dev":"vite","build":"tsc && vite build","test":"touch must-not-run; vitest run","lint":"eslint .","typecheck":"tsc --noEmit","format":"prettier --write ."},"dependencies":{"react":"19","vite":"7"}}"#)
+    try f.write("demo/pnpm-lock.yaml", "lockfileVersion: '9.0'")
+    try f.write("demo/vite.config.ts", "export default {}")
+    try f.write("demo/src/main.tsx", "")
+    let inspector = ProjectInspector(workspace: f.files)
+    let summary = try await inspector.inspect(path: "demo", view: "summary")
+    let full = try await inspector.inspect(path: "demo", view: "full")
+    let legacy = try await inspector.inspect(path: "demo")
+    XCTAssertEqual(legacy, full, "Omitting view must preserve the full legacy projection.")
+    XCTAssertEqual(summary["view"], "summary")
+    XCTAssertEqual(summary["taskRegistry"], full["taskRegistry"])
+    XCTAssertEqual(summary["taskRegistry"]["tasks"].array?.count, 6)
+    let test = try XCTUnwrap(summary["taskRegistry"]["tasks"].array?.first { $0["id"] == "task:test" })
+    XCTAssertEqual(test["program"], "pnpm")
+    XCTAssertEqual(test["args"], ["test"])
+    XCTAssertEqual(test["cwd"], "demo")
+    XCTAssertEqual(summary["instructions"], full["instructions"])
+    XCTAssertEqual(Set((summary["instructions"]["sources"].array ?? []).compactMap { $0["path"].string }),
+                   Set(["AGENTS.md", "CLAUDE.md", "demo/AGENTS.md"]))
+    for key in ["ecosystems", "packageManager", "frameworks", "configFiles", "entryCandidates", "toolchains", "warnings"] {
+      XCTAssertEqual(summary[key], full[key], "Summary must preserve \(key).")
+    }
+    XCTAssertEqual(summary["manifests"], full["capabilityGraph"]["manifests"])
+    for duplicated in ["capabilityGraph", "scripts", "suggestedCommands", "testCommands"] {
+      XCTAssertEqual(summary[duplicated], .null)
+    }
+    XCTAssertEqual(summary["commandDiscovery"], "Static only; no project command was executed.")
+    XCTAssertFalse(FileManager.default.fileExists(atPath: f.root.appendingPathComponent("demo/must-not-run").path))
+    let summaryBytes = try summary.data().count
+    let fullBytes = try full.data().count
+    print("Project discovery Node fixture: summary=\(summaryBytes) bytes, full=\(fullBytes) bytes")
+    XCTAssertLessThan(summaryBytes, fullBytes)
+
+    let router = try f.router()
+    addTeardownBlock { await router.stop() }
+    let routed = await router.call("inspect_project", arguments: ["path": "demo", "view": "summary"])
+    XCTAssertFalse(routed.isError)
+    XCTAssertEqual(routed.data, summary)
+    let invalid = await router.call("inspect_project", arguments: ["view": "unknown"])
+    XCTAssertTrue(invalid.isError)
+    XCTAssertEqual(invalid.data["error"], "invalid_arguments")
+  }
   func testProjectInstructionsReturnsRelevantSourcesWithoutMergingContent() async throws {
     let f = try Fixture(); defer { f.remove() }
     try f.write("AGENTS.md", "Root agent rules")
@@ -822,14 +893,14 @@ import SwiftUI
     let router = try f.router(execution: true)
     addTeardownBlock { await router.stop() }
 
-    let inspected = await router.call("inspect_project", arguments: [:])
+    let inspected = await router.callInCurrentProject("inspect_project", arguments: [:])
     XCTAssertFalse(inspected.isError)
     XCTAssertTrue(
       inspected.data["taskRegistry"]["tasks"].array?.contains {
         $0["id"] == "task:test" && $0["program"] == "npm"
       } == true)
 
-    let executed = await router.call(
+    let executed = await router.callInCurrentProject(
       "run_process",
       arguments: ["taskId": "task:test", "syncWait": 3, "timeout": 20])
     XCTAssertFalse(executed.isError)
@@ -838,7 +909,7 @@ import SwiftUI
     XCTAssertEqual(executed.data["task"]["kind"], "test")
     XCTAssertTrue(executed.data["stdoutTail"].string?.contains("TASK_OK") == true)
 
-    let override = await router.call(
+    let override = await router.callInCurrentProject(
       "run_process",
       arguments: [
         "taskId": "task:test", "program": "/usr/bin/false", "args": [],
@@ -846,7 +917,7 @@ import SwiftUI
     XCTAssertTrue(override.isError)
     XCTAssertEqual(override.data["error"], "invalid_arguments")
 
-    let missing = await router.call(
+    let missing = await router.callInCurrentProject(
       "run_process", arguments: ["taskId": "task:missing"])
     XCTAssertTrue(missing.isError)
     XCTAssertEqual(missing.data["error"], "task_not_found")
@@ -870,10 +941,10 @@ import SwiftUI
   func testBrowserConsentAndArguments() async throws {
     let f = try Fixture(); defer { f.remove() }
     let router = try f.router()
-    let result = await router.call(
+    let result = await router.callInCurrentProject(
       "browser_session", arguments: ["action": "open", "url": "https://example.com"])
     XCTAssertEqual(result.data["error"], "execution_policy_denied")
-    let legacy = await router.call("browser_open", arguments: ["url": "https://example.com"])
+    let legacy = await router.callInCurrentProject("browser_open", arguments: ["url": "https://example.com"])
     XCTAssertTrue(legacy.isError)
     XCTAssertEqual(legacy.data["error"], "invalid_arguments")
     for url in ["file:///etc/passwd", "javascript:alert(1)", "https://user:pass@example.com"] {
@@ -924,7 +995,7 @@ import SwiftUI
         "path": "file.txt",
       ]),
     ] {
-      let invalid = await strict.call(tool, arguments: arguments)
+      let invalid = await strict.callInCurrentProject(tool, arguments: arguments)
       XCTAssertTrue(invalid.isError, tool)
       XCTAssertEqual(invalid.data["error"], "invalid_arguments", tool)
     }
@@ -1066,7 +1137,7 @@ import SwiftUI
     try f.write("sample.txt", "hello")
     let router = try f.router()
 
-    let skills = await router.call("skills", arguments: ["action": "list"])
+    let skills = await router.callInCurrentProject("skills", arguments: ["action": "list"])
     XCTAssertFalse(skills.isError)
     var events = await router.activity.snapshot()
     let skillEvent = try XCTUnwrap(events.first)
@@ -1076,7 +1147,7 @@ import SwiftUI
     XCTAssertEqual(skillEvent.target, "project skills")
     XCTAssertNotNil(skillEvent.finishedAt)
 
-    let exported = await router.call("export_artifact", arguments: ["path": "sample.txt"])
+    let exported = await router.callInCurrentProject("export_artifact", arguments: ["path": "sample.txt"])
     XCTAssertFalse(exported.isError)
     events = await router.activity.snapshot()
     let exportEvent = try XCTUnwrap(events.first)

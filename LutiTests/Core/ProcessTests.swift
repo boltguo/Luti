@@ -134,7 +134,7 @@ import XCTest
     defer { f.remove() }
     let router = try f.router(execution: true)
 
-    let started = await router.call(
+    let started = await router.callInCurrentProject(
       "run_process",
       arguments: [
         "program": "/bin/cat", "interactive": true, "syncWait": 0,
@@ -142,11 +142,11 @@ import XCTest
     XCTAssertFalse(started.isError)
     let id = try XCTUnwrap(started.data["jobId"].string)
 
-    let listed = await router.call("job_query", arguments: ["action": "list"])
+    let listed = await router.callInCurrentProject("job_query", arguments: ["action": "list"])
     XCTAssertFalse(listed.isError)
     XCTAssertTrue(listed.data["jobs"].array?.contains { $0["jobId"] == .string(id) } == true)
 
-    let input = await router.call(
+    let input = await router.callInCurrentProject(
       "job_action",
       arguments: [
         "action": "input", "jobId": .string(id), "text": "hello unified job\n", "close": true,
@@ -154,7 +154,7 @@ import XCTest
     XCTAssertFalse(input.isError)
     XCTAssertEqual(input.data["action"], "input")
 
-    let status = await router.call(
+    let status = await router.callInCurrentProject(
       "job_query",
       arguments: ["action": "status", "jobId": .string(id), "waitMs": 5_000])
     XCTAssertFalse(status.isError)
@@ -162,19 +162,19 @@ import XCTest
     XCTAssertEqual(status.data["terminal"], true)
     XCTAssertEqual(status.data["status"], "completed")
 
-    let logs = await router.call(
+    let logs = await router.callInCurrentProject(
       "job_query", arguments: ["action": "logs", "jobId": .string(id)])
     XCTAssertFalse(logs.isError)
     XCTAssertEqual(logs.data["action"], "logs")
     XCTAssertTrue(logs.data["stdoutTail"].string?.contains("hello unified job") == true)
     XCTAssertNotNil(logs.data["nextStdoutOffset"].int)
 
-    let invalidQuery = await router.call(
+    let invalidQuery = await router.callInCurrentProject(
       "job_query",
       arguments: ["action": "list", "jobId": .string(id)])
     XCTAssertTrue(invalidQuery.isError)
 
-    let invalidAction = await router.call(
+    let invalidAction = await router.callInCurrentProject(
       "job_action",
       arguments: ["action": "stop", "jobId": .string(id), "text": "not allowed"])
     XCTAssertTrue(invalidAction.isError)
@@ -185,12 +185,12 @@ import XCTest
   func testJobObservationActivityFinishesEvenWhenTargetJobIsRunningOrStopping() async throws {
     let f = try Fixture(); defer { f.remove() }
     let router = try f.router(execution: true)
-    let started = await router.call(
+    let started = await router.callInCurrentProject(
       "run_process",
       arguments: ["program": "/bin/cat", "interactive": true, "syncWait": 0])
     let id = try XCTUnwrap(started.data["jobId"].string)
 
-    let observed = await router.call(
+    let observed = await router.callInCurrentProject(
       "job_query", arguments: ["action": "status", "jobId": .string(id)])
     XCTAssertFalse(observed.isError)
     XCTAssertEqual(observed.data["status"], "running")
@@ -202,7 +202,7 @@ import XCTest
     XCTAssertNotNil(queryEvent.finishedAt)
     XCTAssertTrue(queryEvent.summary.contains("running"))
 
-    let stopped = await router.call(
+    let stopped = await router.callInCurrentProject(
       "job_action", arguments: ["action": "stop", "jobId": .string(id)])
     XCTAssertFalse(stopped.isError)
     events = await router.activity.snapshot()
@@ -217,7 +217,7 @@ import XCTest
   func testJobQueryObservesFailedJobWithoutFailingTheQuery() async throws {
     let f = try Fixture(); defer { f.remove() }
     let router = try f.router(execution: true)
-    let started = await router.call(
+    let started = await router.callInCurrentProject(
       "run_process",
       arguments: [
         "program": "/bin/sh", "args": ["-c", "exit 7"], "syncWait": 3,
@@ -226,14 +226,14 @@ import XCTest
     XCTAssertEqual(started.data["localApproval"], .null)
     let id = try XCTUnwrap(started.data["jobId"].string)
 
-    let status = await router.call(
+    let status = await router.callInCurrentProject(
       "job_query", arguments: ["action": "status", "jobId": .string(id)])
     XCTAssertFalse(status.isError)
     XCTAssertEqual(status.data["status"], "failed")
     XCTAssertEqual(status.data["exitCode"], 7)
     XCTAssertNotEqual(status.data["failure"], .null)
 
-    let logs = await router.call(
+    let logs = await router.callInCurrentProject(
       "job_query", arguments: ["action": "logs", "jobId": .string(id)])
     XCTAssertFalse(logs.isError)
     XCTAssertEqual(logs.data["status"], "failed")

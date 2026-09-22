@@ -1,5 +1,24 @@
 import Foundation
 
+/// A context precondition, never an authentication or authorization credential.
+enum ProjectBindingContract {
+  static let requiredTools: Set<String> = [
+    "edit_files", "path_action", "run_process", "run_shell", "import_artifact", "code_query",
+    "browser_session", "browser_action", "browser_transfer", "browser_dialog", "browser_evaluate",
+  ]
+
+  static func acceptsToken(_ name: String) -> Bool {
+    name != "runtime_status" && !name.hasPrefix("computer_")
+  }
+
+  static func requiresToken(_ name: String, arguments: JSONValue) -> Bool {
+    requiredTools.contains(name)
+      || (name == "projects" && arguments["action"] == "switch")
+      || (name == "memory" && ["remember", "forget"].contains(arguments["action"].string ?? ""))
+      || (name == "job_action" && arguments["action"] == "input")
+  }
+}
+
 public enum ToolCatalog {
   static func string(_ description: String, max: Int = 4096) -> JSONValue {
     ["type": "string", "description": .string(description), "maxLength": .int(max)]
@@ -37,7 +56,12 @@ public enum ToolCatalog {
   ) -> JSONValue {
     [
       "name": .string(name), "description": .string(description),
-      "inputSchema": object(properties, required),
+      "inputSchema": object(
+        ProjectBindingContract.acceptsToken(name)
+          ? properties.merging([
+            "projectToken": string("Current binding from memory(recent) or projects(current). Refresh on mismatch; never automatically replay effects.", max: 80)
+          ], uniquingKeysWith: { _, new in new }) : properties,
+        required + (ProjectBindingContract.requiredTools.contains(name) ? ["projectToken"] : [])),
       "annotations": [
         "readOnlyHint": .bool(readOnly), "destructiveHint": .bool(!readOnly),
         "idempotentHint": .bool(readOnly), "openWorldHint": .bool(openWorld),
@@ -62,6 +86,7 @@ public enum ToolCatalog {
       "idempotencyKey": string(
         "Optional retry key, retained with this instance's last 64 jobs. Same key/input returns the same job.",
         max: 128),
+      "reportPath": string("Optional project-relative JUnit XML report written by this command. Luti does not change the command or configure a reporter. An unchanged pre-existing report is not proof of this run."),
     ]
     let observe: [String: JSONValue] = [
       "window": string(
@@ -108,7 +133,7 @@ public enum ToolCatalog {
     let base: [JSONValue] = [
       tool(
         "projects",
-        "List enabled, locally approved project roots, inspect the current project, or switch to another enabled project. Multiple approved projects may be enabled, but only one workspace is active at a time. Remote callers cannot add projects or provide filesystem paths. Switching revokes old workspace/job/browser/artifact handles and is refused while another project call or Job is active.",
+        "List enabled, locally approved project roots, inspect the current project, or switch to another enabled project. current returns projectToken; without project:read, callers with project:write, process:run or browser:use receive only the current project ID and binding. list requires project:read; switch requires project:read and project:write. Only one workspace is active at a time. Remote callers cannot add projects or provide filesystem paths. Switching revokes old workspace/job/browser/artifact handles and is refused while another project call or Job is active.",
         [
           "action": enumeration(["list", "current", "switch"]),
           "projectId": string("Exact approved project ID returned by action=list", max: 80),
@@ -237,7 +262,8 @@ public enum ToolCatalog {
         "Use AX semantics first: press/focus/type plus window activate/minimize/close. type replaces the target field value; keyboard fallback selects existing content first. Target-bound actions consume observationId, so re-observe after every action or error. Coordinates require fallbackReason.",
         action, required: ["action"], readOnly: false, openWorld: true),
     ]
-    return (base + additions + [memoryDefinition]).sorted { $0["name"].string! < $1["name"].string! }
+    return (base + additions + [memoryDefinition]).map { ActionContracts.present($0) }
+      .sorted { $0["name"].string! < $1["name"].string! }
   }()
   public static let names = Set(definitions.compactMap { $0["name"].string })
 

@@ -333,6 +333,10 @@
 
 /* recovery */
 "recovery.title" = "Recovery";
+"recovery.description" = "Local file recovery checkpoints";
+"recovery.count" = "%ld recovery checkpoints";
+"recovery.empty" = "No recovery checkpoints";
+"recovery.emptyDescription" = "Recoverable checkpoints created before file changes appear here.";
 "recovery.loading" = "Loading recovery checkpoints…";
 "recovery.checkpointSummary" = "%ld files · %@";
 "recovery.restore" = "Restore";
@@ -498,3 +502,15 @@
 "menu.checkForUpdates" = "Check for Updates…";
 "projects.skills" = "Skills";
 "connection.tunnelToken" = "Tunnel Token";
+
+// Project continuation and validation evidence
+"context.resumeCounts" = "%d changed files · %d validation records";
+"validation.kind.running" = "Validation is running";
+"validation.kind.incomplete" = "Incomplete validation evidence";
+"validation.kind.no_tests" = "No test cases found";
+"validation.kind.tests_recognized" = "Test results recognized";
+"validation.kind.command_only" = "Command result only";
+"validation.kind.build_only" = "Build result only";
+"validation.observedFiles" = "Observed input files: %d";
+"validation.stale" = "Inputs changed. Run validation again.";
+"validation.scopeNotice" = "Observed files do not establish correctness of the entire project.";

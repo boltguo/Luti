@@ -117,12 +117,16 @@ struct SessionJob: Codable, Sendable, Identifiable, Equatable {
   var terminal: Bool
   var exitCode: Int?
   var tests: SessionTestCounts?
+  var validation: ValidationEvidence? = nil
+  var validationOmitted: Bool? = nil
 }
 
 struct SessionTestCounts: Codable, Sendable, Equatable {
   let passed: Int
   let failed: Int
   let skipped: Int
+  var errors: Int? = nil
+  var total: Int? = nil
 }
 
 struct SessionDiagnostic: Codable, Sendable, Equatable, Identifiable {

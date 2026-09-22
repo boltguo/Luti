@@ -36,11 +36,13 @@ public enum OAuthScope: String, CaseIterable, Codable, Sendable {
   public static func required(tool: String, arguments: JSONValue) -> Set<OAuthScope>? {
     switch tool {
     case "project_info", "read_files", "search_project", "list_directory", "read_image",
-      "inspect_project", "code_query", "skills", "git_query", "export_artifact", "runtime_status":
+      "inspect_project", "skills", "git_query", "export_artifact", "runtime_status":
       return [.projectRead]
+    case "code_query":
+      return [.projectRead, .processRun]
     case "memory":
       return ["remember", "forget"].contains(arguments["action"].string ?? "") ? [.projectWrite] : [.projectRead]
-    case "edit_files", "path_action":
+    case "edit_files", "path_action", "import_artifact":
       return [.projectWrite]
     case "projects":
       // Listing the approved projects is a read; switching the active one changes
@@ -48,7 +50,9 @@ public enum OAuthScope: String, CaseIterable, Codable, Sendable {
       return arguments["action"].string == "switch" ? [.projectRead, .projectWrite] : [.projectRead]
     case "run_process", "run_shell", "job_query", "job_action":
       return [.processRun]
-    case "browser_session", "browser_observe", "browser_action", "browser_transfer",
+    case "browser_transfer":
+      return arguments["action"] == "upload" ? [.browserUse, .projectRead] : [.browserUse]
+    case "browser_session", "browser_observe", "browser_action",
       "browser_inspect", "browser_dialog", "browser_evaluate":
       return [.browserUse]
     case "computer_observe", "computer_wait":
@@ -125,16 +129,29 @@ public enum ToolGrant: Sendable, Equatable {
 
   public func authorize(tool: String, arguments: JSONValue) throws {
     guard let context else { return }
+    // Mutating project capabilities need a context precondition even when the
+    // Host has no file-read scope. This action returns only the minimal binding.
+    if tool == "projects", arguments["action"] == "current",
+       !context.scopes.isDisjoint(with: [.projectWrite, .processRun, .browserUse]) {
+      return
+    }
     guard let required = OAuthScope.required(tool: tool, arguments: arguments) else {
       throw Failure(
         "scope_unmapped", "This build does not map \(tool) onto an OAuth scope.",
         "Update Luti, or call this tool from a locally started session.")
     }
+    try authorize(scopes: required, operation: tool)
+  }
+
+  /// Resources retain the same capability boundary as the tool that produced
+  /// them. A resource URI identifies bytes; it does not grant permission.
+  public func authorize(scopes required: Set<OAuthScope>, operation: String) throws {
+    guard let context else { return }
     let missing = required.subtracting(context.scopes)
     guard missing.isEmpty else {
       throw Failure(
         "insufficient_scope",
-        "This connection was granted \(context.scopes.map(\.rawValue).sorted().joined(separator: " ")) and \(tool) needs \(missing.map(\.rawValue).sorted().joined(separator: " ")).",
+        "This connection was granted \(context.scopes.map(\.rawValue).sorted().joined(separator: " ")) and \(operation) needs \(missing.map(\.rawValue).sorted().joined(separator: " ")).",
         "Reconnect the client and approve the missing permission on the Mac; do not retry this call unchanged."
       )
     }

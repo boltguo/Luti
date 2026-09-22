@@ -3,16 +3,19 @@ import Foundation
 private struct ProjectRuntimeContext: Sendable {
   let project: ApprovedProject
   let generation: Int
+  // A fresh opaque identity on each context, including restarts and A → B → A.
+  let projectToken = "project_" + UUID().uuidString.lowercased()
   let workspace: WorkspaceFiles
   let jobs: JobManager
   let artifacts: ArtifactStore
   let browser: BrowserProvider
+  let code: CodeQueryService
   let store: ProjectContextStore
   let checkpoints: ProjectCheckpointStore
 
   init(
     project: ApprovedProject, generation: Int, workspace: WorkspaceFiles, jobs: JobManager,
-    redactor: Redactor, dataRoot: URL
+    redactor: Redactor, dataRoot: URL, helper: URL
   ) throws {
     store = try ProjectContextStore(project: project, dataRoot: dataRoot, redactor: redactor)
     checkpoints = try ProjectCheckpointStore(project: project, dataRoot: dataRoot)
@@ -23,6 +26,7 @@ private struct ProjectRuntimeContext: Sendable {
     self.jobs = jobs
     self.artifacts = artifacts
     browser = BrowserProvider(workspace: workspace, artifacts: artifacts, redactor: redactor)
+    code = CodeQueryService(workspace: workspace, helper: helper)
   }
 
   static func make(
@@ -31,7 +35,7 @@ private struct ProjectRuntimeContext: Sendable {
     let workspace = try WorkspaceFiles(root: project.url)
     let jobs = JobManager(helper: helper, redactor: redactor)
     return try ProjectRuntimeContext(
-      project: project, generation: generation, workspace: workspace, jobs: jobs, redactor: redactor, dataRoot: dataRoot)
+      project: project, generation: generation, workspace: workspace, jobs: jobs, redactor: redactor, dataRoot: dataRoot, helper: helper)
   }
 
   func shutdown() async {
@@ -39,7 +43,8 @@ private struct ProjectRuntimeContext: Sendable {
     async let browsing: Void = browser.stop()
     async let exported: Void = artifacts.stop()
     async let processes: Void = jobs.shutdown()
-    _ = await (files, browsing, exported, processes)
+    async let languageService: Void = code.stop()
+    _ = await (files, browsing, exported, processes, languageService)
   }
 }
 
@@ -72,7 +77,9 @@ public actor ToolRouter {
   var jobs: JobManager { context.jobs }
   var artifacts: ArtifactStore { context.artifacts }
   var browser: BrowserProvider { context.browser }
+  var code: CodeQueryService { context.code }
   var checkpoints: ProjectCheckpointStore { context.checkpoints }
+  var projectToken: String { context.projectToken }
 
   public init(
     workspace: WorkspaceFiles, jobs: JobManager, images: ImageStore, computer: any ComputerBackend,
@@ -109,7 +116,7 @@ public actor ToolRouter {
     let dataRoot = contextDataRoot ?? LutiPaths.root
     self.contextDataRoot = dataRoot
     let initial = try ProjectRuntimeContext(
-      project: selected, generation: 1, workspace: workspace, jobs: jobs, redactor: redactor, dataRoot: dataRoot)
+      project: selected, generation: 1, workspace: workspace, jobs: jobs, redactor: redactor, dataRoot: dataRoot, helper: helper)
     try initial.store.startSession(activity.runID)
     context = initial
     visitedStores = [initial.store.projectKey: initial.store]
@@ -125,9 +132,9 @@ public actor ToolRouter {
     await operationApprovals?.resolve(id, approved: approved)
   }
 
-  public func jobList() async -> [JSONValue] {
+  public func jobList(refreshValidationInputs: Bool = true) async -> [JSONValue] {
     let owner = context
-    let result = await owner.jobs.list()
+    let result = await owner.jobs.list(refreshInputs: refreshValidationInputs)
     if accepting, owner.generation == context.generation {
       journalWrite { try owner.store.reconcileSessionJobs(result, runID: activity.runID) }
     }
@@ -206,8 +213,10 @@ public actor ToolRouter {
         throw Failure("project_switch_in_progress", "The active project is being switched.",
                       "Observe the current project after the switch before retrying.")
       }
+      try validateProjectBinding(name, arguments: value)
       try Task.checkCancellation()
-      output = try await dispatch(name, value, grant: grant)
+      let arguments = ProjectBindingContract.acceptsToken(name) ? value.removing(["projectToken"]) : value
+      output = try await dispatch(name, arguments, grant: grant)
       if !output.isError { lastSuccess = Date() }
       let failure = output.data["failure"]
       event = await activity.finish(
@@ -223,7 +232,13 @@ public actor ToolRouter {
       let failure = Failure.safe(error)
       let effect = failure.effect
         ?? (["outcome_unknown", "browser_outcome_unknown", "browser_transport_unknown"].contains(failure.code) ? "possible" : "none")
-      output = .failure(failure)
+      if ["project_binding_required", "project_binding_mismatch"].contains(failure.code) {
+        output = ToolOutput(failure.json.adding("currentProject", [
+          "projectId": .string(context.project.id), "generation": .int(context.generation),
+        ]), isError: true)
+      } else {
+        output = .failure(failure)
+      }
       event = await activity.finish(id: activityID, status: "failed", started: started,
         summary: failure.message, cwd: value["cwd"].string, effect: effect,
         errorCode: failure.code, recovery: failure.recovery)
@@ -236,6 +251,24 @@ public actor ToolRouter {
                         content: output.extraContent, isError: output.isError)
     }
     return output
+  }
+
+  private func validateProjectBinding(_ name: String, arguments: JSONValue) throws {
+    guard ProjectBindingContract.acceptsToken(name) else { return }
+    // Stop is addressed by a non-reusable owned Job ID, so stale project context
+    // must not prevent emergency termination. Normal Job authorization still applies.
+    if name == "job_action", arguments["action"] == "stop" { return }
+    guard let supplied = arguments.object?["projectToken"] else {
+      if ProjectBindingContract.requiresToken(name, arguments: arguments) {
+        throw Failure("project_binding_required", "This operation requires the observed projectToken.",
+                      "Read projects(action=current), project_info or memory(action=recent), confirm the intended project, then submit the operation with that projectToken.")
+      }
+      return
+    }
+    guard let token = supplied.string, token.utf8.count <= 80, token == context.projectToken else {
+      throw Failure("project_binding_mismatch", "The operation targets a stale or different project context.",
+                    "Read projects(action=current), project_info or memory(action=recent) and confirm the intended project before deciding what to do. No requested operation was executed.")
+    }
   }
   private func activityDescriptor(_ name: String, _ value: JSONValue) -> ActivityDescriptor {
     let action = value["action"].string
@@ -274,6 +307,8 @@ public actor ToolRouter {
     case "read_image":
       return ActivityDescriptor(
         action: nil, targetType: "file", target: value["path"].string ?? "image")
+    case "import_artifact":
+      return ActivityDescriptor(action: "import", targetType: "file", target: value["path"].string ?? "file")
     case "edit_files":
       return ActivityDescriptor(
         action: action, targetType: action == "patch" ? "project" : "file",
@@ -499,7 +534,7 @@ public actor ToolRouter {
       return output.data["changed"] == true ? "confirmed" : "none"
     }
     let mutations: Set<String> = [
-      "edit_files", "path_action", "run_process", "run_shell", "job_action",
+      "edit_files", "path_action", "import_artifact", "run_process", "run_shell", "job_action",
       "browser_session", "browser_action", "browser_transfer",
       "browser_dialog", "browser_evaluate", "computer_action",
     ]
@@ -519,29 +554,31 @@ public actor ToolRouter {
     ]
   }
 
-  private func projectTool(_ value: JSONValue) async throws -> ToolOutput {
-    let root = try Arguments(value, allowed: ["action", "projectId"])
+  private func projectTool(_ value: JSONValue, grant: ToolGrant) async throws -> ToolOutput {
+    let root = try ActionContracts.arguments("projects", value)
     let action = try root.string("action", max: 16)
     switch action {
     case "list":
-      _ = try Arguments(value, allowed: ["action"])
       return ToolOutput([
         "action": "list",
         "activeProjectId": .string(context.project.id),
         "generation": .int(context.generation),
+        "projectToken": .string(context.projectToken),
         "projects": .array(enabledProjects.map(projectJSON)),
       ])
 
     case "current":
-      _ = try Arguments(value, allowed: ["action"])
+      let project: JSONValue = grant.scopes.map { !$0.contains(.projectRead) } == true
+        ? ["id": .string(context.project.id)] : projectJSON(context.project)
       return ToolOutput([
         "action": "current",
         "generation": .int(context.generation),
-        "project": projectJSON(context.project),
+        "projectToken": .string(context.projectToken),
+        "project": project,
       ])
 
     case "switch":
-      let a = try Arguments(value, allowed: ["action", "projectId"])
+      let a = root
       let id = try a.string("projectId", max: 80)
       guard let target = approvedProjects.first(where: { $0.id == id }) else {
         throw Failure(
@@ -558,6 +595,7 @@ public actor ToolRouter {
           "action": "switch",
           "changed": false,
           "generation": .int(context.generation),
+          "projectToken": .string(context.projectToken),
           "project": projectJSON(context.project),
         ])
       }
@@ -596,6 +634,7 @@ public actor ToolRouter {
         "previousProjectId": .string(previous.project.id),
         "previousProjectName": .string(previous.project.name),
         "generation": .int(nextGeneration),
+        "projectToken": .string(context.projectToken),
         "project": projectJSON(target),
         "invalidated": .array([
           "workspaceHandles", "jobs", "browserSessions", "artifacts"
@@ -667,9 +706,9 @@ public actor ToolRouter {
     }
   }
   private func dispatch(_ name: String, _ value: JSONValue, grant: ToolGrant) async throws -> ToolOutput {
-    if name == "memory" { return try memoryTool(value, grant: grant) }
-    if name == "projects" { return try await projectTool(value) }
-    if let output = try await extendedTool(name, value) { return output }
+    if name == "memory" { return try await memoryTool(value, grant: grant) }
+    if name == "projects" { return try await projectTool(value, grant: grant) }
+    if let output = try await extendedTool(name, value, grant: grant) { return output }
     switch name {
     case "project_info":
       _ = try Arguments(value, allowed: [])
@@ -678,6 +717,7 @@ public actor ToolRouter {
         info
           .adding("projectId", .string(context.project.id))
           .adding("generation", .int(context.generation))
+          .adding("projectToken", .string(context.projectToken))
           .adding("approvedProjectCount", .int(approvedProjects.count))
           .adding("enabledProjectCount", .int(enabledProjects.count))
           .adding("context", ["projectKey": .string(context.store.projectKey),
@@ -805,7 +845,7 @@ public actor ToolRouter {
       try requireExecution(name == "run_shell" ? .rawShell : .process)
       let fields: Set<String> = [
         "cwd", "environment", "timeout", "syncWait", "stdin", "interactive", "terminalMode",
-        "idempotencyKey",
+        "idempotencyKey", "reportPath",
       ]
       let a = try Arguments(
         value,
@@ -925,7 +965,13 @@ public actor ToolRouter {
         result = try await sandboxBackend.submitProcess(
           request, policy: executionPolicy, jobs: jobs)
       } else {
-        result = try await jobs.submit(request)
+        let graph = try? await ProjectInspector(workspace: workspace).graph(path: workingPath)
+        let touched = (try? memoryStore.session(activity.runID).touchedFiles) ?? []
+        let scope = ValidationScopeRequest(
+          files: workspace, paths: touched + (graph?.manifests.map(\.path) ?? []),
+          taskID: discoveredTask?.id, purpose: discoveredTask?.kind,
+          reportPath: a.has("reportPath") ? try a.string("reportPath") : nil)
+        result = try await jobs.submit(request, validation: scope)
       }
       if let discoveredTask {
         result = result.adding("task", discoveredTask.json)
@@ -939,16 +985,10 @@ public actor ToolRouter {
       }
       return ToolOutput(result, isError: result["failure"] != .null)
     case "job_query":
-      let root = try Arguments(
-        value,
-        allowed: [
-          "action", "jobId", "waitMs", "knownStatus", "stdoutOffset", "stderrOffset",
-          "maxBytes", "exportFull",
-        ])
+      let root = try ActionContracts.arguments("job_query", value)
       let action = try root.string("action", max: 16)
       switch action {
       case "list":
-        _ = try Arguments(value, allowed: ["action"])
         return ToolOutput([
           "action": "list",
           "jobs": .array(
@@ -957,7 +997,7 @@ public actor ToolRouter {
             }),
         ])
       case "status":
-        let a = try Arguments(value, allowed: ["action", "jobId", "waitMs", "knownStatus"])
+        let a = root
         let id = try a.string("jobId", max: 80)
         let known = a.has("knownStatus") ? try a.string("knownStatus", max: 16) : nil
         if let known,
@@ -972,16 +1012,9 @@ public actor ToolRouter {
           .adding("action", "status")
         return ToolOutput(result)
       case "logs":
-        let a = try Arguments(
-          value,
-          allowed: [
-            "action", "jobId", "exportFull", "stdoutOffset", "stderrOffset", "maxBytes",
-          ])
+        let a = root
         let id = try a.string("jobId", max: 80)
-        let hasStdout = a.has("stdoutOffset"), hasStderr = a.has("stderrOffset")
-        guard hasStdout == hasStderr else {
-          throw Failure.invalid("Provide stdoutOffset and stderrOffset together, or omit both.")
-        }
+        let hasStdout = a.has("stdoutOffset")
         var result: JSONValue
         if hasStdout {
           result = try await jobs.logs(
@@ -998,7 +1031,7 @@ public actor ToolRouter {
           .adding("nextStderrOffset", result["stderrBytes"])
         if try a.flag("exportFull", default: false), let bytes = try await jobs.fullLog(id) {
           let artifact = try await artifacts.insert(
-            bytes, name: "job-log.txt", mimeType: "text/plain")
+            bytes, name: "job-log.txt", mimeType: "text/plain", source: .process)
           return ToolOutput(
             result.adding("artifact", artifact.metadata), content: [artifact.link])
         }
@@ -1008,18 +1041,18 @@ public actor ToolRouter {
       }
 
     case "job_action":
-      let root = try Arguments(value, allowed: ["action", "jobId", "text", "close"])
+      let root = try ActionContracts.arguments("job_action", value)
       let action = try root.string("action", max: 16)
       switch action {
       case "stop":
-        let a = try Arguments(value, allowed: ["action", "jobId"])
+        let a = root
         let result = try await jobs.stop(a.string("jobId", max: 80))
           .adding("action", "stop")
           .adding("effect", "submitted")
         return ToolOutput(result, isError: result["failure"] != .null)
       case "input":
         try requireExecution(.process)
-        let a = try Arguments(value, allowed: ["action", "jobId", "text", "close"])
+        let a = root
         let text = try a.string("text", default: "", max: 16_384)
         let close = try a.flag("close", default: false)
         guard !text.isEmpty || close else {

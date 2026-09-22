@@ -127,7 +127,7 @@ private actor TestConnectionProvider: ConnectionProvider {
     let connections = manager(f, runtime)
     let provider = TestConnectionProvider()
     try await connections.connect(provider)
-    let job = await runtime.router.call("run_process", arguments: [
+    let job = await runtime.router.callInCurrentProject("run_process", arguments: [
       "program": "/bin/sleep", "args": ["20"], "syncWait": 0, "timeout": 30])
     XCTAssertFalse(job.isError)
     let id = try XCTUnwrap(job.data["jobId"].string)
@@ -135,7 +135,7 @@ private actor TestConnectionProvider: ConnectionProvider {
     let failed = await connections.snapshot()
     XCTAssertEqual(failed.state, .failed)
     await connections.disconnect()
-    let existing = await runtime.router.call("job_query", arguments: ["action": "status", "jobId": .string(id)])
+    let existing = await runtime.router.callInCurrentProject("job_query", arguments: ["action": "status", "jobId": .string(id)])
     XCTAssertEqual(existing.data["status"], "running")
     let (url, auth) = try await setup(runtime)
     let local = try await response(url, authorization: auth)

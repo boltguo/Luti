@@ -210,7 +210,7 @@ extension WorkspaceFiles {
     let operation: String
     let entries: [WorkspaceCheckpointTreeEntry]
     switch plan.action {
-    case "createDirectory", "copy":
+    case "createDirectory", "copy", "import":
       guard !plan.expectedAfter.isEmpty else {
         throw Failure.invalid("Created-tree checkpoint is incomplete.")
       }
@@ -284,7 +284,7 @@ extension WorkspaceFiles {
 
   func restorePathActionCheckpoint(_ plan: WorkspacePathActionRestorePlan) throws -> JSONValue {
     switch plan.action {
-    case "createDirectory", "copy":
+    case "createDirectory", "copy", "import":
       return try restoreRemoveCreatedTree(plan.expectedAfter)
     case "move":
       guard let source = plan.source, let destination = plan.destination else {

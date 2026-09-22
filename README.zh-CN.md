@@ -67,7 +67,7 @@ Cloudflare 和 ngrok 配置完成后会显示完整的 `/mcp` 地址，可直接
 
 ## 能力
 
-Luti 对外固定暴露 **29 个 MCP Tool**，分为 8 个领域。
+Luti 对外固定暴露 **30 个 MCP Tool**，分为 8 个领域。
 
 | 领域 | Public Tools | 范围 |
 |---|---|---|
@@ -78,9 +78,17 @@ Luti 对外固定暴露 **29 个 MCP Tool**，分为 8 个领域。
 | Git | `git_query` | Status、Diff、Log、Show、Blame；只读 |
 | Browser | `browser_session`, `browser_observe`, `browser_action`, `browser_transfer`, `browser_inspect`, `browser_dialog`, `browser_evaluate` | 导航、操作、截图、传输、Console、Network、Dialog |
 | Computer | `computer_observe`, `computer_action`, `computer_wait` | macOS 观察、输入和状态等待 |
-| Skills & Artifacts | `skills`, `export_artifact` | 项目 Skill 与不可变 Artifact |
+| Skills & Artifacts | `skills`, `export_artifact`, `import_artifact` | 项目 Skill、不可变导出与受控导入 |
 
 项目专属能力由项目自己的 manifest、instructions、tasks 和 skills 提供，无需不断增加 Public Tool。
+
+先调用 `memory(action=recent)`，一次取得有界接续摘要与 `projectToken`。项目写入、命令执行、浏览器修改、项目切换和 Job 输入需携带该标识；切换项目或重启 Runtime 后会失效。遇到失配应重新观察并确认目标项目。停止仍归 Runtime 管理的 Job 不受旧标识阻碍。未获项目读取权限的连接可通过 `projects(action=current)` 取得最小绑定信息。
+
+资源列举、读取和导入会检查来源对应的权限：项目文件、进程日志、浏览器产物或桌面截图。浏览器上传还需要项目读取权限。`code_query` 会启动已安装的语言服务，因此需要项目读取、进程执行权限及当前 `projectToken`；语言服务可能产生副作用。
+
+Job 结果区分进程完成与识别到的测试结果，并记录有限范围的输入文件观察。`reportPath` 可指定命令生成的 JUnit XML 报告。旧报告、截断输出与无法证明的输入一致性保持 unknown，输入变化标为 stale；这些观察不能证明完整工程正确。
+
+`import_artifact` 可把当前项目 Runtime 中尚未过期的产物保存为项目新文件，最大 32 MiB，并创建恢复记录。不会覆盖、执行或解压文件。网页聊天附件不在当前范围内；只有出现明确 Host 需求且能验证可信文件绑定时再评估 Adapter。
 
 ## 上下文与恢复
 

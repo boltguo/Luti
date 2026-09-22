@@ -18,6 +18,7 @@ final class ProjectContextStore: @unchecked Sendable {
   let sessionsDirectory: URL
   let activityDirectory: URL
   let redactor: Redactor
+  private let projectID: String
   private let projectName: String
   private var manifestURL: URL { directory.appendingPathComponent("manifest.json") }
   private var factsURL: URL { memoryDirectory.appendingPathComponent("facts.jsonl") }
@@ -26,6 +27,7 @@ final class ProjectContextStore: @unchecked Sendable {
   init(project: ApprovedProject, dataRoot: URL = LutiPaths.root, redactor: Redactor = Redactor(), validateMemory: Bool = true) throws {
     sourcePath = LutiPaths.canonicalProjectURL(project.url).path
     projectKey = LutiPaths.projectKey(for: project.url)
+    projectID = project.id
     projectName = Budget.prefix(redactor.clean(project.name), bytes: 128)
     directory = dataRoot.appendingPathComponent("projects", isDirectory: true)
       .appendingPathComponent(projectKey, isDirectory: true)
@@ -278,28 +280,18 @@ final class ProjectContextStore: @unchecked Sendable {
     }
   }
 
-  func recent(limit: Int = 5) throws -> JSONValue {
+  func recent(limit: Int = 5, projectToken: String? = nil,
+              currentJobs: [JSONValue] = [], currentArtifacts: [JSONValue] = []) throws -> JSONValue {
     try Self.lock.withLock {
       let state = try loadMemory()
       let fresh = materialize(state)
       let memories = state.atoms.values.filter { $0.status == .active }.sorted { $0.revision > $1.revision }
       let sessions = try sessionJournals()
-      var result: JSONValue = ["action": "recent", "projectKey": .string(projectKey), "revision": .int(state.revision),
-              "summary": try ContextCoding.json(summary(state)), "summaryStale": .bool(!fresh),
-              "memoryCount": .int(memories.count), "sessionCount": .int(sessions.count),
-              "memories": [], "memoriesTruncated": .bool(!memories.isEmpty),
-              "latestSession": try sessions.first.map { try ContextCoding.json($0.metadata) } ?? .null]
-      var rows: [JSONValue] = []
-      for atom in memories.prefix(max(0, min(limit, 5))) {
-        let row = try ContextCoding.json(atom)
-        let candidate = result.adding("memories", .array(rows + [row]))
-          .adding("memoriesTruncated", .bool(rows.count + 1 < memories.count))
-        // Bound encoded bytes, including escaped content and the summary envelope.
-        guard try candidate.data().count <= 32_768 else { break }
-        rows.append(row)
-        result = candidate
-      }
-      return result.adding("memoriesTruncated", .bool(rows.count < memories.count))
+      return try ProjectResumeSummary.make(
+        projectID: projectID, projectName: projectName,
+        projectKey: projectKey, projectToken: projectToken, revision: state.revision,
+        summary: summary(state), summaryStale: !fresh, memories: memories, sessions: sessions,
+        memoryLimit: max(0, min(limit, 5)), currentJobs: currentJobs, currentArtifacts: currentArtifacts)
     }
   }
 

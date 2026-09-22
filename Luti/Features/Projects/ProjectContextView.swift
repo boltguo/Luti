@@ -45,10 +45,22 @@ struct ProjectContextSection: View {
   let model: AppModel
   let project: ApprovedProject
   let openContext: (ProjectContextSelection) -> Void
+  let openRecovery: () -> Void
   let openClearContext: () -> Void
   @State private var snapshot: ProjectContextSnapshot?
+  @State private var resume: JSONValue?
+  @State private var recoveryCount: Int?
   @State private var error: String?
   @State private var refreshID = 0
+
+  private var sessionsSubtitle: String {
+    guard let resume, resume["latestSession"] != .null else {
+      return L10n.text("context.sessionsDescription")
+    }
+    return L10n.format("context.resumeCounts",
+      resume["runtimeFacts"]["touchedFiles"].array?.count ?? 0,
+      resume["runtimeFacts"]["recentValidation"].array?.count ?? 0)
+  }
 
   var body: some View {
     VStack(alignment: .leading, spacing: 10) {
@@ -77,13 +89,18 @@ struct ProjectContextSection: View {
           openContext(.memory)
         }
         MDNavigationRow(title: L10n.text("context.sessions"), symbol: "clock.arrow.circlepath",
-                        subtitle: L10n.text("context.sessionsDescription"),
+                        subtitle: sessionsSubtitle,
                         detail: snapshot.map { String($0.sessionCount) }, position: .middle, iconTone: .blue) {
           openContext(.sessions)
         }
         MDNavigationRow(title: L10n.text("context.activity"), symbol: "list.bullet.rectangle",
-                        subtitle: L10n.text("context.activityDescription"), position: .last, iconTone: .green) {
+                        subtitle: L10n.text("context.activityDescription"), position: .middle, iconTone: .green) {
           openContext(.activity)
+        }
+        MDNavigationRow(title: L10n.text("recovery.title"), symbol: "arrow.uturn.backward.circle",
+                        subtitle: L10n.text("recovery.description"),
+                        detail: recoveryCount.map(String.init), position: .last, iconTone: .orange) {
+          openRecovery()
         }
       }
 
@@ -100,10 +117,13 @@ struct ProjectContextSection: View {
     let root = model.contextDataRoot
     do {
       let next = try await Task.detached(priority: .utility) {
-        try ProjectContextStore(project: project, dataRoot: root).snapshot()
+        let store = try ProjectContextStore(project: project, dataRoot: root)
+        return (try store.snapshot(), try store.recent())
       }.value
       guard !Task.isCancelled else { return }
-      snapshot = next
+      snapshot = next.0
+      resume = next.1
+      recoveryCount = (try? await model.projectCheckpoints(project))?.count
       error = nil
     } catch {
       guard !Task.isCancelled else { return }
@@ -337,7 +357,10 @@ struct ProjectContextBrowser: View {
               Text(stateTitle(job.status) + (job.exitCode.map { " · exit \($0)" } ?? ""))
                 .font(.system(size: 12)).foregroundStyle(MDTheme.onSurfaceVariant)
               if let tests = job.tests {
-                Text(L10n.format("context.testCounts", tests.passed, tests.failed, tests.skipped)).font(.system(size: 12))
+                Text(L10n.format("context.testCounts", tests.passed, tests.failed + (tests.errors ?? 0), tests.skipped)).font(.system(size: 12))
+              }
+              if let validation = job.validation {
+                ValidationEvidenceView(evidence: validation)
               }
             }
           }
@@ -416,11 +439,32 @@ struct ProjectContextBrowser: View {
     let root = model.contextDataRoot
     do {
       let session = try await Task.detached(priority: .utility) {
-        let result = try ProjectContextStore(project: project, dataRoot: root, validateMemory: false).sessionsResult(runID: id, limit: 1, offset: 0)
+        let files = try WorkspaceFiles(root: project.url)
+        let result = try await ProjectContextStore(project: project, dataRoot: root, validateMemory: false)
+          .sessionsResultObserved(runID: id, limit: 1, offset: 0, files: files)
+        await files.shutdown()
         return try ContextCoding.decode(SessionJournal.self, result["session"].data())
       }.value
       guard !Task.isCancelled else { return }
       selectedSession = session
     } catch { self.error = Failure.safe(error).localizedDescription }
+  }
+}
+
+private struct ValidationEvidenceView: View {
+  let evidence: ValidationEvidence
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 4) {
+      Text(L10n.text("validation.kind." + evidence.resultKind))
+        .font(.system(size: 12, weight: .medium))
+      if let input = evidence.input {
+        Text(L10n.format("validation.observedFiles", input.before.files.count))
+        Text(L10n.text(input.freshness == "stale" ? "validation.stale" : "validation.scopeNotice"))
+          .foregroundStyle(input.freshness == "stale" ? MDTheme.warning : MDTheme.onSurfaceVariant)
+      }
+    }
+    .font(.system(size: 11))
+    .fixedSize(horizontal: false, vertical: true)
   }
 }

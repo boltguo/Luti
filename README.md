@@ -67,7 +67,7 @@ Providers use separate listeners, so a failure in one does not stop the other co
 
 ## Capabilities
 
-Luti exposes **29 public MCP tools** across eight domains.
+Luti exposes **30 public MCP tools** across eight domains.
 
 | Domain | Public tools | Scope |
 |---|---|---|
@@ -78,9 +78,17 @@ Luti exposes **29 public MCP tools** across eight domains.
 | Git | `git_query` | Status, diff, log, show, blame; read-only |
 | Browser | `browser_session`, `browser_observe`, `browser_action`, `browser_transfer`, `browser_inspect`, `browser_dialog`, `browser_evaluate` | Navigation, actions, screenshots, transfers, console, network, dialogs |
 | Computer | `computer_observe`, `computer_action`, `computer_wait` | macOS observation, input, state waiting |
-| Skills & Artifacts | `skills`, `export_artifact` | Project skills and immutable artifacts |
+| Skills & Artifacts | `skills`, `export_artifact`, `import_artifact` | Project skills, immutable exports and controlled imports |
 
 Project-specific behavior comes from the project's own manifest, instructions, tasks, and skills rather than an expanding public tool set.
+
+Start with `memory(action=recent)` for a bounded resume summary and `projectToken`. Project writes, command execution, browser mutations, project switching and Job input require this token. It changes after switching projects or restarting the Runtime; re-observe the intended project after a mismatch. Stopping an owned Job remains available without a current token. Connections without project-read permission can use `projects(action=current)` to obtain only the minimal binding.
+
+Resource listing, reads and imports check the permission for the source: project files, process logs, browser artifacts or desktop screenshots. Browser uploads also require project-read permission. `code_query` starts an installed language server, so it requires project-read and process-run permissions plus the current `projectToken`; the server may have side effects.
+
+Job results separate process completion from recognized test results and record a bounded set of observed input files. `reportPath` can name a JUnit XML report produced by the command. Unchanged reports, incomplete output and unproven input consistency remain unknown; changed inputs are marked stale. These observations do not prove the entire project is correct.
+
+`import_artifact` saves an unexpired artifact from the current project runtime to a new project file, up to 32 MiB, with a recovery checkpoint. It does not overwrite, execute or unpack files. Chat attachments are outside the current scope; evaluate a Host adapter only when a concrete Host exposes a verified file binding.
 
 ## Context and recovery
 

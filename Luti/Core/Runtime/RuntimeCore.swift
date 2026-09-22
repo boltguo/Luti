@@ -74,7 +74,7 @@ public actor RuntimeCore {
   }
 
   public func snapshot() async -> RuntimeSnapshot {
-    let jobs = await router.jobList()
+    let jobs = await router.jobList(refreshValidationInputs: false)
     let project = await router.activeProjectState()
     await activity.reconcileJobs(jobs)
     return RuntimeSnapshot(

@@ -8,6 +8,10 @@ struct ProjectManifestCapability: Sendable, Equatable {
   let path: String
   let ecosystem: ProjectEcosystem
   let kind: String
+
+  var json: JSONValue {
+    ["path": .string(path), "ecosystem": .string(ecosystem.rawValue), "kind": .string(kind)]
+  }
 }
 
 struct ProjectToolchainCapability: Sendable, Equatable {
@@ -83,6 +87,8 @@ struct ProjectCapabilityGraph: Sendable {
   var inspectionJSON: JSONValue {
     let tasks = taskCandidates.map(\.legacyJSON)
     return [
+      "view": "full",
+      "viewHint": "Use view=summary for startup discovery; full also includes legacy projections.",
       "path": .string(path),
       "ecosystems": .array(ecosystems.map { .string($0.rawValue) }),
       "packageManager": packageManager.map(JSONValue.string) ?? .null,
@@ -103,18 +109,34 @@ struct ProjectCapabilityGraph: Sendable {
     ]
   }
 
+  /// Startup discovery keeps each task and instruction source in one canonical
+  /// location. The typed graph remains shared with execution and the full view.
+  var summaryInspectionJSON: JSONValue {
+    [
+      "view": "summary",
+      "viewHint": "Tasks are in taskRegistry; use view=full for legacy projections and raw script declarations.",
+      "path": .string(path),
+      "ecosystems": .array(ecosystems.map { .string($0.rawValue) }),
+      "packageManager": packageManager.map(JSONValue.string) ?? .null,
+      "manifests": .array(manifests.map(\.json)),
+      "frameworks": .array(frameworks.map(JSONValue.string)),
+      "configFiles": .array(configFiles.map(JSONValue.string)),
+      "entryCandidates": .array(entryCandidates.map(JSONValue.string)),
+      "toolchains": .array(toolchains.map(\.json)),
+      "taskRegistry": ProjectTaskRegistry(graph: self).json,
+      "instructions": instructionsJSON,
+      "commandDiscovery": "Static only; no project command was executed.",
+      "truncated": .bool(truncated),
+      "warnings": .array(warnings.map(JSONValue.string)),
+    ]
+  }
+
   var graphJSON: JSONValue {
     [
       "schemaVersion": .int(Self.schemaVersion),
       "projectPath": .string(path),
       "ecosystems": .array(ecosystems.map { .string($0.rawValue) }),
-      "manifests": .array(manifests.map {
-        [
-          "path": .string($0.path),
-          "ecosystem": .string($0.ecosystem.rawValue),
-          "kind": .string($0.kind),
-        ]
-      }),
+      "manifests": .array(manifests.map(\.json)),
       "frameworks": .array(frameworks.map(JSONValue.string)),
       "toolchains": .array(toolchains.map(\.json)),
       "taskCandidates": .array(taskCandidates.map(\.graphJSON)),

@@ -21,7 +21,7 @@
     'hero.sr': "流程示意：一个 AI 保存项目决策，另一个读取记忆后修改代码，接着运行测试、检查页面。画面中的对话和结果均为示例。",
 
     'seed.gptQ': '<b class="mention">@luti</b> 我第一次接这个项目，先给我点背景',
-    'seed.gptA': '已连接。acme-dashboard — 24 条记忆、7 个会话、29 个 Tool。',
+    'seed.gptA': '已连接。acme-dashboard — 24 条记忆、7 个会话、30 个 Tool。',
     'seed.claudeQ': '<b class="mention">@luti</b> 连上了吗？',
     'seed.claudeA': '已连接。Active Project 是 acme-dashboard，vite · pnpm · tsc。',
     'seed.grokQ': '<b class="mention">@luti</b> dev server 还开着吗？',
@@ -111,7 +111,7 @@
     'tools.t7b': "在你授予的 macOS 权限下，查看窗口、操作原生应用和系统对话框。",
     'tools.t8': '技能与产物',
     'tools.t8b': '项目里写下的 skills 会成为这个项目的专属能力。截图、PDF、构建产物按 MCP 的资源形式回到对话里。',
-    'tools.all': '全部 29 个 Tool',
+    'tools.all': '全部 30 个 Tool',
 
     'start.label': '快速开始',
     'start.title': "接入你的 AI，试一个任务。",
@@ -191,7 +191,7 @@
     'hero.sr': "動作イメージ：AIがプロジェクトの決定事項を保存し、別のAIがそれを読み出してコードを編集。テストと画面の確認まで行います。表示される会話や結果は例です。",
 
     'seed.gptQ': '<b class="mention">@luti</b> このプロジェクトは初めてです。まず背景を教えてください',
-    'seed.gptA': '接続済み。acme-dashboard — メモリ24件、セッション7件、ツール29個。',
+    'seed.gptA': '接続済み。acme-dashboard — メモリ24件、セッション7件、ツール30個。',
     'seed.claudeQ': '<b class="mention">@luti</b> つながっていますか？',
     'seed.claudeA': '接続済み。使用中のプロジェクトはacme-dashboard。vite · pnpm · tsc。',
     'seed.grokQ': '<b class="mention">@luti</b> devサーバはまだ動いていますか？',
@@ -283,7 +283,7 @@
     'tools.t7b': "許可したmacOS権限の範囲で、ウインドウを確認し、アプリやシステムダイアログを操作します。",
     'tools.t8': 'スキルと成果物',
     'tools.t8b': 'プロジェクトに書かれたskillsが、そのプロジェクトの機能になります。スクリーンショットもPDFもビルド成果物も、MCPのリソースとして会話に戻ります。',
-    'tools.all': '29のツールをすべて見る',
+    'tools.all': '30のツールをすべて見る',
 
     'start.label': 'はじめる',
     'start.title': "AIを接続して、最初のタスクへ。",

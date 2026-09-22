@@ -122,29 +122,29 @@ import XCTest
 
     let router = try f.router()
 
-    let status = await router.call("git_query", arguments: ["action": "status"])
+    let status = await router.callInCurrentProject("git_query", arguments: ["action": "status"])
     XCTAssertFalse(status.isError)
     XCTAssertEqual(status.data["action"], "status")
     XCTAssertTrue(status.data["entries"].array?.contains { $0["path"] == "main.txt" } == true)
 
-    let diff = await router.call("git_query", arguments: ["action": "diff"])
+    let diff = await router.callInCurrentProject("git_query", arguments: ["action": "diff"])
     XCTAssertFalse(diff.isError)
     XCTAssertEqual(diff.data["action"], "diff")
     XCTAssertTrue(diff.data["stdoutTail"].string?.contains("+changed") == true)
 
-    let log = await router.call(
+    let log = await router.callInCurrentProject(
       "git_query", arguments: ["action": "log", "maxCount": 5])
     XCTAssertFalse(log.isError)
     XCTAssertEqual(log.data["action"], "log")
     XCTAssertEqual(log.data["commits"].array?.first?["subject"], "Router fixture")
 
-    let show = await router.call(
+    let show = await router.callInCurrentProject(
       "git_query", arguments: ["action": "show", "revision": "HEAD"])
     XCTAssertFalse(show.isError)
     XCTAssertEqual(show.data["action"], "show")
     XCTAssertEqual(show.data["commit"]["subject"], "Router fixture")
 
-    let blame = await router.call(
+    let blame = await router.callInCurrentProject(
       "git_query",
       arguments: [
         "action": "blame", "file": "main.txt", "startLine": 1, "endLine": 1,
@@ -153,7 +153,7 @@ import XCTest
     XCTAssertEqual(blame.data["action"], "blame")
     XCTAssertEqual(blame.data["lines"].array?.count, 1)
 
-    let invalid = await router.call(
+    let invalid = await router.callInCurrentProject(
       "git_query", arguments: ["action": "status", "revision": "HEAD"])
     XCTAssertTrue(invalid.isError)
     XCTAssertEqual(invalid.data["error"], "invalid_arguments")

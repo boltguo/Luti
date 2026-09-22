@@ -1,4 +1,5 @@
 import XCTest
+import Darwin
 
 @testable import Luti
 
@@ -90,36 +91,36 @@ private struct TestEnforcedSandboxBackend: ProjectSandboxBackend {
     let router = try f.router()
     addTeardownBlock { await router.stop() }
 
-    let read = await router.call("read_files", arguments: ["paths": ["source.txt"]])
+    let read = await router.callInCurrentProject("read_files", arguments: ["paths": ["source.txt"]])
     XCTAssertFalse(read.isError)
     XCTAssertEqual(read.data["files"].array?.first?["content"], "hello")
 
-    let create = await router.call(
+    let create = await router.callInCurrentProject(
       "edit_files", arguments: ["action": "create", "path": "new.txt", "content": "blocked"])
     XCTAssertTrue(create.isError)
     XCTAssertEqual(create.data["error"], "execution_policy_denied")
     XCTAssertFalse(FileManager.default.fileExists(atPath: f.root.appendingPathComponent("new.txt").path))
 
-    let directory = await router.call(
+    let directory = await router.callInCurrentProject(
       "path_action", arguments: ["action": "createDirectory", "path": "blocked"])
     XCTAssertTrue(directory.isError)
     XCTAssertEqual(directory.data["error"], "execution_policy_denied")
 
-    let process = await router.call("run_process", arguments: ["program": "/usr/bin/true"])
+    let process = await router.callInCurrentProject("run_process", arguments: ["program": "/usr/bin/true"])
     XCTAssertTrue(process.isError)
     XCTAssertEqual(process.data["error"], "execution_policy_denied")
 
-    let code = await router.call(
+    let code = await router.callInCurrentProject(
       "code_query", arguments: ["action": "documentSymbols", "path": "source.txt"])
     XCTAssertTrue(code.isError)
     XCTAssertEqual(code.data["error"], "execution_policy_denied")
 
-    let browser = await router.call(
+    let browser = await router.callInCurrentProject(
       "browser_session", arguments: ["action": "open", "url": "https://example.com"])
     XCTAssertTrue(browser.isError)
     XCTAssertEqual(browser.data["error"], "execution_policy_denied")
 
-    let desktop = await router.call("computer_observe", arguments: [:])
+    let desktop = await router.callInCurrentProject("computer_observe", arguments: [:])
     XCTAssertTrue(desktop.isError)
     XCTAssertEqual(desktop.data["error"], "execution_policy_denied")
   }
@@ -132,10 +133,10 @@ private struct TestEnforcedSandboxBackend: ProjectSandboxBackend {
       executionPolicy: .fullLocal(localApproval: false), contextDataRoot: f.contextDataRoot)
     addTeardownBlock { await router.stop() }
 
-    let process = await router.call("run_process", arguments: ["program": "/usr/bin/true"])
+    let process = await router.callInCurrentProject("run_process", arguments: ["program": "/usr/bin/true"])
     XCTAssertEqual(process.data["error"], "local_consent_required")
 
-    let write = await router.call(
+    let write = await router.callInCurrentProject(
       "edit_files", arguments: ["action": "create", "path": "new.txt", "content": "blocked"])
     XCTAssertEqual(write.data["error"], "local_consent_required")
   }
@@ -145,17 +146,17 @@ private struct TestEnforcedSandboxBackend: ProjectSandboxBackend {
     let router = try f.router(execution: true)
     addTeardownBlock { await router.stop() }
 
-    let create = await router.call(
+    let create = await router.callInCurrentProject(
       "edit_files", arguments: ["action": "create", "path": "created.txt", "content": "ok"])
     XCTAssertFalse(create.isError)
 
-    let process = await router.call(
+    let process = await router.callInCurrentProject(
       "run_process",
       arguments: ["program": "/usr/bin/true", "syncWait": 3, "timeout": 10])
     XCTAssertFalse(process.isError)
     XCTAssertEqual(process.data["exitCode"], 0)
 
-    let status = await router.call("runtime_status", arguments: [:])
+    let status = await router.callInCurrentProject("runtime_status", arguments: [:])
     XCTAssertEqual(status.data["executionPolicy"]["profile"], "fullLocal")
     XCTAssertEqual(status.data["executionPolicy"]["localApproval"], true)
     XCTAssertEqual(status.data["executionPolicy"]["permissionMode"], "fullProjectAccess")
@@ -175,20 +176,20 @@ private struct TestEnforcedSandboxBackend: ProjectSandboxBackend {
       contextDataRoot: f.contextDataRoot)
     addTeardownBlock { await router.stop() }
 
-    let create = await router.call(
+    let create = await router.callInCurrentProject(
       "edit_files", arguments: ["action": "create", "path": "workspace.txt", "content": "allowed"])
     XCTAssertFalse(create.isError)
 
-    let process = await router.call("run_process", arguments: ["program": "/usr/bin/true"])
+    let process = await router.callInCurrentProject("run_process", arguments: ["program": "/usr/bin/true"])
     XCTAssertTrue(process.isError)
     XCTAssertEqual(process.data["error"], "execution_backend_unavailable")
 
-    let browser = await router.call(
+    let browser = await router.callInCurrentProject(
       "browser_session", arguments: ["action": "open", "url": "https://example.com"])
     XCTAssertTrue(browser.isError)
     XCTAssertEqual(browser.data["error"], "execution_policy_denied")
 
-    let status = await router.call("runtime_status", arguments: [:])
+    let status = await router.callInCurrentProject("runtime_status", arguments: [:])
     XCTAssertEqual(status.data["executionPolicy"]["profile"], "workspace")
     XCTAssertEqual(status.data["executionPolicy"]["network"]["mode"], "allowlist")
     XCTAssertEqual(
@@ -224,7 +225,7 @@ private struct TestEnforcedSandboxBackend: ProjectSandboxBackend {
       contextDataRoot: f.contextDataRoot)
     addTeardownBlock { await router.stop() }
 
-    let result = await router.call(
+    let result = await router.callInCurrentProject(
       "run_process",
       arguments: [
         "program": "/usr/bin/true",
@@ -242,7 +243,7 @@ private struct TestEnforcedSandboxBackend: ProjectSandboxBackend {
     let ordinaryJobs = await jobs.list()
     XCTAssertTrue(ordinaryJobs.isEmpty)
 
-    let status = await router.call("runtime_status", arguments: [:])
+    let status = await router.callInCurrentProject("runtime_status", arguments: [:])
     XCTAssertEqual(status.data["executionEnabled"], true)
     XCTAssertEqual(status.data["executionPolicy"]["sandboxEnforced"], true)
     XCTAssertEqual(
@@ -250,7 +251,7 @@ private struct TestEnforcedSandboxBackend: ProjectSandboxBackend {
       "test-enforced-backend")
 
     try f.write("source.swift", "let value = 1")
-    let code = await router.call(
+    let code = await router.callInCurrentProject(
       "code_query",
       arguments: [
         "path": "source.swift",
@@ -259,7 +260,7 @@ private struct TestEnforcedSandboxBackend: ProjectSandboxBackend {
     XCTAssertTrue(code.isError)
     XCTAssertEqual(code.data["error"], "execution_backend_unavailable")
 
-    let shell = await router.call(
+    let shell = await router.callInCurrentProject(
       "run_shell",
       arguments: ["command": "echo should-not-run"])
     XCTAssertTrue(shell.isError)
@@ -401,10 +402,10 @@ private struct TestEnforcedSandboxBackend: ProjectSandboxBackend {
     let backend = TestEnforcedSandboxBackend(
       probe: probe, status: TestEnforcedSandboxBackend.declaredStatus(network: .unrestricted))
     let (router, jobs) = try sandboxRouter(f, policy: policy, backend: backend)
-    let result = await router.call("run_process", arguments: ["program": "/usr/bin/true"])
+    let result = await router.callInCurrentProject("run_process", arguments: ["program": "/usr/bin/true"])
     XCTAssertTrue(result.isError)
     XCTAssertEqual(result.data["error"], "execution_backend_unavailable")
-    let status = await router.call("runtime_status", arguments: [:])
+    let status = await router.callInCurrentProject("runtime_status", arguments: [:])
     XCTAssertEqual(status.data["executionEnabled"], false)
     XCTAssertEqual(status.data["capabilities"]["commandExecution"], false)
     XCTAssertEqual(status.data["executionPolicy"]["sandboxBlockers"], ["networkPolicy"])
@@ -432,7 +433,7 @@ private struct TestEnforcedSandboxBackend: ProjectSandboxBackend {
       (["program": "/usr/bin/sudo", "args": ["-V"]], "dangerous_command_denied"),
     ]
     for (arguments, code) in requests {
-      let result = await router.call("run_process", arguments: arguments)
+      let result = await router.callInCurrentProject("run_process", arguments: arguments)
       XCTAssertTrue(result.isError)
       XCTAssertEqual(result.data["error"], .string(code))
     }
@@ -453,7 +454,7 @@ private struct TestEnforcedSandboxBackend: ProjectSandboxBackend {
     let (router, jobs) = try sandboxRouter(
       f, policy: policy,
       backend: TestEnforcedSandboxBackend(probe: probe, submissionFailure: failure))
-    let result = await router.call(
+    let result = await router.callInCurrentProject(
       "run_process", arguments: ["program": "/usr/bin/touch", "args": ["must-not-exist"]])
     XCTAssertTrue(result.isError)
     XCTAssertEqual(result.data["error"], "sandbox_transport_unknown")
@@ -477,7 +478,7 @@ private struct TestEnforcedSandboxBackend: ProjectSandboxBackend {
     let (router, jobs) = try sandboxRouter(
       f, policy: policy,
       backend: TestEnforcedSandboxBackend(probe: probe, failureResult: failure))
-    let result = await router.call("run_process", arguments: ["program": "/usr/bin/true"])
+    let result = await router.callInCurrentProject("run_process", arguments: ["program": "/usr/bin/true"])
     XCTAssertTrue(result.isError)
     XCTAssertEqual(result.data["failure"]["error"], "sandbox_network_denied")
     let submitted = await probe.snapshot()
@@ -562,7 +563,7 @@ private struct TestEnforcedSandboxBackend: ProjectSandboxBackend {
         .appendingPathComponent("luti-scope-denied-" + UUID().uuidString)
       defer { try? FileManager.default.removeItem(at: target); f.remove() }
 
-      let result = await router.call(
+      let result = await router.callInCurrentProject(
         "run_process",
         arguments: [
           "program": "/usr/bin/touch",
@@ -586,7 +587,7 @@ private struct TestEnforcedSandboxBackend: ProjectSandboxBackend {
     addTeardownBlock { await askRouter.stop() }
 
     let askCall = Task {
-      await askRouter.call(
+      await askRouter.callInCurrentProject(
         "run_shell",
         arguments: ["command": "printf ask > permission-mode.txt", "syncWait": 3])
     }
@@ -611,7 +612,7 @@ private struct TestEnforcedSandboxBackend: ProjectSandboxBackend {
     let fullRouter = try fullFixture.router(
       execution: true, permissionMode: .fullProjectAccess, operationApprovals: fullApprovals)
     addTeardownBlock { await fullRouter.stop() }
-    let fullResult = await fullRouter.call(
+    let fullResult = await fullRouter.callInCurrentProject(
       "run_shell",
       arguments: ["command": "printf full > permission-mode.txt", "syncWait": 3])
     XCTAssertFalse(fullResult.isError)
@@ -629,13 +630,13 @@ private struct TestEnforcedSandboxBackend: ProjectSandboxBackend {
     let router = try f.router(execution: true, operationApprovals: approvals)
     addTeardownBlock { await router.stop() }
 
-    let read = await router.call("read_files", arguments: ["paths": ["../outside.txt"]])
+    let read = await router.callInCurrentProject("read_files", arguments: ["paths": ["../outside.txt"]])
     XCTAssertTrue(read.isError)
     XCTAssertEqual(
       read.data["files"].array?.first?["failure"]["error"],
       "path_outside_workspace")
 
-    let edit = await router.call(
+    let edit = await router.callInCurrentProject(
       "edit_files",
       arguments: [
         "action": "create",
@@ -669,7 +670,7 @@ private struct TestEnforcedSandboxBackend: ProjectSandboxBackend {
         operationApprovals: approvals,
         approvedProjects: [project], activeProjectID: project.id,
         contextDataRoot: outsideFixture.contextDataRoot)
-      let result = await router.call(
+      let result = await router.callInCurrentProject(
         "run_process", arguments: ["taskId": "task:test", "syncWait": 3])
       XCTAssertEqual(result.data["error"], "project_scope_denied", mode.rawValue)
       let pendingApprovals = await approvals.pendingApprovals()
@@ -685,7 +686,7 @@ private struct TestEnforcedSandboxBackend: ProjectSandboxBackend {
       execution: true, permissionMode: .ask, operationApprovals: askApprovals)
     addTeardownBlock { await askRouter.stop() }
     let askCall = Task {
-      await askRouter.call("run_process", arguments: ["taskId": "task:test", "syncWait": 3])
+      await askRouter.callInCurrentProject("run_process", arguments: ["taskId": "task:test", "syncWait": 3])
     }
     var pending: PendingOperationApproval?
     for _ in 0..<100 where pending == nil {
@@ -706,7 +707,7 @@ private struct TestEnforcedSandboxBackend: ProjectSandboxBackend {
     let fullRouter = try fullFixture.router(
       execution: true, permissionMode: .fullProjectAccess, operationApprovals: fullApprovals)
     addTeardownBlock { await fullRouter.stop() }
-    let fullResult = await fullRouter.call(
+    let fullResult = await fullRouter.callInCurrentProject(
       "run_process", arguments: ["taskId": "task:test", "syncWait": 3])
     XCTAssertFalse(fullResult.isError)
     XCTAssertFalse(FileManager.default.fileExists(
@@ -735,7 +736,7 @@ private struct TestEnforcedSandboxBackend: ProjectSandboxBackend {
     addTeardownBlock { await router.stop() }
 
     let askCall = Task {
-      await router.call(
+      await router.callInCurrentProject(
         "run_shell",
         arguments: ["command": "printf ask > ask.txt", "syncWait": 3])
     }
@@ -749,12 +750,12 @@ private struct TestEnforcedSandboxBackend: ProjectSandboxBackend {
     let firstResult = await askCall.value
     XCTAssertEqual(firstResult.data["error"], "local_action_denied")
 
-    let switched = await router.call(
+    let switched = await router.callInCurrentProject(
       "projects", arguments: ["action": "switch", "projectId": .string(fullProject.id)])
     XCTAssertFalse(switched.isError)
     XCTAssertEqual(switched.data["project"]["permissionMode"], "fullProjectAccess")
 
-    let fullResult = await router.call(
+    let fullResult = await router.callInCurrentProject(
       "run_shell",
       arguments: ["command": "printf full > switched.txt", "syncWait": 3])
     XCTAssertFalse(fullResult.isError)
@@ -765,15 +766,15 @@ private struct TestEnforcedSandboxBackend: ProjectSandboxBackend {
     let noPending = await approvals.pendingApprovals()
     XCTAssertTrue(noPending.isEmpty)
 
-    let status = await router.call("runtime_status", arguments: [:])
+    let status = await router.callInCurrentProject("runtime_status", arguments: [:])
     XCTAssertEqual(status.data["activeProject"]["permissionMode"], "fullProjectAccess")
     XCTAssertEqual(status.data["executionPolicy"]["permissionMode"], "fullProjectAccess")
 
-    let switchedBack = await router.call(
+    let switchedBack = await router.callInCurrentProject(
       "projects", arguments: ["action": "switch", "projectId": .string(askProject.id)])
     XCTAssertFalse(switchedBack.isError)
     let askAgain = Task {
-      await router.call(
+      await router.callInCurrentProject(
         "run_shell",
         arguments: ["command": "printf ask-again > ask-again.txt", "syncWait": 3])
     }
@@ -794,7 +795,7 @@ private struct TestEnforcedSandboxBackend: ProjectSandboxBackend {
       let approvals = OperationApprovalBroker()
       let router = try f.router(
         execution: true, permissionMode: mode, operationApprovals: approvals)
-      let result = await router.call(
+      let result = await router.callInCurrentProject(
         "run_process", arguments: ["program": "/usr/bin/sudo", "args": ["-V"]])
       XCTAssertEqual(result.data["error"], "dangerous_command_denied", mode.rawValue)
       let pending = await approvals.pendingApprovals()
@@ -855,13 +856,13 @@ private struct TestEnforcedSandboxBackend: ProjectSandboxBackend {
       executionPolicy: policy, contextDataRoot: f.contextDataRoot)
     addTeardownBlock { await router.stop() }
 
-    let allowed = await router.call(
+    let allowed = await router.callInCurrentProject(
       "run_process",
       arguments: ["taskId": "task:test", "syncWait": 3, "timeout": 20])
     XCTAssertFalse(allowed.isError)
     XCTAssertEqual(allowed.data["task"]["id"], "task:test")
 
-    let denied = await router.call(
+    let denied = await router.callInCurrentProject(
       "run_process", arguments: ["taskId": "task:dev"])
     XCTAssertTrue(denied.isError)
     XCTAssertEqual(denied.data["error"], "task_not_allowed")
@@ -872,12 +873,171 @@ private struct TestEnforcedSandboxBackend: ProjectSandboxBackend {
     let router = try f.router()
     addTeardownBlock { await router.stop() }
 
-    let status = await router.call("runtime_status", arguments: [:])
+    let status = await router.callInCurrentProject("runtime_status", arguments: [:])
     XCTAssertEqual(status.data["executionPolicy"]["profile"], "readOnly")
     XCTAssertEqual(status.data["executionPolicy"]["workspace"]["read"], true)
     XCTAssertEqual(status.data["executionPolicy"]["workspace"]["write"], false)
     XCTAssertEqual(status.data["executionPolicy"]["sandboxEnforced"], false)
     XCTAssertEqual(status.data["executionEnabled"], false)
     XCTAssertEqual(status.data["capabilities"]["commandExecution"], false)
+  }
+
+  func testUnsupportedDiagnosticsNeverStartsProjectLanguageServer() async throws {
+    let f = try Fixture(); defer { f.remove() }
+    let serverPath = "node_modules/.bin/typescript-language-server"
+    try f.write(serverPath, "#!/bin/sh\n: > language-server-started\nexit 0\n")
+    try FileManager.default.setAttributes(
+      [.posixPermissions: NSNumber(value: 0o755)],
+      ofItemAtPath: f.root.appendingPathComponent(serverPath).path)
+    try f.write("source.ts", "export const value = 1\n")
+    let router = try f.router(execution: true)
+    addTeardownBlock { await router.stop() }
+
+    let result = await router.callInCurrentProject(
+      "code_query", arguments: ["action": "diagnostics", "path": "source.ts"])
+
+    XCTAssertTrue(result.isError)
+    XCTAssertEqual(result.data["error"], "language_service_action_unavailable")
+    XCTAssertFalse(FileManager.default.fileExists(
+      atPath: f.root.appendingPathComponent("language-server-started").path))
+    let events = await router.activity.snapshot()
+    XCTAssertEqual(events.last?.effect, "none")
+  }
+
+  private func installBlockedLanguageServer(_ fixture: Fixture) throws {
+    let path = "node_modules/.bin/typescript-language-server"
+    // A functioning initialize handshake followed by a full stdin pipe. Both
+    // provider and descendant ignore TERM to exercise supervisor escalation.
+    try fixture.write(path, #"""
+    #!/usr/bin/python3
+    import json, os, pathlib, signal, sys, time
+    signal.signal(signal.SIGTERM, signal.SIG_IGN)
+    headers = {}
+    while True:
+        line = sys.stdin.buffer.readline()
+        if line in (b"\r\n", b"\n"):
+            break
+        key, value = line.decode().split(":", 1)
+        headers[key.lower()] = value.strip()
+    request = json.loads(sys.stdin.buffer.read(int(headers["content-length"])))
+    child = os.fork()
+    if child == 0:
+        while True:
+            time.sleep(1)
+    response = json.dumps({"jsonrpc":"2.0", "id":request["id"], "result":{"capabilities":{}}}).encode()
+    sys.stdout.buffer.write(b"Content-Length: " + str(len(response)).encode() + b"\r\n\r\n" + response)
+    sys.stdout.buffer.flush()
+    pathlib.Path("language-server-ready").write_text(str(os.getpid()) + " " + str(child))
+    while True:
+        time.sleep(1)
+    """#)
+    try FileManager.default.setAttributes([.posixPermissions: NSNumber(value: 0o755)],
+      ofItemAtPath: fixture.root.appendingPathComponent(path).path)
+    try fixture.write("source.ts", String(repeating: "x", count: 600_000))
+  }
+
+  private func languageServerPIDs(_ fixture: Fixture) async throws -> [pid_t] {
+    let marker = fixture.root.appendingPathComponent("language-server-ready")
+    for _ in 0..<150 {
+      if let text = try? String(contentsOf: marker, encoding: .utf8) {
+        let pids = text.split(separator: " ").compactMap { Int32($0) }
+        if pids.count == 2 { return pids }
+      }
+      try await Task.sleep(for: .milliseconds(20))
+    }
+    XCTFail("Language server did not finish its initialize handshake.")
+    return []
+  }
+
+  private func assertLanguageServerStopped(_ pids: [pid_t]) async throws {
+    // A descendant may briefly remain a zombie until launchd reaps it.
+    for _ in 0..<100 {
+      if pids.allSatisfy({ kill($0, 0) == -1 && errno == ESRCH }) { return }
+      try await Task.sleep(for: .milliseconds(20))
+    }
+    for pid in pids {
+      XCTAssertEqual(kill(pid, 0), -1, "Language-service process \(pid) survived cleanup.")
+      if kill(pid, 0) == 0 { _ = kill(pid, SIGKILL) }
+    }
+  }
+
+  func testLanguageServiceTimeoutBoundsBlockedInputAndReapsProviderGroup() async throws {
+    let f = try Fixture(); defer { f.remove() }
+    try installBlockedLanguageServer(f)
+    let service = CodeQueryService(workspace: f.files, helper: Fixture.helper, timeout: 1.5)
+    addTeardownBlock { await service.stop() }
+    let started = Date()
+    do {
+      _ = try await service.query(path: "source.ts", action: "documentSymbols")
+      XCTFail("The provider never reads didOpen and must time out.")
+    } catch {
+      XCTAssertEqual(Failure.safe(error).code, "language_service_timeout")
+    }
+    XCTAssertLessThan(Date().timeIntervalSince(started), 5)
+    let pids = try await languageServerPIDs(f)
+    try await assertLanguageServerStopped(pids)
+  }
+
+  func testLanguageServiceTimeoutBoundsUnansweredResponseAndStopRejectsNewQueries() async throws {
+    let f = try Fixture(); defer { f.remove() }
+    try installBlockedLanguageServer(f)
+    // Small didOpen fits in the pipe, so this exercises receive(), not blocked send().
+    try f.write("source.ts", "export const value = 1;")
+    let service = CodeQueryService(workspace: f.files, helper: Fixture.helper, timeout: 1.5)
+    addTeardownBlock { await service.stop() }
+    let started = Date()
+    do {
+      _ = try await service.query(path: "source.ts", action: "documentSymbols")
+      XCTFail("The provider never answers documentSymbol and must time out.")
+    } catch {
+      XCTAssertEqual(Failure.safe(error).code, "language_service_timeout")
+    }
+    XCTAssertLessThan(Date().timeIntervalSince(started), 5)
+    let pids = try await languageServerPIDs(f)
+    try await assertLanguageServerStopped(pids)
+    await service.stop()
+    do {
+      _ = try await service.query(path: "source.ts", action: "documentSymbols")
+      XCTFail("A stopped service must not start a new provider.")
+    } catch {
+      XCTAssertEqual(Failure.safe(error).code, "runtime_stopped")
+    }
+  }
+
+  func testRuntimeStopInterruptsBlockedLanguageServiceAndReapsProviderGroup() async throws {
+    let f = try Fixture(); defer { f.remove() }
+    try installBlockedLanguageServer(f)
+    let router = try f.router(execution: true)
+    addTeardownBlock { await router.stop() }
+    let query = Task {
+      await router.callInCurrentProject("code_query", arguments: ["action": "documentSymbols", "path": "source.ts"])
+    }
+    let pids = try await languageServerPIDs(f)
+    let started = Date()
+    await router.stop()
+    XCTAssertLessThan(Date().timeIntervalSince(started), 4)
+    let result = await query.value
+    XCTAssertTrue(result.isError)
+    XCTAssertEqual(result.data["error"], "runtime_stopped")
+    try await assertLanguageServerStopped(pids)
+  }
+
+  func testCancellationInterruptsBlockedLanguageServiceAndReapsProviderGroup() async throws {
+    let f = try Fixture(); defer { f.remove() }
+    try installBlockedLanguageServer(f)
+    let service = CodeQueryService(workspace: f.files, helper: Fixture.helper)
+    addTeardownBlock { await service.stop() }
+    let query = Task { try await service.query(path: "source.ts", action: "documentSymbols") }
+    let pids = try await languageServerPIDs(f)
+    let started = Date()
+    query.cancel()
+    do {
+      _ = try await query.value
+      XCTFail("Cancelled language-service calls must stop.")
+    } catch {
+      XCTAssertEqual(Failure.safe(error).code, "runtime_stopped")
+    }
+    XCTAssertLessThan(Date().timeIntervalSince(started), 4)
+    try await assertLanguageServerStopped(pids)
   }
 }
