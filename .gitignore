@@ -1,0 +1,16 @@
+.build/
+dist/
+build/
+DerivedData/
+*.xcarchive
+*.xcresult
+.DS_Store
+*.xcuserstate
+xcuserdata/
+__pycache__/
+*.py[cod]
+releases/
+*.p12
+*.p8
+.env
+.env.*

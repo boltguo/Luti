@@ -1,0 +1,1321 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		02A6DAE21D02575B9C2DDB23 /* LutiProcessHost in Embed Process Host */ = {isa = PBXBuildFile; fileRef = 39A4EB06C1C0EBBF56C69FBD /* LutiProcessHost */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
+		05131608A40C2B870E9C1AD4 /* Luti/Core/Processes/DiagnosticOutputParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC05CFA2F3B6E89132EE23BF /* Luti/Core/Processes/DiagnosticOutputParser.swift */; };
+		09D029F74CAA5E3785B53EE0 /* Luti/Core/Processes/ProcessPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCEA7F67C6D53EF6492A311C /* Luti/Core/Processes/ProcessPolicy.swift */; };
+		0A95319D1637CEB11629483F /* Luti/Tools/Skills/ProjectSkills.swift in Sources */ = {isa = PBXBuildFile; fileRef = 08CE503A0CBF538658D300B3 /* Luti/Tools/Skills/ProjectSkills.swift */; };
+		0E3CF5CE94FEA30EB4EDA3EB /* Luti/Core/Runtime/ProjectContextModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7EB13173EE0D8D2BD13C128F /* Luti/Core/Runtime/ProjectContextModels.swift */; };
+		1109458BFC4D28600522838E /* LutiTests/Core/ProjectEnablementTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE2202135F637203A5D7DCC8 /* LutiTests/Core/ProjectEnablementTests.swift */; };
+		1164627C3CE8BE78E3701490 /* CheckpointTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 26CC2A48593219F8E8D0A1B4 /* CheckpointTests.swift */; };
+		17281B2BFB3374449459012B /* Luti/Core/Localization/LanguageSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 048388C80D153A19622B2F67 /* Luti/Core/Localization/LanguageSettings.swift */; };
+		177DC8E982F6363F10C05C4C /* Luti/Features/Configuration/CloudflareConnectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 920B04943DF63F3784DBC238 /* Luti/Features/Configuration/CloudflareConnectionView.swift */; };
+		1B52010BD3F94DE977188A4D /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = AA4ACA445B3FBAF47CDE31AC /* README.md */; };
+		1E4F83B37B27D672D77063FD /* LutiTests/Core/ProjectMemoryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6788AB81F7C1FD4B410B512D /* LutiTests/Core/ProjectMemoryTests.swift */; };
+		214A36BC4C5E450C1788102B /* NIOPosix in Frameworks */ = {isa = PBXBuildFile; productRef = CA64C5AC378C67ECFFFE6471 /* NIOPosix */; };
+		29641B894A3C226FE11CBD0B /* Luti/Core/Workspace/WorkspacePatch.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06F310298AA6DA037D5A0619 /* Luti/Core/Workspace/WorkspacePatch.swift */; };
+		2D58D02A660EB1EDA6ED9F39 /* Luti/Tools/Browser/BrowserArguments.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA8CBE69FFB8764A4F45C4EE /* Luti/Tools/Browser/BrowserArguments.swift */; };
+		2DD7BCCD3B7154AD10A2EAA3 /* Luti/Core/BoundedDownload.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAB0A1413B860505F16734FD /* Luti/Core/BoundedDownload.swift */; };
+		2E5936725B00F537564689E1 /* Luti/Transport/MCPServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = CDE7284057DCB45A35F46913 /* Luti/Transport/MCPServer.swift */; };
+		30351475A752625AB89BD153 /* Luti/Features/Home/CapabilitiesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A377C9B84626271F70939AFC /* Luti/Features/Home/CapabilitiesView.swift */; };
+		34984D3DED40658B19F80B36 /* Luti/Tools/Project/LanguageServiceProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9081EB321334407B4CDA75D6 /* Luti/Tools/Project/LanguageServiceProvider.swift */; };
+		36A2E983CE01A96A0C90590C /* Luti/Core/Artifacts/ImagePreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4743D60DEF11B498FF2DA4F8 /* Luti/Core/Artifacts/ImagePreview.swift */; };
+		37312702E700A512322E1E57 /* SandboxBackend.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4265F7264F6B530D5C941088 /* SandboxBackend.swift */; };
+		3DCDD5010698C39E3114376B /* LutiTests/Core/GitTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B151DAD7B55DB352450D368A /* LutiTests/Core/GitTests.swift */; };
+		3E4C2300FC3D1FB4B09BB46A /* Luti/Tools/Project/ProjectCapabilityGraph.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBEEC3023EF3A0CCFBA0E59C /* Luti/Tools/Project/ProjectCapabilityGraph.swift */; };
+		3E6BA51B78C4D8D3C605C90A /* Luti/Features/Projects/ProjectContextView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A9F255DF4667B3C5504943C /* Luti/Features/Projects/ProjectContextView.swift */; };
+		405DF6F60759F45AAFCD5A02 /* Luti/Tools/Project/ProjectTaskRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = F439AC49C1682784AAB23A28 /* Luti/Tools/Project/ProjectTaskRegistry.swift */; };
+		428190611CCBB1423B80C53A /* Luti/Tools/Git/GitService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A93ACC007E135B1612AE095E /* Luti/Tools/Git/GitService.swift */; };
+		453924BD81A2F3A51A943C3A /* Luti/Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 667C529EA2C1F34077C5429A /* Luti/Assets.xcassets */; };
+		469DD7F8C6B89928B3DAD52E /* WorkspaceCheckpoint.swift in Sources */ = {isa = PBXBuildFile; fileRef = A264F868BE6602C21DC2B577 /* WorkspaceCheckpoint.swift */; };
+		4824816CB4749B65F1FC21B2 /* Luti/Tools/Project/ProjectInspector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78FB253DD8EF4C2B91D529DC /* Luti/Tools/Project/ProjectInspector.swift */; };
+		4ABD6440B5ED475AD6CB4587 /* Luti/Platform/Security/ConnectionClipboard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 325FB93FF49D12A9B7E020D8 /* Luti/Platform/Security/ConnectionClipboard.swift */; };
+		534AC3095778E8A954B681AD /* NIOHTTP1 in Frameworks */ = {isa = PBXBuildFile; productRef = 30B647A2B724C2A3210E413F /* NIOHTTP1 */; };
+		58F1FA24CB6D3F3969B68AD1 /* LutiTests/Core/ConnectionRuntimeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFA216B57F89C91BE74A48A6 /* LutiTests/Core/ConnectionRuntimeTests.swift */; };
+		5FCBC6971A6052604D312AB0 /* Luti/Tools/Project/ProjectInstructions.swift in Sources */ = {isa = PBXBuildFile; fileRef = F75B4B5DA6B4E49A981A9A1E /* Luti/Tools/Project/ProjectInstructions.swift */; };
+		6435981425BB744238BABB9B /* Luti/Core/JSONValue.swift in Sources */ = {isa = PBXBuildFile; fileRef = C84FE4D9A5E55F8A29DEB628 /* Luti/Core/JSONValue.swift */; };
+		65BAAE6AB9438F1B79E0B9C0 /* Luti/Tools/Browser/BrowserProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC136B0E6BAE85314E515184 /* Luti/Tools/Browser/BrowserProvider.swift */; };
+		66715A5173D7397FEFEE6CAD /* Luti/App/LutiApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB6094E59F0C6D3D84E65384 /* Luti/App/LutiApp.swift */; };
+		6A24547BC793ED558EF7C917 /* Luti/Core/Workspace/WorkspaceMutations.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A464C222D817C5BDA738047 /* Luti/Core/Workspace/WorkspaceMutations.swift */; };
+		6A51A327D346A2954492A2D6 /* Luti/Core/Workspace/WorkspaceDirectory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D3963E04D511B976F7E6C7B /* Luti/Core/Workspace/WorkspaceDirectory.swift */; };
+		6A5A6097A8FFDA967F0D5D2D /* LutiTests/Core/MCPTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CF497942D859193C1CC59EE /* LutiTests/Core/MCPTests.swift */; };
+		6CC7C3999D560B247FE6402F /* Luti/Tools/Browser/BrowserInstallation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FBE65B977412F0F2F45CA7B /* Luti/Tools/Browser/BrowserInstallation.swift */; };
+		6CCD533749985B5AC42D9ECC /* Luti/Features/Projects/ProjectRecoveryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 574EECCEE8BED7B935B6544D /* Luti/Features/Projects/ProjectRecoveryView.swift */; };
+		6DD5612F94877C32CBA9070A /* Luti/UI/Navigation/MainWindowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C64734CB0A108AE29AD71680 /* Luti/UI/Navigation/MainWindowView.swift */; };
+		6E2AAFA680F14544F6057AD8 /* LutiTests/Core/WorkspaceMutationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D735396EB5E7148699039C37 /* LutiTests/Core/WorkspaceMutationTests.swift */; };
+		72968B7FCAE81C4939D32D67 /* Luti/Core/Tunnel/TunnelContract.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C0EAAB3E4EB425F2B5B9D69 /* Luti/Core/Tunnel/TunnelContract.swift */; };
+		73C5324693FB4ED48B1916E6 /* LutiTests/Core/WorkspaceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8B12DD1BA476099324F279B /* LutiTests/Core/WorkspaceTests.swift */; };
+		750D9D7CDB98EB3C5AF68A63 /* Luti/Platform/Desktop/AccessibilityService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 379E1F9871842D2A95FF517D /* Luti/Platform/Desktop/AccessibilityService.swift */; };
+		76E5E7DD1F49B97DD8F3E863 /* Luti/Core/Processes/LocalURLDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81B7C64C3505B01D469C316C /* Luti/Core/Processes/LocalURLDetector.swift */; };
+		78A72BA59AEC10BCF0325AF5 /* LutiTests/Core/TestSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A030C42AFDD9773D2BE64E0 /* LutiTests/Core/TestSupport.swift */; };
+		7AFE580ED287279207993169 /* LutiTests/Core/ProcessTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 749AFAFDC58E81E44E0CB305 /* LutiTests/Core/ProcessTests.swift */; };
+		7B1E2257B59393AFB41A5043 /* Luti/Tools/ToolRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10933F1984A4EEDC91A55D31 /* Luti/Tools/ToolRouter.swift */; };
+		7C8A9CC26FCF3189DC032931 /* Luti/Tools/Browser/BrowserRPC.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1EA765E2A42C435EC7CD4119 /* Luti/Tools/Browser/BrowserRPC.swift */; };
+		7CA67186DAD92BACE2F78EB5 /* Luti/UI/Components/MaterialComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFFB763181434763440D65B2 /* Luti/UI/Components/MaterialComponents.swift */; };
+		7F59DE2C7BF4D83F86BFAD5B /* Luti/Transport/MCPDispatcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA1741BF0B6ADBA66C91C5F0 /* Luti/Transport/MCPDispatcher.swift */; };
+		82C769B4A79BF251F03131BA /* LutiTests/Browser/BrowserIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2235792B1D585D571E21EEE1 /* LutiTests/Browser/BrowserIntegrationTests.swift */; };
+		84DACC55BA93ACD3DEE34D50 /* Luti/Resources/zh-Hans.lproj in Resources */ = {isa = PBXBuildFile; fileRef = 67BC0C0B9A80180586343ECD /* Luti/Resources/zh-Hans.lproj */; };
+		86DCDB0048F62DEA28FD0563 /* Luti/Platform/Desktop/InputService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2459880A25765D9E2B176E2C /* Luti/Platform/Desktop/InputService.swift */; };
+		89FDB273C39D006F9D15E13D /* Luti/Core/Connections/CloudflareBYOProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = B14E6347996F041D5A7B03DC /* Luti/Core/Connections/CloudflareBYOProvider.swift */; };
+		8C9C77EC37195434348B3B73 /* Luti/Resources/BrowserHelper in Resources */ = {isa = PBXBuildFile; fileRef = E11DC63CDB0E66C104F52539 /* Luti/Resources/BrowserHelper */; };
+		8F541D44210A71C2292F8BE5 /* Luti/Core/Connections/ConnectionContract.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90294815478D1E0D60C71362 /* Luti/Core/Connections/ConnectionContract.swift */; };
+		8F8FFDD34FFC09478346F10D /* Luti/Features/Settings/SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC4996D9722C9CBBEEFE3B73 /* Luti/Features/Settings/SettingsView.swift */; };
+		90333C5502D8DB18691EF9BE /* Luti/Core/Tunnel/TunnelInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28F758B28746F6BB8E590177 /* Luti/Core/Tunnel/TunnelInstaller.swift */; };
+		98C17B53A642B1580C45B951 /* Luti/Platform/Security/PermissionsAndKeychain.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19EFBDF666C6E955A9A77560 /* Luti/Platform/Security/PermissionsAndKeychain.swift */; };
+		98D0DDB72D2F15DCD51D3CD0 /* Luti/Resources/en.lproj in Resources */ = {isa = PBXBuildFile; fileRef = 7D3C821CAB76BB8B7F5F2708 /* Luti/Resources/en.lproj */; };
+		9DA0B6CCD94C2ECBDB01C004 /* Luti/App/AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 092C1F4AB94198ACE0512B43 /* Luti/App/AppModel.swift */; };
+		A10000000000000000000001 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = A10000000000000000000002 /* Sparkle */; };
+		A10000000000000000000004 /* Luti/App/AppUpdater.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000005 /* Luti/App/AppUpdater.swift */; };
+		A10000000000000000000006 /* THIRD_PARTY_NOTICES in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000007 /* THIRD_PARTY_NOTICES */; };
+		A10000000000000000000008 /* LutiTests/Core/ReleaseReadinessTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000009 /* LutiTests/Core/ReleaseReadinessTests.swift */; };
+		A20000000000000000000011 /* Luti/Resources/ja.lproj in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000010 /* Luti/Resources/ja.lproj */; };
+		A6F687838337FD03CA2BA065 /* Luti/Tools/AdditionalToolCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E9B873DA6C45E7A07D59D25 /* Luti/Tools/AdditionalToolCatalog.swift */; };
+		AA9957AD01F1EAB01EB0B8FD /* main.c in Sources */ = {isa = PBXBuildFile; fileRef = 65C29BA5B469A28EC4F2A75F /* main.c */; };
+		ACD4A3868A256ED33635C7EE /* LutiTests/Core/LoginItemControllerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 225871C086FBBF53D06513C8 /* LutiTests/Core/LoginItemControllerTests.swift */; };
+		ADE489692D0087C28BBDE9C1 /* Luti/Platform/Desktop/WindowAndCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = F96A1AF1968B7523660FD828 /* Luti/Platform/Desktop/WindowAndCapture.swift */; };
+		AF775ADAD642844AFAAA658F /* Luti/Core/Artifacts/ImageStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B2A67DDA1C2D9316D519D9C /* Luti/Core/Artifacts/ImageStore.swift */; };
+		AFAB9DB7AFA61E592F0E86D8 /* Luti/NativeSupport/native.c in Sources */ = {isa = PBXBuildFile; fileRef = 0B2EE6387344F5A27540B322 /* Luti/NativeSupport/native.c */; };
+		B24BF9CDBE3F2A4D68C4CDFC /* ProjectCheckpointStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5F49C0C4ABA2333BE55C757 /* ProjectCheckpointStore.swift */; };
+		B2B3DD7ABFD973229E18DA7D /* Luti/Platform/System/LoginItemController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7253F3D7E3A6BF1CFDDC1EB5 /* Luti/Platform/System/LoginItemController.swift */; };
+		B3717FC37F20BF6B27D63E9B /* Luti/Core/Runtime/ProjectSessionJournal.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1633CC6C2A849373AF2693F8 /* Luti/Core/Runtime/ProjectSessionJournal.swift */; };
+		B56DED318D193D51FA7C3C58 /* LutiTests/Core/CoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7443EAC777B665D3545C73AA /* LutiTests/Core/CoreTests.swift */; };
+		B972BF1EB1029D1A50D546D7 /* Luti/Core/Processes/JobManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E4EB87DE92A4B033424ED66 /* Luti/Core/Processes/JobManager.swift */; };
+		BACDCFB65801B859A063AF61 /* Luti/Core/Workspace/UnifiedPatch.swift in Sources */ = {isa = PBXBuildFile; fileRef = 76B09209E22091AAEC25D9E7 /* Luti/Core/Workspace/UnifiedPatch.swift */; };
+		BF2AC2E496F172EA348631BA /* Luti/Core/Connections/ConnectionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9DD4BB9F6B92B41C10CCA2FE /* Luti/Core/Connections/ConnectionManager.swift */; };
+		BFC53A9655D7BF9D3DAB3A3B /* Luti/Tools/Computer/ComputerService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E9683A342F9AF911E992C09 /* Luti/Tools/Computer/ComputerService.swift */; };
+		C97BCF27E14B4854EDF07779 /* LutiTests/Transport/HTTPIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32579AEA3FDAA1C11426399C /* LutiTests/Transport/HTTPIntegrationTests.swift */; };
+		CAABB5AC102457A3EA098B3D /* Luti/Core/Runtime/ActivityStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8936182371B48E5960A1434 /* Luti/Core/Runtime/ActivityStore.swift */; };
+		CCB899CB6C2BD3103AB58929 /* LutiTests/Core/TunnelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1E4F5DB962FD23B91BB3F6C /* LutiTests/Core/TunnelTests.swift */; };
+		CD2B7C6EBA23EB240E830EDB /* Luti/Features/Configuration/ConfigurationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A34858E97E4A9C214108649 /* Luti/Features/Configuration/ConfigurationView.swift */; };
+		CF88A7328C2581458CB5E017 /* Luti/Core/Runtime/RuntimeCore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1833D748F3BB41F05FA06078 /* Luti/Core/Runtime/RuntimeCore.swift */; };
+		D179F6C650A74D9492DA6C1A /* Luti/Core/Runtime/ProjectContextStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 136C0EC316687320A49C2F81 /* Luti/Core/Runtime/ProjectContextStore.swift */; };
+		D1A7CC6AB28421B63757008F /* Luti/Tools/MemoryTool.swift in Sources */ = {isa = PBXBuildFile; fileRef = E866D940DD8D5B94EE5A18DD /* Luti/Tools/MemoryTool.swift */; };
+		DFC4661F74620D39AFF662AD /* Luti/Tools/ToolCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 107F97446CE772ED1C795109 /* Luti/Tools/ToolCatalog.swift */; };
+		E3A970194035461DA98E6101 /* Luti/Features/Projects/ProjectsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3A970194035461DA98E6102 /* Luti/Features/Projects/ProjectsView.swift */; };
+		E3A970194035461DA98E6103 /* Luti/Features/Projects/ProjectSkillLibrary.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3A970194035461DA98E6104 /* Luti/Features/Projects/ProjectSkillLibrary.swift */; };
+		E4ECD43DF341C1458E179AB5 /* Luti/Core/Workspace/WorkspaceEdit.swift in Sources */ = {isa = PBXBuildFile; fileRef = C69B4A57C06CFC2826281F97 /* Luti/Core/Workspace/WorkspaceEdit.swift */; };
+		E6DC52A08EBF5F9474F5D4CA /* Luti/Features/Activity/ActivityView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0816FC2A429ECAAA80FA874 /* Luti/Features/Activity/ActivityView.swift */; };
+		E7612F932AC349918F710001 /* ConnectionDiagnostics.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7612F932AC349918F720001 /* ConnectionDiagnostics.swift */; };
+		E7612F932AC349918F710003 /* OpenAITunnelProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7612F932AC349918F720003 /* OpenAITunnelProvider.swift */; };
+		E7612F932AC349918F710004 /* NgrokProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7612F932AC349918F720004 /* NgrokProvider.swift */; };
+		E7612F932AC349918F710005 /* ConnectionExecutables.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7612F932AC349918F720005 /* ConnectionExecutables.swift */; };
+		E7612F932AC349918F710006 /* ProviderConnectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7612F932AC349918F720006 /* ProviderConnectionView.swift */; };
+		E7612F932AC349918F710007 /* ConnectionProviderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7612F932AC349918F720007 /* ConnectionProviderTests.swift */; };
+		E8C8052EFC3E751A63B8474D /* NIOCore in Frameworks */ = {isa = PBXBuildFile; productRef = 8D3F6949966C2A73CF07CCF9 /* NIOCore */; };
+		EA9A0DD7A284219121078D1A /* Luti/Tools/ExtendedTools.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8B1207E89DC2746EF18C73B /* Luti/Tools/ExtendedTools.swift */; };
+		EC997EA62D13F839D2902EC9 /* Luti/Features/Home/HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6069018DE7FA93BFF170AA7E /* Luti/Features/Home/HomeView.swift */; };
+		ED66A24882DABBD5AEB1DAE2 /* LutiTests/Core/ExtendedToolTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33B9FD70D146EB5000E0D261 /* LutiTests/Core/ExtendedToolTests.swift */; };
+		F0B000000000000000000001 /* Luti/Core/OAuth/OAuthContract.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0A000000000000000000001 /* Luti/Core/OAuth/OAuthContract.swift */; };
+		F0B000000000000000000002 /* Luti/Core/OAuth/OAuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0A000000000000000000002 /* Luti/Core/OAuth/OAuthService.swift */; };
+		F0B000000000000000000003 /* Luti/Core/OAuth/OAuthStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0A000000000000000000003 /* Luti/Core/OAuth/OAuthStore.swift */; };
+		F0B000000000000000000004 /* Luti/Features/Approval/ApprovalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0A000000000000000000004 /* Luti/Features/Approval/ApprovalView.swift */; };
+		F0B000000000000000000005 /* Luti/Features/Configuration/RemoteClientsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0A000000000000000000005 /* Luti/Features/Configuration/RemoteClientsView.swift */; };
+		F0E000000000000000000001 /* LutiTests/Core/OAuthTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0D000000000000000000001 /* LutiTests/Core/OAuthTests.swift */; };
+		F1BB33D695D61F8A36E1FC8D /* Luti/Core/Tunnel/TunnelManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9ACBE3B54A48A93E182640E8 /* Luti/Core/Tunnel/TunnelManager.swift */; };
+		F21F44FFFC721F927EE6FDC3 /* ProjectExecutionPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = C54BEC852087034B3AB281AB /* ProjectExecutionPolicy.swift */; };
+		F3B9AEED106E879A983DEB0E /* LutiTests/Core/ExecutionPolicyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2C0A34CEE031F42AF4743A9 /* LutiTests/Core/ExecutionPolicyTests.swift */; };
+		F55C86F699927FBC91741B45 /* Luti/Core/Workspace/WorkspaceFiles.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78D268E3129786F4C659BA0C /* Luti/Core/Workspace/WorkspaceFiles.swift */; };
+		F64FCE721F05DBE27F7A7393 /* Luti/Core/Artifacts/ArtifactStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9807E5C89FB6A18CACF81841 /* Luti/Core/Artifacts/ArtifactStore.swift */; };
+		F7948282ECEB814F7E3DF53E /* Luti/Core/PrivateFiles.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A5E1048090D4982EB02D1D3 /* Luti/Core/PrivateFiles.swift */; };
+		F799A3CDF636FDD8EBFE9DB0 /* Luti/Core/Primitives.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84602EDC9195414E16E5F0E3 /* Luti/Core/Primitives.swift */; };
+		FA36D59DD76A910506E3B025 /* Luti/Core/Processes/OwnedProcess.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D63BD03697420FAA1565448 /* Luti/Core/Processes/OwnedProcess.swift */; };
+		FE309333D9B130590844E98A /* Luti/UI/Components/MDSelectionControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96AD40F390699FD126B54DE3 /* Luti/UI/Components/MDSelectionControls.swift */; };
+		FF22E9F1F2BF8955B2E840EA /* Luti/Core/Workspace/WorkspaceRead.swift in Sources */ = {isa = PBXBuildFile; fileRef = D66A9FA3C88C794199B56D90 /* Luti/Core/Workspace/WorkspaceRead.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		8D0396FD36628000D4C54880 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 98F54143AB4E86B28C3AFEE0 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = C9BEAE69A821211D096B4DAF;
+			remoteInfo = Luti;
+		};
+		E1DA41A736DB7ABE9CCCFCC3 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 98F54143AB4E86B28C3AFEE0 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = EFCDCDE8FC683093F7513DBA;
+			remoteInfo = LutiProcessHost;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		93A895E2776523D9B96375A7 /* Embed Process Host */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 6;
+			files = (
+				02A6DAE21D02575B9C2DDB23 /* LutiProcessHost in Embed Process Host */,
+			);
+			name = "Embed Process Host";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		048388C80D153A19622B2F67 /* Luti/Core/Localization/LanguageSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/Core/Localization/LanguageSettings.swift; sourceTree = SOURCE_ROOT; };
+		06F310298AA6DA037D5A0619 /* Luti/Core/Workspace/WorkspacePatch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/Core/Workspace/WorkspacePatch.swift; sourceTree = SOURCE_ROOT; };
+		08CE503A0CBF538658D300B3 /* Luti/Tools/Skills/ProjectSkills.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/Tools/Skills/ProjectSkills.swift; sourceTree = SOURCE_ROOT; };
+		092C1F4AB94198ACE0512B43 /* Luti/App/AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/App/AppModel.swift; sourceTree = SOURCE_ROOT; };
+		099302354A4B14C2B9329555 /* Luti.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Luti.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		0B2EE6387344F5A27540B322 /* Luti/NativeSupport/native.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = Luti/NativeSupport/native.c; sourceTree = SOURCE_ROOT; };
+		0CF497942D859193C1CC59EE /* LutiTests/Core/MCPTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LutiTests/Core/MCPTests.swift; sourceTree = SOURCE_ROOT; };
+		0D63BD03697420FAA1565448 /* Luti/Core/Processes/OwnedProcess.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/Core/Processes/OwnedProcess.swift; sourceTree = SOURCE_ROOT; };
+		0DA71C9A774AF81B459D4737 /* Luti/Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Luti/Info.plist; sourceTree = SOURCE_ROOT; };
+		107F97446CE772ED1C795109 /* Luti/Tools/ToolCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/Tools/ToolCatalog.swift; sourceTree = SOURCE_ROOT; };
+		10933F1984A4EEDC91A55D31 /* Luti/Tools/ToolRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/Tools/ToolRouter.swift; sourceTree = SOURCE_ROOT; };
+		136C0EC316687320A49C2F81 /* Luti/Core/Runtime/ProjectContextStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/Core/Runtime/ProjectContextStore.swift; sourceTree = SOURCE_ROOT; };
+		1633CC6C2A849373AF2693F8 /* Luti/Core/Runtime/ProjectSessionJournal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/Core/Runtime/ProjectSessionJournal.swift; sourceTree = SOURCE_ROOT; };
+		1833D748F3BB41F05FA06078 /* Luti/Core/Runtime/RuntimeCore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/Core/Runtime/RuntimeCore.swift; sourceTree = SOURCE_ROOT; };
+		19EFBDF666C6E955A9A77560 /* Luti/Platform/Security/PermissionsAndKeychain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/Platform/Security/PermissionsAndKeychain.swift; sourceTree = SOURCE_ROOT; };
+		1C0EAAB3E4EB425F2B5B9D69 /* Luti/Core/Tunnel/TunnelContract.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/Core/Tunnel/TunnelContract.swift; sourceTree = SOURCE_ROOT; };
+		1EA765E2A42C435EC7CD4119 /* Luti/Tools/Browser/BrowserRPC.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/Tools/Browser/BrowserRPC.swift; sourceTree = SOURCE_ROOT; };
+		2235792B1D585D571E21EEE1 /* LutiTests/Browser/BrowserIntegrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LutiTests/Browser/BrowserIntegrationTests.swift; sourceTree = SOURCE_ROOT; };
+		225871C086FBBF53D06513C8 /* LutiTests/Core/LoginItemControllerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LutiTests/Core/LoginItemControllerTests.swift; sourceTree = SOURCE_ROOT; };
+		2459880A25765D9E2B176E2C /* Luti/Platform/Desktop/InputService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/Platform/Desktop/InputService.swift; sourceTree = SOURCE_ROOT; };
+		26CC2A48593219F8E8D0A1B4 /* CheckpointTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheckpointTests.swift; sourceTree = "<group>"; };
+		2848AD46A6979BA3D92A46A1 /* LutiTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = LutiTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		28F758B28746F6BB8E590177 /* Luti/Core/Tunnel/TunnelInstaller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/Core/Tunnel/TunnelInstaller.swift; sourceTree = SOURCE_ROOT; };
+		2D3963E04D511B976F7E6C7B /* Luti/Core/Workspace/WorkspaceDirectory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/Core/Workspace/WorkspaceDirectory.swift; sourceTree = SOURCE_ROOT; };
+		2FBE65B977412F0F2F45CA7B /* Luti/Tools/Browser/BrowserInstallation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/Tools/Browser/BrowserInstallation.swift; sourceTree = SOURCE_ROOT; };
+		32579AEA3FDAA1C11426399C /* LutiTests/Transport/HTTPIntegrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LutiTests/Transport/HTTPIntegrationTests.swift; sourceTree = SOURCE_ROOT; };
+		325FB93FF49D12A9B7E020D8 /* Luti/Platform/Security/ConnectionClipboard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/Platform/Security/ConnectionClipboard.swift; sourceTree = SOURCE_ROOT; };
+		33B9FD70D146EB5000E0D261 /* LutiTests/Core/ExtendedToolTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LutiTests/Core/ExtendedToolTests.swift; sourceTree = SOURCE_ROOT; };
+		379E1F9871842D2A95FF517D /* Luti/Platform/Desktop/AccessibilityService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/Platform/Desktop/AccessibilityService.swift; sourceTree = SOURCE_ROOT; };
+		39A4EB06C1C0EBBF56C69FBD /* LutiProcessHost */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = LutiProcessHost; sourceTree = BUILT_PRODUCTS_DIR; };
+		4265F7264F6B530D5C941088 /* SandboxBackend.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SandboxBackend.swift; sourceTree = "<group>"; };
+		4743D60DEF11B498FF2DA4F8 /* Luti/Core/Artifacts/ImagePreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/Core/Artifacts/ImagePreview.swift; sourceTree = SOURCE_ROOT; };
+		4A9F255DF4667B3C5504943C /* Luti/Features/Projects/ProjectContextView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/Features/Projects/ProjectContextView.swift; sourceTree = SOURCE_ROOT; };
+		574EECCEE8BED7B935B6544D /* Luti/Features/Projects/ProjectRecoveryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/Features/Projects/ProjectRecoveryView.swift; sourceTree = SOURCE_ROOT; };
+		5A464C222D817C5BDA738047 /* Luti/Core/Workspace/WorkspaceMutations.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/Core/Workspace/WorkspaceMutations.swift; sourceTree = SOURCE_ROOT; };
+		5E9B873DA6C45E7A07D59D25 /* Luti/Tools/AdditionalToolCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/Tools/AdditionalToolCatalog.swift; sourceTree = SOURCE_ROOT; };
+		6069018DE7FA93BFF170AA7E /* Luti/Features/Home/HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/Features/Home/HomeView.swift; sourceTree = SOURCE_ROOT; };
+		65C29BA5B469A28EC4F2A75F /* main.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = main.c; sourceTree = "<group>"; };
+		667C529EA2C1F34077C5429A /* Luti/Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Luti/Assets.xcassets; sourceTree = SOURCE_ROOT; };
+		6788AB81F7C1FD4B410B512D /* LutiTests/Core/ProjectMemoryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LutiTests/Core/ProjectMemoryTests.swift; sourceTree = SOURCE_ROOT; };
+		67BC0C0B9A80180586343ECD /* Luti/Resources/zh-Hans.lproj */ = {isa = PBXFileReference; lastKnownFileType = folder; path = "Luti/Resources/zh-Hans.lproj"; sourceTree = SOURCE_ROOT; };
+		6E9683A342F9AF911E992C09 /* Luti/Tools/Computer/ComputerService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/Tools/Computer/ComputerService.swift; sourceTree = SOURCE_ROOT; };
+		7253F3D7E3A6BF1CFDDC1EB5 /* Luti/Platform/System/LoginItemController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/Platform/System/LoginItemController.swift; sourceTree = SOURCE_ROOT; };
+		7443EAC777B665D3545C73AA /* LutiTests/Core/CoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LutiTests/Core/CoreTests.swift; sourceTree = SOURCE_ROOT; };
+		749AFAFDC58E81E44E0CB305 /* LutiTests/Core/ProcessTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LutiTests/Core/ProcessTests.swift; sourceTree = SOURCE_ROOT; };
+		76B09209E22091AAEC25D9E7 /* Luti/Core/Workspace/UnifiedPatch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/Core/Workspace/UnifiedPatch.swift; sourceTree = SOURCE_ROOT; };
+		78D268E3129786F4C659BA0C /* Luti/Core/Workspace/WorkspaceFiles.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/Core/Workspace/WorkspaceFiles.swift; sourceTree = SOURCE_ROOT; };
+		78FB253DD8EF4C2B91D529DC /* Luti/Tools/Project/ProjectInspector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/Tools/Project/ProjectInspector.swift; sourceTree = SOURCE_ROOT; };
+		7D3C821CAB76BB8B7F5F2708 /* Luti/Resources/en.lproj */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Luti/Resources/en.lproj; sourceTree = SOURCE_ROOT; };
+		7EB13173EE0D8D2BD13C128F /* Luti/Core/Runtime/ProjectContextModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/Core/Runtime/ProjectContextModels.swift; sourceTree = SOURCE_ROOT; };
+		81B7C64C3505B01D469C316C /* Luti/Core/Processes/LocalURLDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/Core/Processes/LocalURLDetector.swift; sourceTree = SOURCE_ROOT; };
+		84602EDC9195414E16E5F0E3 /* Luti/Core/Primitives.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/Core/Primitives.swift; sourceTree = SOURCE_ROOT; };
+		8A030C42AFDD9773D2BE64E0 /* LutiTests/Core/TestSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LutiTests/Core/TestSupport.swift; sourceTree = SOURCE_ROOT; };
+		8A34858E97E4A9C214108649 /* Luti/Features/Configuration/ConfigurationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/Features/Configuration/ConfigurationView.swift; sourceTree = SOURCE_ROOT; };
+		8A5E1048090D4982EB02D1D3 /* Luti/Core/PrivateFiles.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/Core/PrivateFiles.swift; sourceTree = SOURCE_ROOT; };
+		8E4EB87DE92A4B033424ED66 /* Luti/Core/Processes/JobManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/Core/Processes/JobManager.swift; sourceTree = SOURCE_ROOT; };
+		90294815478D1E0D60C71362 /* Luti/Core/Connections/ConnectionContract.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/Core/Connections/ConnectionContract.swift; sourceTree = SOURCE_ROOT; };
+		9081EB321334407B4CDA75D6 /* Luti/Tools/Project/LanguageServiceProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/Tools/Project/LanguageServiceProvider.swift; sourceTree = SOURCE_ROOT; };
+		920B04943DF63F3784DBC238 /* Luti/Features/Configuration/CloudflareConnectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/Features/Configuration/CloudflareConnectionView.swift; sourceTree = SOURCE_ROOT; };
+		96AD40F390699FD126B54DE3 /* Luti/UI/Components/MDSelectionControls.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/UI/Components/MDSelectionControls.swift; sourceTree = SOURCE_ROOT; };
+		9807E5C89FB6A18CACF81841 /* Luti/Core/Artifacts/ArtifactStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/Core/Artifacts/ArtifactStore.swift; sourceTree = SOURCE_ROOT; };
+		9ACBE3B54A48A93E182640E8 /* Luti/Core/Tunnel/TunnelManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/Core/Tunnel/TunnelManager.swift; sourceTree = SOURCE_ROOT; };
+		9B2A67DDA1C2D9316D519D9C /* Luti/Core/Artifacts/ImageStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/Core/Artifacts/ImageStore.swift; sourceTree = SOURCE_ROOT; };
+		9DD4BB9F6B92B41C10CCA2FE /* Luti/Core/Connections/ConnectionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/Core/Connections/ConnectionManager.swift; sourceTree = SOURCE_ROOT; };
+		A10000000000000000000005 /* Luti/App/AppUpdater.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/App/AppUpdater.swift; sourceTree = SOURCE_ROOT; };
+		A10000000000000000000007 /* THIRD_PARTY_NOTICES */ = {isa = PBXFileReference; lastKnownFileType = text; path = THIRD_PARTY_NOTICES; sourceTree = SOURCE_ROOT; };
+		A10000000000000000000009 /* LutiTests/Core/ReleaseReadinessTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LutiTests/Core/ReleaseReadinessTests.swift; sourceTree = SOURCE_ROOT; };
+		A20000000000000000000010 /* Luti/Resources/ja.lproj */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Luti/Resources/ja.lproj; sourceTree = SOURCE_ROOT; };
+		A264F868BE6602C21DC2B577 /* WorkspaceCheckpoint.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceCheckpoint.swift; sourceTree = "<group>"; };
+		A377C9B84626271F70939AFC /* Luti/Features/Home/CapabilitiesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/Features/Home/CapabilitiesView.swift; sourceTree = SOURCE_ROOT; };
+		A8B12DD1BA476099324F279B /* LutiTests/Core/WorkspaceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LutiTests/Core/WorkspaceTests.swift; sourceTree = SOURCE_ROOT; };
+		A93ACC007E135B1612AE095E /* Luti/Tools/Git/GitService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/Tools/Git/GitService.swift; sourceTree = SOURCE_ROOT; };
+		AA4ACA445B3FBAF47CDE31AC /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
+		AFFB763181434763440D65B2 /* Luti/UI/Components/MaterialComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/UI/Components/MaterialComponents.swift; sourceTree = SOURCE_ROOT; };
+		B0816FC2A429ECAAA80FA874 /* Luti/Features/Activity/ActivityView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/Features/Activity/ActivityView.swift; sourceTree = SOURCE_ROOT; };
+		B0F29D9665E875F09025A82B /* Luti/Luti-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "Luti/Luti-Bridging-Header.h"; sourceTree = SOURCE_ROOT; };
+		B14E6347996F041D5A7B03DC /* Luti/Core/Connections/CloudflareBYOProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/Core/Connections/CloudflareBYOProvider.swift; sourceTree = SOURCE_ROOT; };
+		B151DAD7B55DB352450D368A /* LutiTests/Core/GitTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LutiTests/Core/GitTests.swift; sourceTree = SOURCE_ROOT; };
+		B1E4F5DB962FD23B91BB3F6C /* LutiTests/Core/TunnelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LutiTests/Core/TunnelTests.swift; sourceTree = SOURCE_ROOT; };
+		B93781F258ABAE232915500E /* Luti/NativeSupport/CNative.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = Luti/NativeSupport/CNative.h; sourceTree = SOURCE_ROOT; };
+		BA1741BF0B6ADBA66C91C5F0 /* Luti/Transport/MCPDispatcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/Transport/MCPDispatcher.swift; sourceTree = SOURCE_ROOT; };
+		BC05CFA2F3B6E89132EE23BF /* Luti/Core/Processes/DiagnosticOutputParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/Core/Processes/DiagnosticOutputParser.swift; sourceTree = SOURCE_ROOT; };
+		BC4996D9722C9CBBEEFE3B73 /* Luti/Features/Settings/SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/Features/Settings/SettingsView.swift; sourceTree = SOURCE_ROOT; };
+		C54BEC852087034B3AB281AB /* ProjectExecutionPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectExecutionPolicy.swift; sourceTree = "<group>"; };
+		C5F49C0C4ABA2333BE55C757 /* ProjectCheckpointStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectCheckpointStore.swift; sourceTree = "<group>"; };
+		C64734CB0A108AE29AD71680 /* Luti/UI/Navigation/MainWindowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/UI/Navigation/MainWindowView.swift; sourceTree = SOURCE_ROOT; };
+		C69B4A57C06CFC2826281F97 /* Luti/Core/Workspace/WorkspaceEdit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/Core/Workspace/WorkspaceEdit.swift; sourceTree = SOURCE_ROOT; };
+		C84FE4D9A5E55F8A29DEB628 /* Luti/Core/JSONValue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/Core/JSONValue.swift; sourceTree = SOURCE_ROOT; };
+		CC136B0E6BAE85314E515184 /* Luti/Tools/Browser/BrowserProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/Tools/Browser/BrowserProvider.swift; sourceTree = SOURCE_ROOT; };
+		CDE7284057DCB45A35F46913 /* Luti/Transport/MCPServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/Transport/MCPServer.swift; sourceTree = SOURCE_ROOT; };
+		D66A9FA3C88C794199B56D90 /* Luti/Core/Workspace/WorkspaceRead.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/Core/Workspace/WorkspaceRead.swift; sourceTree = SOURCE_ROOT; };
+		D735396EB5E7148699039C37 /* LutiTests/Core/WorkspaceMutationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LutiTests/Core/WorkspaceMutationTests.swift; sourceTree = SOURCE_ROOT; };
+		D8936182371B48E5960A1434 /* Luti/Core/Runtime/ActivityStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/Core/Runtime/ActivityStore.swift; sourceTree = SOURCE_ROOT; };
+		DCEA7F67C6D53EF6492A311C /* Luti/Core/Processes/ProcessPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/Core/Processes/ProcessPolicy.swift; sourceTree = SOURCE_ROOT; };
+		DE2202135F637203A5D7DCC8 /* LutiTests/Core/ProjectEnablementTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LutiTests/Core/ProjectEnablementTests.swift; sourceTree = SOURCE_ROOT; };
+		E11DC63CDB0E66C104F52539 /* Luti/Resources/BrowserHelper */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Luti/Resources/BrowserHelper; sourceTree = SOURCE_ROOT; };
+		E3A970194035461DA98E6102 /* Luti/Features/Projects/ProjectsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/Features/Projects/ProjectsView.swift; sourceTree = SOURCE_ROOT; };
+		E3A970194035461DA98E6104 /* Luti/Features/Projects/ProjectSkillLibrary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/Features/Projects/ProjectSkillLibrary.swift; sourceTree = SOURCE_ROOT; };
+		E7612F932AC349918F720001 /* ConnectionDiagnostics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ConnectionDiagnostics.swift; path = Luti/Core/Connections/ConnectionDiagnostics.swift; sourceTree = SOURCE_ROOT; };
+		E7612F932AC349918F720003 /* OpenAITunnelProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = OpenAITunnelProvider.swift; path = Luti/Core/Connections/OpenAITunnelProvider.swift; sourceTree = SOURCE_ROOT; };
+		E7612F932AC349918F720004 /* NgrokProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NgrokProvider.swift; path = Luti/Core/Connections/NgrokProvider.swift; sourceTree = SOURCE_ROOT; };
+		E7612F932AC349918F720005 /* ConnectionExecutables.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ConnectionExecutables.swift; path = Luti/Core/Connections/ConnectionExecutables.swift; sourceTree = SOURCE_ROOT; };
+		E7612F932AC349918F720006 /* ProviderConnectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ProviderConnectionView.swift; path = Luti/Features/Configuration/ProviderConnectionView.swift; sourceTree = SOURCE_ROOT; };
+		E7612F932AC349918F720007 /* ConnectionProviderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ConnectionProviderTests.swift; path = LutiTests/Core/ConnectionProviderTests.swift; sourceTree = SOURCE_ROOT; };
+		E866D940DD8D5B94EE5A18DD /* Luti/Tools/MemoryTool.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/Tools/MemoryTool.swift; sourceTree = SOURCE_ROOT; };
+		EB6094E59F0C6D3D84E65384 /* Luti/App/LutiApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/App/LutiApp.swift; sourceTree = SOURCE_ROOT; };
+		F0A000000000000000000001 /* Luti/Core/OAuth/OAuthContract.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/Core/OAuth/OAuthContract.swift; sourceTree = SOURCE_ROOT; };
+		F0A000000000000000000002 /* Luti/Core/OAuth/OAuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/Core/OAuth/OAuthService.swift; sourceTree = SOURCE_ROOT; };
+		F0A000000000000000000003 /* Luti/Core/OAuth/OAuthStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/Core/OAuth/OAuthStore.swift; sourceTree = SOURCE_ROOT; };
+		F0A000000000000000000004 /* Luti/Features/Approval/ApprovalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/Features/Approval/ApprovalView.swift; sourceTree = SOURCE_ROOT; };
+		F0A000000000000000000005 /* Luti/Features/Configuration/RemoteClientsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/Features/Configuration/RemoteClientsView.swift; sourceTree = SOURCE_ROOT; };
+		F0D000000000000000000001 /* LutiTests/Core/OAuthTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LutiTests/Core/OAuthTests.swift; sourceTree = SOURCE_ROOT; };
+		F2C0A34CEE031F42AF4743A9 /* LutiTests/Core/ExecutionPolicyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LutiTests/Core/ExecutionPolicyTests.swift; sourceTree = SOURCE_ROOT; };
+		F439AC49C1682784AAB23A28 /* Luti/Tools/Project/ProjectTaskRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/Tools/Project/ProjectTaskRegistry.swift; sourceTree = SOURCE_ROOT; };
+		F75B4B5DA6B4E49A981A9A1E /* Luti/Tools/Project/ProjectInstructions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/Tools/Project/ProjectInstructions.swift; sourceTree = SOURCE_ROOT; };
+		F8B1207E89DC2746EF18C73B /* Luti/Tools/ExtendedTools.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/Tools/ExtendedTools.swift; sourceTree = SOURCE_ROOT; };
+		F96A1AF1968B7523660FD828 /* Luti/Platform/Desktop/WindowAndCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/Platform/Desktop/WindowAndCapture.swift; sourceTree = SOURCE_ROOT; };
+		FA8CBE69FFB8764A4F45C4EE /* Luti/Tools/Browser/BrowserArguments.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/Tools/Browser/BrowserArguments.swift; sourceTree = SOURCE_ROOT; };
+		FAB0A1413B860505F16734FD /* Luti/Core/BoundedDownload.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/Core/BoundedDownload.swift; sourceTree = SOURCE_ROOT; };
+		FBEEC3023EF3A0CCFBA0E59C /* Luti/Tools/Project/ProjectCapabilityGraph.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/Tools/Project/ProjectCapabilityGraph.swift; sourceTree = SOURCE_ROOT; };
+		FFA216B57F89C91BE74A48A6 /* LutiTests/Core/ConnectionRuntimeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LutiTests/Core/ConnectionRuntimeTests.swift; sourceTree = SOURCE_ROOT; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		178AFF54238B3FBE9489971F /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				E8C8052EFC3E751A63B8474D /* NIOCore in Frameworks */,
+				534AC3095778E8A954B681AD /* NIOHTTP1 in Frameworks */,
+				214A36BC4C5E450C1788102B /* NIOPosix in Frameworks */,
+				A10000000000000000000001 /* Sparkle in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9751F6BF93EE3026A6B1FB86 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		0DB2E7D3D63C3DF849D2E450 /* LutiTests */ = {
+			isa = PBXGroup;
+			children = (
+				D9BA5495D0D56C26620ED84B /* Browser */,
+				7849829FF96D6BF5B8DAFD7F /* Core */,
+				A42A4983EA18FE9E4EC05980 /* Transport */,
+			);
+			path = LutiTests;
+			sourceTree = "<group>";
+		};
+		0FBD732FE63545512C1F91A2 /* Transport */ = {
+			isa = PBXGroup;
+			children = (
+				BA1741BF0B6ADBA66C91C5F0 /* Luti/Transport/MCPDispatcher.swift */,
+				CDE7284057DCB45A35F46913 /* Luti/Transport/MCPServer.swift */,
+			);
+			path = Transport;
+			sourceTree = "<group>";
+		};
+		2017FE56728D6B8DC102A815 /* Execution */ = {
+			isa = PBXGroup;
+			children = (
+				4265F7264F6B530D5C941088 /* SandboxBackend.swift */,
+				C54BEC852087034B3AB281AB /* ProjectExecutionPolicy.swift */,
+			);
+			path = Execution;
+			sourceTree = "<group>";
+		};
+		3AAF7725E58C93FE37A2E17C /* Luti */ = {
+			isa = PBXGroup;
+			children = (
+				440C7116DBFF269A4123BA6A /* App */,
+				667C529EA2C1F34077C5429A /* Luti/Assets.xcassets */,
+				DA0E5C1A4E86E9B5152BCC5F /* Core */,
+				91D587A6D2DA6A549087E9F8 /* Features */,
+				D0A6BE6B9C4D2169173717D7 /* NativeSupport */,
+				41FC156CC4F5B14CC501BF5A /* Platform */,
+				5FEE733723A5B0C6AD50C50B /* Resources */,
+				61A5461B9DB426FA42581FE1 /* Tools */,
+				0FBD732FE63545512C1F91A2 /* Transport */,
+				9F943200DD2BF18314DDB5B2 /* UI */,
+				0DA71C9A774AF81B459D4737 /* Luti/Info.plist */,
+				B0F29D9665E875F09025A82B /* Luti/Luti-Bridging-Header.h */,
+			);
+			path = Luti;
+			sourceTree = "<group>";
+		};
+		41FC156CC4F5B14CC501BF5A /* Platform */ = {
+			isa = PBXGroup;
+			children = (
+				BB596EE783896E8B0B41D0C4 /* Desktop */,
+				AC703CB0605363EAB2C566D2 /* Security */,
+				E799912140894A5CD8C1BBAF /* System */,
+			);
+			path = Platform;
+			sourceTree = "<group>";
+		};
+		440C7116DBFF269A4123BA6A /* App */ = {
+			isa = PBXGroup;
+			children = (
+				092C1F4AB94198ACE0512B43 /* Luti/App/AppModel.swift */,
+				EB6094E59F0C6D3D84E65384 /* Luti/App/LutiApp.swift */,
+				A10000000000000000000005 /* Luti/App/AppUpdater.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		476AFBE6A426D17A7E87EABF /* Git */ = {
+			isa = PBXGroup;
+			children = (
+				A93ACC007E135B1612AE095E /* Luti/Tools/Git/GitService.swift */,
+			);
+			path = Git;
+			sourceTree = "<group>";
+		};
+		5151B46607EBC8890D8DFCC2 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				099302354A4B14C2B9329555 /* Luti.app */,
+				39A4EB06C1C0EBBF56C69FBD /* LutiProcessHost */,
+				2848AD46A6979BA3D92A46A1 /* LutiTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		54D8034265E7698B05AFD8C7 /* Settings */ = {
+			isa = PBXGroup;
+			children = (
+				BC4996D9722C9CBBEEFE3B73 /* Luti/Features/Settings/SettingsView.swift */,
+			);
+			path = Settings;
+			sourceTree = "<group>";
+		};
+		5FEE733723A5B0C6AD50C50B /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				E11DC63CDB0E66C104F52539 /* Luti/Resources/BrowserHelper */,
+				7D3C821CAB76BB8B7F5F2708 /* Luti/Resources/en.lproj */,
+				A20000000000000000000010 /* Luti/Resources/ja.lproj */,
+				67BC0C0B9A80180586343ECD /* Luti/Resources/zh-Hans.lproj */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		61A5461B9DB426FA42581FE1 /* Tools */ = {
+			isa = PBXGroup;
+			children = (
+				E866D940DD8D5B94EE5A18DD /* Luti/Tools/MemoryTool.swift */,
+				F4D3B51111B62DC6FC57E39F /* Browser */,
+				6F124492FF3B579D0712383F /* Computer */,
+				476AFBE6A426D17A7E87EABF /* Git */,
+				F004F9DDFECD7A76BF95F2F1 /* Project */,
+				F1487F33D89AC8B9D4E71033 /* Skills */,
+				5E9B873DA6C45E7A07D59D25 /* Luti/Tools/AdditionalToolCatalog.swift */,
+				F8B1207E89DC2746EF18C73B /* Luti/Tools/ExtendedTools.swift */,
+				107F97446CE772ED1C795109 /* Luti/Tools/ToolCatalog.swift */,
+				10933F1984A4EEDC91A55D31 /* Luti/Tools/ToolRouter.swift */,
+			);
+			path = Tools;
+			sourceTree = "<group>";
+		};
+		6F124492FF3B579D0712383F /* Computer */ = {
+			isa = PBXGroup;
+			children = (
+				6E9683A342F9AF911E992C09 /* Luti/Tools/Computer/ComputerService.swift */,
+			);
+			path = Computer;
+			sourceTree = "<group>";
+		};
+		7849829FF96D6BF5B8DAFD7F /* Core */ = {
+			isa = PBXGroup;
+			children = (
+				A10000000000000000000009 /* LutiTests/Core/ReleaseReadinessTests.swift */,
+				E7612F932AC349918F720007 /* ConnectionProviderTests.swift */,
+				86956C01CEFB26DDD5B23CCA /* Recovery */,
+				F2C0A34CEE031F42AF4743A9 /* LutiTests/Core/ExecutionPolicyTests.swift */,
+				6788AB81F7C1FD4B410B512D /* LutiTests/Core/ProjectMemoryTests.swift */,
+				7443EAC777B665D3545C73AA /* LutiTests/Core/CoreTests.swift */,
+				33B9FD70D146EB5000E0D261 /* LutiTests/Core/ExtendedToolTests.swift */,
+				B151DAD7B55DB352450D368A /* LutiTests/Core/GitTests.swift */,
+				225871C086FBBF53D06513C8 /* LutiTests/Core/LoginItemControllerTests.swift */,
+				0CF497942D859193C1CC59EE /* LutiTests/Core/MCPTests.swift */,
+				DE2202135F637203A5D7DCC8 /* LutiTests/Core/ProjectEnablementTests.swift */,
+				FFA216B57F89C91BE74A48A6 /* LutiTests/Core/ConnectionRuntimeTests.swift */,
+				F0D000000000000000000001 /* LutiTests/Core/OAuthTests.swift */,
+				749AFAFDC58E81E44E0CB305 /* LutiTests/Core/ProcessTests.swift */,
+				8A030C42AFDD9773D2BE64E0 /* LutiTests/Core/TestSupport.swift */,
+				B1E4F5DB962FD23B91BB3F6C /* LutiTests/Core/TunnelTests.swift */,
+				D735396EB5E7148699039C37 /* LutiTests/Core/WorkspaceMutationTests.swift */,
+				A8B12DD1BA476099324F279B /* LutiTests/Core/WorkspaceTests.swift */,
+			);
+			path = Core;
+			sourceTree = "<group>";
+		};
+		859689CBC58B19AB22271CEF /* LutiProcessHost */ = {
+			isa = PBXGroup;
+			children = (
+				65C29BA5B469A28EC4F2A75F /* main.c */,
+			);
+			path = LutiProcessHost;
+			sourceTree = "<group>";
+		};
+		86956C01CEFB26DDD5B23CCA /* Recovery */ = {
+			isa = PBXGroup;
+			children = (
+				26CC2A48593219F8E8D0A1B4 /* CheckpointTests.swift */,
+			);
+			path = Recovery;
+			sourceTree = "<group>";
+		};
+		892D7FF406BBF06598DB67E8 /* Home */ = {
+			isa = PBXGroup;
+			children = (
+				6069018DE7FA93BFF170AA7E /* Luti/Features/Home/HomeView.swift */,
+				A377C9B84626271F70939AFC /* Luti/Features/Home/CapabilitiesView.swift */,
+			);
+			path = Home;
+			sourceTree = "<group>";
+		};
+		91D587A6D2DA6A549087E9F8 /* Features */ = {
+			isa = PBXGroup;
+			children = (
+				F0C000000000000000000002 /* Approval */,
+				9F564872643CFE2140CD6504 /* Activity */,
+				E078E7FC3AC6D77DA3E5F838 /* Configuration */,
+				892D7FF406BBF06598DB67E8 /* Home */,
+				E3A970194035461DA98E6105 /* Projects */,
+				54D8034265E7698B05AFD8C7 /* Settings */,
+			);
+			path = Features;
+			sourceTree = "<group>";
+		};
+		931BAC40E0989DC841B8C1D2 = {
+			isa = PBXGroup;
+			children = (
+				3AAF7725E58C93FE37A2E17C /* Luti */,
+				0DB2E7D3D63C3DF849D2E450 /* LutiTests */,
+				859689CBC58B19AB22271CEF /* LutiProcessHost */,
+				AA4ACA445B3FBAF47CDE31AC /* README.md */,
+				A10000000000000000000007 /* THIRD_PARTY_NOTICES */,
+				5151B46607EBC8890D8DFCC2 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		9C5C313B904CC079B7968F9B /* Artifacts */ = {
+			isa = PBXGroup;
+			children = (
+				9807E5C89FB6A18CACF81841 /* Luti/Core/Artifacts/ArtifactStore.swift */,
+				4743D60DEF11B498FF2DA4F8 /* Luti/Core/Artifacts/ImagePreview.swift */,
+				9B2A67DDA1C2D9316D519D9C /* Luti/Core/Artifacts/ImageStore.swift */,
+			);
+			path = Artifacts;
+			sourceTree = "<group>";
+		};
+		9CA0AB44ACF45522A5459ED7 /* Navigation */ = {
+			isa = PBXGroup;
+			children = (
+				C64734CB0A108AE29AD71680 /* Luti/UI/Navigation/MainWindowView.swift */,
+			);
+			path = Navigation;
+			sourceTree = "<group>";
+		};
+		9F564872643CFE2140CD6504 /* Activity */ = {
+			isa = PBXGroup;
+			children = (
+				B0816FC2A429ECAAA80FA874 /* Luti/Features/Activity/ActivityView.swift */,
+			);
+			path = Activity;
+			sourceTree = "<group>";
+		};
+		9F943200DD2BF18314DDB5B2 /* UI */ = {
+			isa = PBXGroup;
+			children = (
+				C1ECCCE592D7CF909F492EC4 /* Components */,
+				9CA0AB44ACF45522A5459ED7 /* Navigation */,
+			);
+			path = UI;
+			sourceTree = "<group>";
+		};
+		A42A4983EA18FE9E4EC05980 /* Transport */ = {
+			isa = PBXGroup;
+			children = (
+				32579AEA3FDAA1C11426399C /* LutiTests/Transport/HTTPIntegrationTests.swift */,
+			);
+			path = Transport;
+			sourceTree = "<group>";
+		};
+		A833F13E8011049FD27EB37F /* Tunnel */ = {
+			isa = PBXGroup;
+			children = (
+				1C0EAAB3E4EB425F2B5B9D69 /* Luti/Core/Tunnel/TunnelContract.swift */,
+				28F758B28746F6BB8E590177 /* Luti/Core/Tunnel/TunnelInstaller.swift */,
+				9ACBE3B54A48A93E182640E8 /* Luti/Core/Tunnel/TunnelManager.swift */,
+			);
+			path = Tunnel;
+			sourceTree = "<group>";
+		};
+		AC703CB0605363EAB2C566D2 /* Security */ = {
+			isa = PBXGroup;
+			children = (
+				19EFBDF666C6E955A9A77560 /* Luti/Platform/Security/PermissionsAndKeychain.swift */,
+			);
+			path = Security;
+			sourceTree = "<group>";
+		};
+		B219AB5562A1853C03BDB08F /* Localization */ = {
+			isa = PBXGroup;
+			children = (
+				048388C80D153A19622B2F67 /* Luti/Core/Localization/LanguageSettings.swift */,
+			);
+			path = Localization;
+			sourceTree = "<group>";
+		};
+		B3BC4EF14527A9F30746ECD9 /* Runtime */ = {
+			isa = PBXGroup;
+			children = (
+				1633CC6C2A849373AF2693F8 /* Luti/Core/Runtime/ProjectSessionJournal.swift */,
+				136C0EC316687320A49C2F81 /* Luti/Core/Runtime/ProjectContextStore.swift */,
+				7EB13173EE0D8D2BD13C128F /* Luti/Core/Runtime/ProjectContextModels.swift */,
+				D8936182371B48E5960A1434 /* Luti/Core/Runtime/ActivityStore.swift */,
+				1833D748F3BB41F05FA06078 /* Luti/Core/Runtime/RuntimeCore.swift */,
+				920B04943DF63F3784DBC238 /* Luti/Features/Configuration/CloudflareConnectionView.swift */,
+				90294815478D1E0D60C71362 /* Luti/Core/Connections/ConnectionContract.swift */,
+				325FB93FF49D12A9B7E020D8 /* Luti/Platform/Security/ConnectionClipboard.swift */,
+				B14E6347996F041D5A7B03DC /* Luti/Core/Connections/CloudflareBYOProvider.swift */,
+				9DD4BB9F6B92B41C10CCA2FE /* Luti/Core/Connections/ConnectionManager.swift */,
+			);
+			path = Runtime;
+			sourceTree = "<group>";
+		};
+		BB596EE783896E8B0B41D0C4 /* Desktop */ = {
+			isa = PBXGroup;
+			children = (
+				379E1F9871842D2A95FF517D /* Luti/Platform/Desktop/AccessibilityService.swift */,
+				2459880A25765D9E2B176E2C /* Luti/Platform/Desktop/InputService.swift */,
+				F96A1AF1968B7523660FD828 /* Luti/Platform/Desktop/WindowAndCapture.swift */,
+			);
+			path = Desktop;
+			sourceTree = "<group>";
+		};
+		BCDD7DEDC854F2D4C526B8D5 /* Workspace */ = {
+			isa = PBXGroup;
+			children = (
+				76B09209E22091AAEC25D9E7 /* Luti/Core/Workspace/UnifiedPatch.swift */,
+				2D3963E04D511B976F7E6C7B /* Luti/Core/Workspace/WorkspaceDirectory.swift */,
+				C69B4A57C06CFC2826281F97 /* Luti/Core/Workspace/WorkspaceEdit.swift */,
+				78D268E3129786F4C659BA0C /* Luti/Core/Workspace/WorkspaceFiles.swift */,
+				5A464C222D817C5BDA738047 /* Luti/Core/Workspace/WorkspaceMutations.swift */,
+				06F310298AA6DA037D5A0619 /* Luti/Core/Workspace/WorkspacePatch.swift */,
+				D66A9FA3C88C794199B56D90 /* Luti/Core/Workspace/WorkspaceRead.swift */,
+			);
+			path = Workspace;
+			sourceTree = "<group>";
+		};
+		C1ECCCE592D7CF909F492EC4 /* Components */ = {
+			isa = PBXGroup;
+			children = (
+				96AD40F390699FD126B54DE3 /* Luti/UI/Components/MDSelectionControls.swift */,
+				AFFB763181434763440D65B2 /* Luti/UI/Components/MaterialComponents.swift */,
+			);
+			path = Components;
+			sourceTree = "<group>";
+		};
+		CFEB03C6FF386FBE0F1F6A03 /* Recovery */ = {
+			isa = PBXGroup;
+			children = (
+				A264F868BE6602C21DC2B577 /* WorkspaceCheckpoint.swift */,
+				C5F49C0C4ABA2333BE55C757 /* ProjectCheckpointStore.swift */,
+			);
+			path = Recovery;
+			sourceTree = "<group>";
+		};
+		D0A6BE6B9C4D2169173717D7 /* NativeSupport */ = {
+			isa = PBXGroup;
+			children = (
+				B93781F258ABAE232915500E /* Luti/NativeSupport/CNative.h */,
+				0B2EE6387344F5A27540B322 /* Luti/NativeSupport/native.c */,
+			);
+			path = NativeSupport;
+			sourceTree = "<group>";
+		};
+		D52A60E60416E514030D3663 /* Processes */ = {
+			isa = PBXGroup;
+			children = (
+				BC05CFA2F3B6E89132EE23BF /* Luti/Core/Processes/DiagnosticOutputParser.swift */,
+				8E4EB87DE92A4B033424ED66 /* Luti/Core/Processes/JobManager.swift */,
+				81B7C64C3505B01D469C316C /* Luti/Core/Processes/LocalURLDetector.swift */,
+				0D63BD03697420FAA1565448 /* Luti/Core/Processes/OwnedProcess.swift */,
+				DCEA7F67C6D53EF6492A311C /* Luti/Core/Processes/ProcessPolicy.swift */,
+			);
+			path = Processes;
+			sourceTree = "<group>";
+		};
+		D9BA5495D0D56C26620ED84B /* Browser */ = {
+			isa = PBXGroup;
+			children = (
+				2235792B1D585D571E21EEE1 /* LutiTests/Browser/BrowserIntegrationTests.swift */,
+			);
+			path = Browser;
+			sourceTree = "<group>";
+		};
+		DA0E5C1A4E86E9B5152BCC5F /* Core */ = {
+			isa = PBXGroup;
+			children = (
+				E7612F932AC349918F730001 /* Connection Providers */,
+				CFEB03C6FF386FBE0F1F6A03 /* Recovery */,
+				2017FE56728D6B8DC102A815 /* Execution */,
+				9C5C313B904CC079B7968F9B /* Artifacts */,
+				B219AB5562A1853C03BDB08F /* Localization */,
+				D52A60E60416E514030D3663 /* Processes */,
+				F0C000000000000000000001 /* OAuth */,
+				B3BC4EF14527A9F30746ECD9 /* Runtime */,
+				A833F13E8011049FD27EB37F /* Tunnel */,
+				BCDD7DEDC854F2D4C526B8D5 /* Workspace */,
+				FAB0A1413B860505F16734FD /* Luti/Core/BoundedDownload.swift */,
+				C84FE4D9A5E55F8A29DEB628 /* Luti/Core/JSONValue.swift */,
+				84602EDC9195414E16E5F0E3 /* Luti/Core/Primitives.swift */,
+				8A5E1048090D4982EB02D1D3 /* Luti/Core/PrivateFiles.swift */,
+			);
+			path = Core;
+			sourceTree = "<group>";
+		};
+		E078E7FC3AC6D77DA3E5F838 /* Configuration */ = {
+			isa = PBXGroup;
+			children = (
+				E7612F932AC349918F720006 /* ProviderConnectionView.swift */,
+				8A34858E97E4A9C214108649 /* Luti/Features/Configuration/ConfigurationView.swift */,
+				F0A000000000000000000005 /* Luti/Features/Configuration/RemoteClientsView.swift */,
+			);
+			path = Configuration;
+			sourceTree = "<group>";
+		};
+		E3A970194035461DA98E6105 /* Projects */ = {
+			isa = PBXGroup;
+			children = (
+				574EECCEE8BED7B935B6544D /* Luti/Features/Projects/ProjectRecoveryView.swift */,
+				4A9F255DF4667B3C5504943C /* Luti/Features/Projects/ProjectContextView.swift */,
+				E3A970194035461DA98E6102 /* Luti/Features/Projects/ProjectsView.swift */,
+				E3A970194035461DA98E6104 /* Luti/Features/Projects/ProjectSkillLibrary.swift */,
+			);
+			path = Projects;
+			sourceTree = "<group>";
+		};
+		E7612F932AC349918F730001 /* Connection Providers */ = {
+			isa = PBXGroup;
+			children = (
+				E7612F932AC349918F720001 /* ConnectionDiagnostics.swift */,
+				E7612F932AC349918F720003 /* OpenAITunnelProvider.swift */,
+				E7612F932AC349918F720004 /* NgrokProvider.swift */,
+				E7612F932AC349918F720005 /* ConnectionExecutables.swift */,
+			);
+			name = "Connection Providers";
+			sourceTree = "<group>";
+		};
+		E799912140894A5CD8C1BBAF /* System */ = {
+			isa = PBXGroup;
+			children = (
+				7253F3D7E3A6BF1CFDDC1EB5 /* Luti/Platform/System/LoginItemController.swift */,
+			);
+			path = System;
+			sourceTree = "<group>";
+		};
+		F004F9DDFECD7A76BF95F2F1 /* Project */ = {
+			isa = PBXGroup;
+			children = (
+				9081EB321334407B4CDA75D6 /* Luti/Tools/Project/LanguageServiceProvider.swift */,
+				F75B4B5DA6B4E49A981A9A1E /* Luti/Tools/Project/ProjectInstructions.swift */,
+				F439AC49C1682784AAB23A28 /* Luti/Tools/Project/ProjectTaskRegistry.swift */,
+				FBEEC3023EF3A0CCFBA0E59C /* Luti/Tools/Project/ProjectCapabilityGraph.swift */,
+				78FB253DD8EF4C2B91D529DC /* Luti/Tools/Project/ProjectInspector.swift */,
+			);
+			path = Project;
+			sourceTree = "<group>";
+		};
+		F0C000000000000000000001 /* OAuth */ = {
+			isa = PBXGroup;
+			children = (
+				F0A000000000000000000001 /* Luti/Core/OAuth/OAuthContract.swift */,
+				F0A000000000000000000002 /* Luti/Core/OAuth/OAuthService.swift */,
+				F0A000000000000000000003 /* Luti/Core/OAuth/OAuthStore.swift */,
+			);
+			path = OAuth;
+			sourceTree = "<group>";
+		};
+		F0C000000000000000000002 /* Approval */ = {
+			isa = PBXGroup;
+			children = (
+				F0A000000000000000000004 /* Luti/Features/Approval/ApprovalView.swift */,
+			);
+			path = Approval;
+			sourceTree = "<group>";
+		};
+		F1487F33D89AC8B9D4E71033 /* Skills */ = {
+			isa = PBXGroup;
+			children = (
+				08CE503A0CBF538658D300B3 /* Luti/Tools/Skills/ProjectSkills.swift */,
+			);
+			path = Skills;
+			sourceTree = "<group>";
+		};
+		F4D3B51111B62DC6FC57E39F /* Browser */ = {
+			isa = PBXGroup;
+			children = (
+				FA8CBE69FFB8764A4F45C4EE /* Luti/Tools/Browser/BrowserArguments.swift */,
+				2FBE65B977412F0F2F45CA7B /* Luti/Tools/Browser/BrowserInstallation.swift */,
+				CC136B0E6BAE85314E515184 /* Luti/Tools/Browser/BrowserProvider.swift */,
+				1EA765E2A42C435EC7CD4119 /* Luti/Tools/Browser/BrowserRPC.swift */,
+			);
+			path = Browser;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		7B9491FCBEF95E645234641B /* LutiTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = E444F75BE2D93866938A377D /* Build configuration list for PBXNativeTarget "LutiTests" */;
+			buildPhases = (
+				871249E325740B31128EA1F3 /* Sources */,
+				9751F6BF93EE3026A6B1FB86 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				1672EFC4CD3825A53FA87371 /* PBXTargetDependency */,
+			);
+			name = LutiTests;
+			productName = LutiTests;
+			productReference = 2848AD46A6979BA3D92A46A1 /* LutiTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		C9BEAE69A821211D096B4DAF /* Luti */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 19C92E9D6BE4F9C7C6D78E8C /* Build configuration list for PBXNativeTarget "Luti" */;
+			buildPhases = (
+				A55C33DCCEE14E038C8C54BF /* Sources */,
+				178AFF54238B3FBE9489971F /* Frameworks */,
+				332E0DF281E02DED63FD831D /* Resources */,
+				93A895E2776523D9B96375A7 /* Embed Process Host */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				4F8FF6F4F6D7865ADE9B6D01 /* PBXTargetDependency */,
+			);
+			name = Luti;
+			packageProductDependencies = (
+				8D3F6949966C2A73CF07CCF9 /* NIOCore */,
+				30B647A2B724C2A3210E413F /* NIOHTTP1 */,
+				CA64C5AC378C67ECFFFE6471 /* NIOPosix */,
+				A10000000000000000000002 /* Sparkle */,
+			);
+			productName = Luti;
+			productReference = 099302354A4B14C2B9329555 /* Luti.app */;
+			productType = "com.apple.product-type.application";
+		};
+		EFCDCDE8FC683093F7513DBA /* LutiProcessHost */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 00ECB09C86102FAFF9735B01 /* Build configuration list for PBXNativeTarget "LutiProcessHost" */;
+			buildPhases = (
+				6C638F7B90BE70B9C9E8D56F /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = LutiProcessHost;
+			productName = LutiProcessHost;
+			productReference = 39A4EB06C1C0EBBF56C69FBD /* LutiProcessHost */;
+			productType = "com.apple.product-type.tool";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		98F54143AB4E86B28C3AFEE0 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 2700;
+				TargetAttributes = {
+					7B9491FCBEF95E645234641B = {
+						CreatedOnToolsVersion = 27.0;
+						TestTargetID = C9BEAE69A821211D096B4DAF;
+					};
+					C9BEAE69A821211D096B4DAF = {
+						CreatedOnToolsVersion = 27.0;
+					};
+					EFCDCDE8FC683093F7513DBA = {
+						CreatedOnToolsVersion = 27.0;
+					};
+				};
+			};
+			buildConfigurationList = 58BC0B3212E180EF4DCCBAEC /* Build configuration list for PBXProject "Luti" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				ja,
+				"zh-Hans",
+				Base,
+			);
+			mainGroup = 931BAC40E0989DC841B8C1D2;
+			packageReferences = (
+				5C1B50C09D2F6824D11481D0 /* XCRemoteSwiftPackageReference "swift-nio" */,
+				A10000000000000000000003 /* XCRemoteSwiftPackageReference "Sparkle" */,
+			);
+			productRefGroup = 5151B46607EBC8890D8DFCC2 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				C9BEAE69A821211D096B4DAF /* Luti */,
+				EFCDCDE8FC683093F7513DBA /* LutiProcessHost */,
+				7B9491FCBEF95E645234641B /* LutiTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		332E0DF281E02DED63FD831D /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10000000000000000000006 /* THIRD_PARTY_NOTICES in Resources */,
+				1B52010BD3F94DE977188A4D /* README.md in Resources */,
+				453924BD81A2F3A51A943C3A /* Luti/Assets.xcassets in Resources */,
+				8C9C77EC37195434348B3B73 /* Luti/Resources/BrowserHelper in Resources */,
+				98D0DDB72D2F15DCD51D3CD0 /* Luti/Resources/en.lproj in Resources */,
+				A20000000000000000000011 /* Luti/Resources/ja.lproj in Resources */,
+				84DACC55BA93ACD3DEE34D50 /* Luti/Resources/zh-Hans.lproj in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		6C638F7B90BE70B9C9E8D56F /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AA9957AD01F1EAB01EB0B8FD /* main.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		871249E325740B31128EA1F3 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10000000000000000000008 /* LutiTests/Core/ReleaseReadinessTests.swift in Sources */,
+				E7612F932AC349918F710007 /* ConnectionProviderTests.swift in Sources */,
+				1164627C3CE8BE78E3701490 /* CheckpointTests.swift in Sources */,
+				F3B9AEED106E879A983DEB0E /* LutiTests/Core/ExecutionPolicyTests.swift in Sources */,
+				1109458BFC4D28600522838E /* LutiTests/Core/ProjectEnablementTests.swift in Sources */,
+				58F1FA24CB6D3F3969B68AD1 /* LutiTests/Core/ConnectionRuntimeTests.swift in Sources */,
+				1E4F83B37B27D672D77063FD /* LutiTests/Core/ProjectMemoryTests.swift in Sources */,
+				F0E000000000000000000001 /* LutiTests/Core/OAuthTests.swift in Sources */,
+				82C769B4A79BF251F03131BA /* LutiTests/Browser/BrowserIntegrationTests.swift in Sources */,
+				B56DED318D193D51FA7C3C58 /* LutiTests/Core/CoreTests.swift in Sources */,
+				ED66A24882DABBD5AEB1DAE2 /* LutiTests/Core/ExtendedToolTests.swift in Sources */,
+				3DCDD5010698C39E3114376B /* LutiTests/Core/GitTests.swift in Sources */,
+				ACD4A3868A256ED33635C7EE /* LutiTests/Core/LoginItemControllerTests.swift in Sources */,
+				6A5A6097A8FFDA967F0D5D2D /* LutiTests/Core/MCPTests.swift in Sources */,
+				7AFE580ED287279207993169 /* LutiTests/Core/ProcessTests.swift in Sources */,
+				78A72BA59AEC10BCF0325AF5 /* LutiTests/Core/TestSupport.swift in Sources */,
+				CCB899CB6C2BD3103AB58929 /* LutiTests/Core/TunnelTests.swift in Sources */,
+				6E2AAFA680F14544F6057AD8 /* LutiTests/Core/WorkspaceMutationTests.swift in Sources */,
+				73C5324693FB4ED48B1916E6 /* LutiTests/Core/WorkspaceTests.swift in Sources */,
+				C97BCF27E14B4854EDF07779 /* LutiTests/Transport/HTTPIntegrationTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A55C33DCCEE14E038C8C54BF /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10000000000000000000004 /* Luti/App/AppUpdater.swift in Sources */,
+				E7612F932AC349918F710001 /* ConnectionDiagnostics.swift in Sources */,
+				E7612F932AC349918F710003 /* OpenAITunnelProvider.swift in Sources */,
+				E7612F932AC349918F710004 /* NgrokProvider.swift in Sources */,
+				E7612F932AC349918F710005 /* ConnectionExecutables.swift in Sources */,
+				E7612F932AC349918F710006 /* ProviderConnectionView.swift in Sources */,
+				37312702E700A512322E1E57 /* SandboxBackend.swift in Sources */,
+				05131608A40C2B870E9C1AD4 /* Luti/Core/Processes/DiagnosticOutputParser.swift in Sources */,
+				34984D3DED40658B19F80B36 /* Luti/Tools/Project/LanguageServiceProvider.swift in Sources */,
+				5FCBC6971A6052604D312AB0 /* Luti/Tools/Project/ProjectInstructions.swift in Sources */,
+				405DF6F60759F45AAFCD5A02 /* Luti/Tools/Project/ProjectTaskRegistry.swift in Sources */,
+				3E4C2300FC3D1FB4B09BB46A /* Luti/Tools/Project/ProjectCapabilityGraph.swift in Sources */,
+				6CCD533749985B5AC42D9ECC /* Luti/Features/Projects/ProjectRecoveryView.swift in Sources */,
+				469DD7F8C6B89928B3DAD52E /* WorkspaceCheckpoint.swift in Sources */,
+				B24BF9CDBE3F2A4D68C4CDFC /* ProjectCheckpointStore.swift in Sources */,
+				F21F44FFFC721F927EE6FDC3 /* ProjectExecutionPolicy.swift in Sources */,
+				177DC8E982F6363F10C05C4C /* Luti/Features/Configuration/CloudflareConnectionView.swift in Sources */,
+				8F541D44210A71C2292F8BE5 /* Luti/Core/Connections/ConnectionContract.swift in Sources */,
+				4ABD6440B5ED475AD6CB4587 /* Luti/Platform/Security/ConnectionClipboard.swift in Sources */,
+				89FDB273C39D006F9D15E13D /* Luti/Core/Connections/CloudflareBYOProvider.swift in Sources */,
+				BF2AC2E496F172EA348631BA /* Luti/Core/Connections/ConnectionManager.swift in Sources */,
+				3E6BA51B78C4D8D3C605C90A /* Luti/Features/Projects/ProjectContextView.swift in Sources */,
+				D1A7CC6AB28421B63757008F /* Luti/Tools/MemoryTool.swift in Sources */,
+				B3717FC37F20BF6B27D63E9B /* Luti/Core/Runtime/ProjectSessionJournal.swift in Sources */,
+				D179F6C650A74D9492DA6C1A /* Luti/Core/Runtime/ProjectContextStore.swift in Sources */,
+				0E3CF5CE94FEA30EB4EDA3EB /* Luti/Core/Runtime/ProjectContextModels.swift in Sources */,
+				F0B000000000000000000001 /* Luti/Core/OAuth/OAuthContract.swift in Sources */,
+				F0B000000000000000000002 /* Luti/Core/OAuth/OAuthService.swift in Sources */,
+				F0B000000000000000000003 /* Luti/Core/OAuth/OAuthStore.swift in Sources */,
+				F0B000000000000000000004 /* Luti/Features/Approval/ApprovalView.swift in Sources */,
+				F0B000000000000000000005 /* Luti/Features/Configuration/RemoteClientsView.swift in Sources */,
+				E3A970194035461DA98E6101 /* Luti/Features/Projects/ProjectsView.swift in Sources */,
+				E3A970194035461DA98E6103 /* Luti/Features/Projects/ProjectSkillLibrary.swift in Sources */,
+				FE309333D9B130590844E98A /* Luti/UI/Components/MDSelectionControls.swift in Sources */,
+				9DA0B6CCD94C2ECBDB01C004 /* Luti/App/AppModel.swift in Sources */,
+				66715A5173D7397FEFEE6CAD /* Luti/App/LutiApp.swift in Sources */,
+				F64FCE721F05DBE27F7A7393 /* Luti/Core/Artifacts/ArtifactStore.swift in Sources */,
+				36A2E983CE01A96A0C90590C /* Luti/Core/Artifacts/ImagePreview.swift in Sources */,
+				AF775ADAD642844AFAAA658F /* Luti/Core/Artifacts/ImageStore.swift in Sources */,
+				17281B2BFB3374449459012B /* Luti/Core/Localization/LanguageSettings.swift in Sources */,
+				B972BF1EB1029D1A50D546D7 /* Luti/Core/Processes/JobManager.swift in Sources */,
+				76E5E7DD1F49B97DD8F3E863 /* Luti/Core/Processes/LocalURLDetector.swift in Sources */,
+				FA36D59DD76A910506E3B025 /* Luti/Core/Processes/OwnedProcess.swift in Sources */,
+				09D029F74CAA5E3785B53EE0 /* Luti/Core/Processes/ProcessPolicy.swift in Sources */,
+				CAABB5AC102457A3EA098B3D /* Luti/Core/Runtime/ActivityStore.swift in Sources */,
+				CF88A7328C2581458CB5E017 /* Luti/Core/Runtime/RuntimeCore.swift in Sources */,
+				72968B7FCAE81C4939D32D67 /* Luti/Core/Tunnel/TunnelContract.swift in Sources */,
+				90333C5502D8DB18691EF9BE /* Luti/Core/Tunnel/TunnelInstaller.swift in Sources */,
+				F1BB33D695D61F8A36E1FC8D /* Luti/Core/Tunnel/TunnelManager.swift in Sources */,
+				BACDCFB65801B859A063AF61 /* Luti/Core/Workspace/UnifiedPatch.swift in Sources */,
+				6A51A327D346A2954492A2D6 /* Luti/Core/Workspace/WorkspaceDirectory.swift in Sources */,
+				E4ECD43DF341C1458E179AB5 /* Luti/Core/Workspace/WorkspaceEdit.swift in Sources */,
+				F55C86F699927FBC91741B45 /* Luti/Core/Workspace/WorkspaceFiles.swift in Sources */,
+				6A24547BC793ED558EF7C917 /* Luti/Core/Workspace/WorkspaceMutations.swift in Sources */,
+				29641B894A3C226FE11CBD0B /* Luti/Core/Workspace/WorkspacePatch.swift in Sources */,
+				FF22E9F1F2BF8955B2E840EA /* Luti/Core/Workspace/WorkspaceRead.swift in Sources */,
+				2DD7BCCD3B7154AD10A2EAA3 /* Luti/Core/BoundedDownload.swift in Sources */,
+				6435981425BB744238BABB9B /* Luti/Core/JSONValue.swift in Sources */,
+				F799A3CDF636FDD8EBFE9DB0 /* Luti/Core/Primitives.swift in Sources */,
+				F7948282ECEB814F7E3DF53E /* Luti/Core/PrivateFiles.swift in Sources */,
+				E6DC52A08EBF5F9474F5D4CA /* Luti/Features/Activity/ActivityView.swift in Sources */,
+				30351475A752625AB89BD153 /* Luti/Features/Home/CapabilitiesView.swift in Sources */,
+				CD2B7C6EBA23EB240E830EDB /* Luti/Features/Configuration/ConfigurationView.swift in Sources */,
+				EC997EA62D13F839D2902EC9 /* Luti/Features/Home/HomeView.swift in Sources */,
+				8F8FFDD34FFC09478346F10D /* Luti/Features/Settings/SettingsView.swift in Sources */,
+				AFAB9DB7AFA61E592F0E86D8 /* Luti/NativeSupport/native.c in Sources */,
+				750D9D7CDB98EB3C5AF68A63 /* Luti/Platform/Desktop/AccessibilityService.swift in Sources */,
+				86DCDB0048F62DEA28FD0563 /* Luti/Platform/Desktop/InputService.swift in Sources */,
+				ADE489692D0087C28BBDE9C1 /* Luti/Platform/Desktop/WindowAndCapture.swift in Sources */,
+				98C17B53A642B1580C45B951 /* Luti/Platform/Security/PermissionsAndKeychain.swift in Sources */,
+				B2B3DD7ABFD973229E18DA7D /* Luti/Platform/System/LoginItemController.swift in Sources */,
+				2D58D02A660EB1EDA6ED9F39 /* Luti/Tools/Browser/BrowserArguments.swift in Sources */,
+				6CC7C3999D560B247FE6402F /* Luti/Tools/Browser/BrowserInstallation.swift in Sources */,
+				65BAAE6AB9438F1B79E0B9C0 /* Luti/Tools/Browser/BrowserProvider.swift in Sources */,
+				7C8A9CC26FCF3189DC032931 /* Luti/Tools/Browser/BrowserRPC.swift in Sources */,
+				BFC53A9655D7BF9D3DAB3A3B /* Luti/Tools/Computer/ComputerService.swift in Sources */,
+				428190611CCBB1423B80C53A /* Luti/Tools/Git/GitService.swift in Sources */,
+				4824816CB4749B65F1FC21B2 /* Luti/Tools/Project/ProjectInspector.swift in Sources */,
+				0A95319D1637CEB11629483F /* Luti/Tools/Skills/ProjectSkills.swift in Sources */,
+				A6F687838337FD03CA2BA065 /* Luti/Tools/AdditionalToolCatalog.swift in Sources */,
+				EA9A0DD7A284219121078D1A /* Luti/Tools/ExtendedTools.swift in Sources */,
+				DFC4661F74620D39AFF662AD /* Luti/Tools/ToolCatalog.swift in Sources */,
+				7B1E2257B59393AFB41A5043 /* Luti/Tools/ToolRouter.swift in Sources */,
+				7F59DE2C7BF4D83F86BFAD5B /* Luti/Transport/MCPDispatcher.swift in Sources */,
+				2E5936725B00F537564689E1 /* Luti/Transport/MCPServer.swift in Sources */,
+				7CA67186DAD92BACE2F78EB5 /* Luti/UI/Components/MaterialComponents.swift in Sources */,
+				6DD5612F94877C32CBA9070A /* Luti/UI/Navigation/MainWindowView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		1672EFC4CD3825A53FA87371 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = C9BEAE69A821211D096B4DAF /* Luti */;
+			targetProxy = 8D0396FD36628000D4C54880 /* PBXContainerItemProxy */;
+		};
+		4F8FF6F4F6D7865ADE9B6D01 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = EFCDCDE8FC683093F7513DBA /* LutiProcessHost */;
+			targetProxy = E1DA41A736DB7ABE9CCCFCC3 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		533AE005D6A1FC4E77D5F8EE /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SRCROOT)/Luti/NativeSupport",
+				);
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@loader_path/../Frameworks",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.aouos.luti.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Luti.app/Contents/MacOS/Luti";
+			};
+			name = Debug;
+		};
+		83DA2C6E8A0527CBD4140574 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = arm64;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				SDKROOT = macosx;
+				SUPPORTED_PLATFORMS = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+		9A075EFCE0DD4A566C89D420 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD)";
+				ENABLE_HARDENED_RUNTIME = YES;
+				INSTALL_PATH = /usr/local/bin;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+			};
+			name = Release;
+		};
+		B76356266DE28B3909BD8B88 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD)";
+				ENABLE_HARDENED_RUNTIME = YES;
+				INSTALL_PATH = /usr/local/bin;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+			};
+			name = Debug;
+		};
+		C295958E32AF1D8CF0D7D2C0 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SRCROOT)/Luti/NativeSupport",
+				);
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@loader_path/../Frameworks",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.aouos.luti.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Luti.app/Contents/MacOS/Luti";
+			};
+			name = Release;
+		};
+		DAAE278CA2E2D8BE7D22D5B1 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = arm64;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+				SUPPORTED_PLATFORMS = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) DEBUG";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		F8CC0122794023E612C52A3F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD)";
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 6Q5B4266TF;
+				ENABLE_APP_SANDBOX = NO;
+				ENABLE_DEBUG_DYLIB = NO;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SRCROOT)/Luti/NativeSupport",
+				);
+				INFOPLIST_FILE = Luti/Info.plist;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
+				INSTALL_PATH = "$(LOCAL_APPS_DIR)";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.aouos.luti;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				SKIP_INSTALL = NO;
+				SWIFT_OBJC_BRIDGING_HEADER = "Luti/Luti-Bridging-Header.h";
+			};
+			name = Release;
+		};
+		FBEBF87A077E1F61EC053585 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD)";
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 6Q5B4266TF;
+				ENABLE_APP_SANDBOX = NO;
+				ENABLE_DEBUG_DYLIB = NO;
+				ENABLE_HARDENED_RUNTIME = NO;
+				GENERATE_INFOPLIST_FILE = NO;
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SRCROOT)/Luti/NativeSupport",
+				);
+				INFOPLIST_FILE = Luti/Info.plist;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
+				INSTALL_PATH = "$(LOCAL_APPS_DIR)";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.aouos.luti;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				SKIP_INSTALL = NO;
+				SWIFT_OBJC_BRIDGING_HEADER = "Luti/Luti-Bridging-Header.h";
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		00ECB09C86102FAFF9735B01 /* Build configuration list for PBXNativeTarget "LutiProcessHost" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B76356266DE28B3909BD8B88 /* Debug */,
+				9A075EFCE0DD4A566C89D420 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		19C92E9D6BE4F9C7C6D78E8C /* Build configuration list for PBXNativeTarget "Luti" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FBEBF87A077E1F61EC053585 /* Debug */,
+				F8CC0122794023E612C52A3F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		58BC0B3212E180EF4DCCBAEC /* Build configuration list for PBXProject "Luti" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				DAAE278CA2E2D8BE7D22D5B1 /* Debug */,
+				83DA2C6E8A0527CBD4140574 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		E444F75BE2D93866938A377D /* Build configuration list for PBXNativeTarget "LutiTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				533AE005D6A1FC4E77D5F8EE /* Debug */,
+				C295958E32AF1D8CF0D7D2C0 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		5C1B50C09D2F6824D11481D0 /* XCRemoteSwiftPackageReference "swift-nio" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/apple/swift-nio.git";
+			requirement = {
+				kind = exactVersion;
+				version = 2.103.0;
+			};
+		};
+		A10000000000000000000003 /* XCRemoteSwiftPackageReference "Sparkle" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sparkle-project/Sparkle";
+			requirement = {
+				kind = exactVersion;
+				version = 2.10.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		30B647A2B724C2A3210E413F /* NIOHTTP1 */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 5C1B50C09D2F6824D11481D0 /* XCRemoteSwiftPackageReference "swift-nio" */;
+			productName = NIOHTTP1;
+		};
+		8D3F6949966C2A73CF07CCF9 /* NIOCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 5C1B50C09D2F6824D11481D0 /* XCRemoteSwiftPackageReference "swift-nio" */;
+			productName = NIOCore;
+		};
+		A10000000000000000000002 /* Sparkle */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A10000000000000000000003 /* XCRemoteSwiftPackageReference "Sparkle" */;
+			productName = Sparkle;
+		};
+		CA64C5AC378C67ECFFFE6471 /* NIOPosix */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 5C1B50C09D2F6824D11481D0 /* XCRemoteSwiftPackageReference "swift-nio" */;
+			productName = NIOPosix;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 98F54143AB4E86B28C3AFEE0 /* Project object */;
+}
