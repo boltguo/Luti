@@ -1,0 +1,808 @@
+<!doctype html>
+<html lang="en" data-theme="auto">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<title>Luti — Cloud AI, on your Mac.</title>
+<meta name="description" content="Luti connects AI clients to your Mac through MCP: read and edit code, run tests, use local apps, and share saved project memory. Tool results return to your AI provider.">
+<meta name="keywords" content="MCP server, Model Context Protocol, macOS, project memory, remote MCP, ChatGPT connector, Claude MCP, Grok MCP, Codex MCP, Cloudflare Tunnel, local AI tools, OAuth dynamic client registration">
+<meta name="author" content="Luti">
+<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#fef7ff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#141218" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-title" content="Luti">
+<link rel="canonical" href="https://luti.aouos.com/">
+<link rel="alternate" hreflang="en" href="https://luti.aouos.com/?lang=en">
+<link rel="alternate" hreflang="zh-Hans" href="https://luti.aouos.com/?lang=zh">
+<link rel="alternate" hreflang="ja" href="https://luti.aouos.com/?lang=ja">
+<link rel="alternate" hreflang="x-default" href="https://luti.aouos.com/">
+
+<meta property="og:site_name" content="Luti">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://luti.aouos.com/">
+<meta property="og:locale" content="en_US">
+<meta property="og:locale:alternate" content="zh_CN">
+<meta property="og:locale:alternate" content="ja_JP">
+<meta property="og:title" content="Luti — Cloud AI, on your Mac.">
+<meta property="og:description" content="Luti connects AI clients to your Mac through MCP: read and edit code, run tests, use local apps, and share saved project memory. Tool results return to your AI provider.">
+<meta property="og:image" content="https://luti.aouos.com/assets/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Luti — cloud AI on your Mac. Shared project memory and 29 local capabilities.">
+
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Luti — Cloud AI, on your Mac.">
+<meta name="twitter:description" content="Luti connects AI clients to your Mac through MCP: read and edit code, run tests, use local apps, and share saved project memory. Tool results return to your AI provider.">
+<meta name="twitter:image" content="https://luti.aouos.com/assets/og-image.png">
+
+<link rel="icon" href="assets/luti-icon.png" type="image/png">
+<link rel="apple-touch-icon" href="assets/luti-icon.png">
+<link rel="stylesheet" href="styles/tokens.css">
+<link rel="stylesheet" href="styles/base.css">
+<link rel="stylesheet" href="styles/hero.css">
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": "https://luti.aouos.com/#org",
+      "name": "Luti",
+      "url": "https://luti.aouos.com/",
+      "logo": "https://luti.aouos.com/assets/luti-icon.png"
+    },
+    {
+      "@type": "WebSite",
+      "@id": "https://luti.aouos.com/#site",
+      "url": "https://luti.aouos.com/",
+      "name": "Luti",
+      "inLanguage": ["en", "zh-Hans", "ja"],
+      "publisher": { "@id": "https://luti.aouos.com/#org" }
+    },
+    {
+      "@type": "SoftwareApplication",
+      "@id": "https://luti.aouos.com/#app",
+      "name": "Luti",
+      "applicationCategory": "DeveloperApplication",
+      "applicationSubCategory": "MCP Server",
+      "operatingSystem": "macOS",
+      "url": "https://luti.aouos.com/",
+      "image": "https://luti.aouos.com/assets/og-image.png",
+      "publisher": { "@id": "https://luti.aouos.com/#org" },
+      "description": "Luti connects AI clients to your Mac through MCP: read and edit code, run tests, use local apps, and share saved project memory. Tool results return to your AI provider.",
+      "featureList": [
+        "Project Memory — durable architecture, decisions, conventions and pitfalls",
+        "Session Journal — what each runtime session actually did",
+        "Activity — event-level record of every tool call",
+        "29 fixed MCP tools across files, code, git, processes, browser and computer use",
+        "Remote MCP through a tunnel you own — Cloudflare, OpenAI Secure MCP Tunnel or ngrok — or local MCP over localhost",
+        "Automatic checkpoint and local restore behind every file and path mutation",
+        "OAuth 2.1 with dynamic client registration and per-connection approval on the Mac"
+      ],
+      "license": "https://www.apache.org/licenses/LICENSE-2.0",
+      "isAccessibleForFree": true,
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+      }
+    },
+    {
+      "@type": "FAQPage",
+      "@id": "https://luti.aouos.com/#faq",
+      "inLanguage": "en",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Which AI hosts can connect to Luti?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Any host that speaks MCP — cloud or local, web app, desktop app, IDE or command line. ChatGPT, Claude, Grok, Codex and Cursor are examples, not an allowlist. The main path is a cloud chat: it registers itself through OAuth dynamic client registration and waits for you to approve it on the Mac. Clients already on the machine take a shorter road over localhost, with no domain and no tunnel."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Is Luti an AI agent?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "No. Luti ships no model, no planner and no second agent loop. Reasoning, planning and orchestration stay with the host. Luti owns the project boundary, the persistent context, the local capabilities, the approvals and the audit record."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "How does project memory work?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Context is stored in three layers. Activity records every tool call. A session journal records what a runtime session changed. Project memory holds the durable semantics — architecture, decisions, conventions, constraints, security notes, pitfalls, goals and rationale — written explicitly by the model with its source, revision and supersedes chain preserved. Memory is scoped per project; there is no global profile and no cross-project merge."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Does my traffic go through Luti's servers?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "No. The tunnel is your own: the request goes host to tunnel to your Mac, and Luti runs no server in that path. Nothing there needs a Luti account either — the app is free and open source, and it runs entirely on your Mac."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Is a project scope the same as a sandbox?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "No. A project scope is a semantic boundary, not an OS sandbox: an approved process runs with your user's permissions. A tunnel is not authentication, OAuth is not tool permission, and tool permission is not macOS TCC. Execution policy and checkpoint restore have shipped. An OS-enforced sandbox backend has not, and until it does, a workspace or isolated process fails closed rather than quietly running unsandboxed."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "What does Luti cost?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Nothing. Luti Desktop is free and open source under Apache-2.0, and everyone gets the complete product. The Mac app source is on GitHub, and official builds are Developer ID signed and notarized by Apple."
+          }
+        }
+      ]
+    }
+  ]
+}
+</script>
+</head>
+<body>
+
+<svg width="0" height="0" aria-hidden="true" style="position:absolute" focusable="false">
+  <defs>
+    <g id="sp" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></g>
+  </defs>
+  <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5 10 17.5 19 7"/></symbol>
+  <symbol id="i-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9.5 6 6 6-6"/></symbol>
+  <symbol id="i-send" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M6 11l6-6 6 6"/></symbol>
+  <symbol id="i-cloud" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 18h10a3.5 3.5 0 0 0 .3-6.98A5.5 5.5 0 0 0 6.5 10.2 3.9 3.9 0 0 0 7 18Z"/></symbol>
+  <symbol id="i-folder" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/></symbol>
+  <symbol id="i-terminal" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m4 7 5 5-5 5M12 17h8"/></symbol>
+  <symbol id="i-globe" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.2 2.4 3.3 5.3 3.3 8.5S14.2 18.1 12 20.5c-2.2-2.4-3.3-5.3-3.3-8.5S9.8 5.9 12 3.5Z"/></symbol>
+  <symbol id="i-display" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="12" rx="2"/><path d="M9.5 20.5h5M12 16.5v4"/></symbol>
+  <symbol id="i-git" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="6" r="2.2"/><circle cx="7" cy="18" r="2.2"/><circle cx="17" cy="10" r="2.2"/><path d="M7 8.2v7.6M17 12.2c0 3-2.6 3.8-5 4.2"/></symbol>
+  <symbol id="i-package" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 8 4.3v9.4L12 21l-8-4.3V7.3Z"/><path d="M4 7.3 12 12l8-4.7M12 12v9"/></symbol>
+  <symbol id="i-sparkles" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v5M12 16v5M4.5 12h5M14.5 12h5M6.7 6.7l3 3M14.3 14.3l3 3M17.3 6.7l-3 3M9.7 14.3l-3 3"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 5 6v6c0 4.2 2.9 7.6 7 9 4.1-1.4 7-4.8 7-9V6Z"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10.5" width="14" height="9.5" rx="2.4"/><path d="M8.2 10.5V7.8a3.8 3.8 0 0 1 7.6 0v2.7"/></symbol>
+  <symbol id="i-lock-s" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10.5" width="14" height="9.5" rx="2.4"/><path d="M8.2 10.5V7.8a3.8 3.8 0 0 1 7.6 0v2.7"/></symbol>
+  <symbol id="i-bolt" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13.2 2.8 5 13.4h5.4L9.8 21.2 19 10.6h-5.4Z"/></symbol>
+  <symbol id="i-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2.6 12S6.2 5.8 12 5.8 21.4 12 21.4 12 17.8 18.2 12 18.2 2.6 12 2.6 12Z"/><circle cx="12" cy="12" r="2.8"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24" fill="currentColor"><path d="M7 4.6 19 12 7 19.4Z"/></symbol>
+  <symbol id="i-pause" viewBox="0 0 24 24" fill="currentColor"><path d="M7 4.5h3.4v15H7zM13.6 4.5H17v15h-3.4z"/></symbol>
+  <symbol id="i-back" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 5 8 12l6.5 7"/></symbol>
+  <symbol id="i-fwd" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 5 16 12l-6.5 7"/></symbol>
+  <symbol id="i-file" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13.5 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8.5Z"/><path d="M13.5 3v5.5H19"/></symbol>
+  <symbol id="i-camera" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8.5h3l1.4-2.2h7.2L17 8.5h3a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-8a1 1 0 0 1 1-1Z"/><circle cx="12" cy="13.2" r="3.2"/></symbol>
+  <symbol id="i-pencil" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L20 8l-4-4L4 16Z"/></symbol>
+
+  <symbol id="i-brain" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5a2.6 2.6 0 0 0-4.9-1.2A2.7 2.7 0 0 0 4.5 7.3a2.8 2.8 0 0 0-.5 4.5 2.8 2.8 0 0 0 1.1 5 2.7 2.7 0 0 0 3.8 2.3A2.6 2.6 0 0 0 12 18.6Z"/><path d="M12 5a2.6 2.6 0 0 1 4.9-1.2 2.7 2.7 0 0 1 2.6 3.5 2.8 2.8 0 0 1 .5 4.5 2.8 2.8 0 0 1-1.1 5 2.7 2.7 0 0 1-3.8 2.3A2.6 2.6 0 0 1 12 18.6Z"/><path d="M12 5v13.6"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 6.8v5.4l3.4 2"/></symbol>
+  <symbol id="i-list" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6.5h10.5M9 12h10.5M9 17.5h10.5M4.6 6.5h.01M4.6 12h.01M4.6 17.5h.01"/></symbol>
+  <symbol id="i-link" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10.2 13.8a3.7 3.7 0 0 0 5.3 0l2.6-2.6a3.7 3.7 0 0 0-5.3-5.3l-1.3 1.4"/><path d="M13.8 10.2a3.7 3.7 0 0 0-5.3 0l-2.6 2.6a3.7 3.7 0 0 0 5.3 5.3l1.3-1.4"/></symbol>
+  <symbol id="i-layers" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 8.6 4.4L12 11.8 3.4 7.4Z"/><path d="m3.4 12 8.6 4.4 8.6-4.4M3.4 16.6 12 21l8.6-4.4"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 11.2v5M12 7.8h.01"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2.6v2.2M12 19.2v2.2M4.2 12H2M22 12h-2.2M6.3 6.3 4.8 4.8M19.2 19.2l-1.5-1.5M17.7 6.3l1.5-1.5M4.8 19.2l1.5-1.5"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M20.5 14.4A8.5 8.5 0 0 1 9.6 3.5a8.5 8.5 0 1 0 10.9 10.9Z"/></symbol>
+  <symbol id="i-coffee" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 8h12v6.5a4.5 4.5 0 0 1-4.5 4.5H9a4.5 4.5 0 0 1-4.5-4.5Z"/><path d="M16.5 9.5h1.8a2.6 2.6 0 0 1 0 5.2h-1.8"/><path d="M8 2.8v2.4M12 2.8v2.4"/></symbol>
+  <symbol id="i-github" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></symbol>
+  <symbol id="i-chatgpt" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="m12 2.6 8.1 4.7v9.4L12 21.4 3.9 16.7V7.3Z"/><path d="M12 12.1 20.1 7.3M12 12.1v9.3M12 12.1 3.9 7.3"/></symbol>
+  <symbol id="i-claude" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M12 2.8v6M12 15.2v6M2.8 12h6M15.2 12h6M5.5 5.5l4.2 4.2M14.3 14.3l4.2 4.2M18.5 5.5l-4.2 4.2M9.7 14.3l-4.2 4.2"/></symbol>
+  <symbol id="i-grok" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4.5 19.5 19.5 4.5M4.5 4.5l5.4 5.4M14.1 14.1l5.4 5.4"/></symbol>
+  <symbol id="i-codex" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="m12 2.6 8.1 4.7v9.4L12 21.4 3.9 16.7V7.3Z"/><path d="m9.9 9.9 2.7 2.5-2.7 2.5"/></symbol>
+</svg>
+
+<header class="appbar" id="appbar">
+  <div class="wrap appbar__inner">
+    <a class="brand" href="#top"><img src="assets/luti-icon.png" alt="Luti" width="30" height="30"><span>Luti</span></a>
+    <div class="menu" data-menu>
+      <button class="menu__trigger" id="langTrigger" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="langMenu" data-i18n-attr="aria-label:a11y.lang" aria-label="Interface language">
+        <svg><use href="#i-globe"/></svg>
+        <span class="menu__value" data-lang-value lang="en">EN</span>
+        <svg class="menu__caret"><use href="#i-caret"/></svg>
+      </button>
+      <div class="menu__surface" id="langMenu" role="menu" aria-labelledby="langTrigger" hidden>
+        <button class="menu__item" type="button" role="menuitemradio" aria-checked="true" data-lang="en" lang="en">
+          <svg class="menu__check"><use href="#i-check"/></svg>English
+        </button>
+        <button class="menu__item" type="button" role="menuitemradio" aria-checked="false" data-lang="zh" lang="zh-Hans">
+          <svg class="menu__check"><use href="#i-check"/></svg>简体中文
+        </button>
+        <button class="menu__item" type="button" role="menuitemradio" aria-checked="false" data-lang="ja" lang="ja">
+          <svg class="menu__check"><use href="#i-check"/></svg>日本語
+        </button>
+      </div>
+    </div>
+    <button class="appbar__icon appbar__theme" id="themeSwitch" role="switch" aria-checked="false" data-i18n-attr="aria-label:a11y.theme" aria-label="Dark mode">
+      <svg class="appbar__theme-on"><use href="#i-sun"/></svg>
+      <svg class="appbar__theme-off"><use href="#i-moon"/></svg>
+    </button>
+    <a class="appbar__icon" href="https://github.com/boltguo/Luti" rel="noopener" data-i18n-attr="aria-label:a11y.github" aria-label="Source on GitHub"><svg><use href="#i-github"/></svg></a>
+    <a class="btn btn--filled appbar__cta" href="https://github.com/boltguo/Luti/releases/latest/download/Luti.dmg" data-i18n="nav.download">Download</a>
+  </div>
+  <span class="appbar__sentinel" id="appbarSentinel"></span>
+</header>
+
+<main id="top">
+
+<section class="hero">
+  <div class="hero__aurora" aria-hidden="true"><span></span><span></span><span></span></div>
+  <div class="wrap">
+
+    <div class="hero__copy">
+      <span class="eyebrow" data-i18n-html="hero.eyebrow"><b>Open source</b> macOS app</span>
+      <h1 data-i18n-html="hero.h1">Cloud AI.<br><em>On your Mac.</em></h1>
+      <p class="hero__lede" data-i18n="hero.lede">Let your AI read and edit local code, run tests, and use your browser and Mac apps. Connect compatible MCP clients to the same project and its saved memory.</p>
+      <div class="hero__actions">
+        <div class="button-run">
+          <a class="btn btn--tonal" href="#start" data-i18n="hero.ctaChain">Setup guide</a>
+          <a class="btn btn--filled" href="https://github.com/boltguo/Luti/releases/latest/download/Luti.dmg" data-i18n="hero.ctaDownload">Download for Mac</a>
+        </div>
+      </div>
+      <p class="hero__requirements" data-i18n="hero.requirements">macOS 14+ · Apple Silicon & Intel</p>
+    </div>
+
+    <p class="sr-only" data-i18n="hero.sr">Illustrative workflow: one AI saves a project decision, another recalls it before editing code, and connected clients run tests and inspect the result. The conversations and results shown are examples.</p>
+
+    <div class="stage" id="stage" aria-hidden="true">
+      <svg class="stage__wire" id="wire" preserveAspectRatio="none">
+        <defs>
+          <linearGradient id="wireGrad" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0" stop-color="var(--primary)" stop-opacity="0"/>
+            <stop offset="0.55" stop-color="var(--primary)" stop-opacity="0.75"/>
+            <stop offset="1" stop-color="var(--primary)"/>
+          </linearGradient>
+        </defs>
+        <path class="wire__casing" id="wireCasing"/>
+        <path class="wire__bore" id="wireBore"/>
+        <path class="wire__ribs" id="wireRibs"/>
+        <path class="wire__base" id="wireBase"/>
+        <path class="wire__trail" id="wireTrail"/>
+      </svg>
+
+      <!-- Chat stack -->
+      <div class="deck" id="deck">
+        <!-- Decorative cards are excluded from animation. -->
+        <div class="client client--ghost" data-pos="4" aria-hidden="true"><span class="ghost__bar"><i></i><b></b></span></div>
+        <div class="client client--ghost" data-pos="5" aria-hidden="true"><span class="ghost__bar"><i></i><b></b></span></div>
+
+        <article class="client" data-client="chatgpt" data-link="remote" data-pos="3" style="--brand:light-dark(#0f0f0f,#ededed);--brand-ink:light-dark(#fff,#111)">
+          <div class="client__bar">
+            <span class="client__mark"><svg><use href="#i-chatgpt"/></svg></span>
+            <span class="client__name">ChatGPT</span>
+            <span class="client__link"><svg><use href="#i-cloud"/></svg>chatgpt.com</span>
+          </div>
+          <div class="client__log" data-log>
+            <p class="bubble bubble--user bubble--ghost" data-i18n-html="seed.gptQ"><b class="mention">@luti</b> first time on this project — give me the background</p>
+            <p class="bubble bubble--ai bubble--ghost" data-i18n="seed.gptA">Connected. acme-dashboard — 24 memories, 7 sessions, 29 tools.</p>
+          </div>
+          <div class="client__composer">
+            <span class="client__field" data-field data-placeholder="Ask ChatGPT"></span>
+            <button class="client__send" tabindex="-1"><svg><use href="#i-send"/></svg></button>
+          </div>
+        </article>
+
+        <article class="client" data-client="codex" data-link="local" data-pos="2" style="--brand:light-dark(#0f0f0f,#ededed);--brand-ink:light-dark(#fff,#111)">
+          <div class="client__bar">
+            <span class="client__mark"><svg><use href="#i-codex"/></svg></span>
+            <span class="client__name">Codex</span>
+            <span class="client__link"><svg><use href="#i-display"/></svg>localhost</span>
+          </div>
+          <div class="client__log" data-log>
+            <p class="bubble bubble--user bubble--ghost" data-i18n-html="seed.codexQ"><b class="mention">@luti</b> which project am I on?</p>
+            <p class="bubble bubble--ai bubble--ghost" data-i18n="seed.codexA">acme-dashboard — the same project, and the same context, as the IDE and the web.</p>
+          </div>
+          <div class="client__composer">
+            <span class="client__field" data-field data-placeholder="Describe a task"></span>
+            <button class="client__send" tabindex="-1"><svg><use href="#i-send"/></svg></button>
+          </div>
+        </article>
+
+        <article class="client" data-client="claude" data-link="remote" data-pos="0" style="--brand:#d97757;--brand-ink:#fff">
+          <div class="client__bar">
+            <span class="client__mark"><svg><use href="#i-claude"/></svg></span>
+            <span class="client__name">Claude</span>
+            <span class="client__link"><svg><use href="#i-cloud"/></svg>claude.ai</span>
+          </div>
+          <div class="client__log" data-log>
+            <p class="bubble bubble--user bubble--ghost" data-i18n-html="seed.claudeQ"><b class="mention">@luti</b> are you connected?</p>
+            <p class="bubble bubble--ai bubble--ghost" data-i18n="seed.claudeA">Connected. Active project is acme-dashboard — vite · pnpm · tsc.</p>
+          </div>
+          <div class="client__composer">
+            <span class="client__field" data-field data-placeholder="How can I help you today?"></span>
+            <button class="client__send" tabindex="-1"><svg><use href="#i-send"/></svg></button>
+          </div>
+        </article>
+
+        <article class="client" data-client="grok" data-link="remote" data-pos="1" style="--brand:light-dark(#1d1b20,#e6e0e9);--brand-ink:light-dark(#fff,#141218)">
+          <div class="client__bar">
+            <span class="client__mark"><svg><use href="#i-grok"/></svg></span>
+            <span class="client__name">Grok</span>
+            <span class="client__link"><svg><use href="#i-cloud"/></svg>grok.com</span>
+          </div>
+          <div class="client__log" data-log>
+            <p class="bubble bubble--user bubble--ghost" data-i18n-html="seed.grokQ"><b class="mention">@luti</b> is the dev server still up?</p>
+            <p class="bubble bubble--ai bubble--ghost" data-i18n="seed.grokA">Connected. job_7c31 is still running — 18 passed, 0 failed.</p>
+          </div>
+          <div class="client__composer">
+            <span class="client__field" data-field data-placeholder="What do you want to know?"></span>
+            <button class="client__send" tabindex="-1"><svg><use href="#i-send"/></svg></button>
+          </div>
+        </article>
+      </div>
+
+      <!-- Connection lane -->
+      <div class="stage__lane">
+        <div class="tunnel" id="nodeTunnel">
+          <p class="tunnel__row">
+            <span class="tunnel__icon"><svg><use href="#i-link"/></svg></span>
+            <span class="tunnel__name">MCP</span>
+          </p>
+          <p class="tunnel__sub" id="linkMode" data-i18n="stage.linkRemote">your own tunnel</p>
+        </div>
+      </div>
+
+      <!-- Mac demo -->
+      <div class="mac" id="mac">
+        <div class="mac__body">
+          <span class="mac__cam"></span>
+          <div class="mac__screen" id="macScreen">
+
+            <div class="mac__bar" id="nodeLuti">
+              <span class="mac__logo"><img src="assets/luti-icon.png" alt=""><i class="mac__ring"></i></span>
+              <span class="mac__name">Luti</span>
+              <span class="mac__tool" id="statusTool">memory</span>
+              <span class="mac__arrow">&rarr;</span>
+              <span class="mac__res is-pending" id="statusResult" data-i18n="demo.idle">waiting for a call</span>
+              <span class="mac__meta" id="lutiMeta">acme-dashboard</span>
+            </div>
+
+            <div class="desk" id="desk">
+
+              <div class="desk__stack">
+
+              <section class="win win--editor" data-pos="0" id="viewEditor">
+                <div class="win__bar">
+                  <span class="lights"><i></i><i></i><i></i></span>
+                  <span class="win__title">queue.ts &mdash; ~/dev/acme-dashboard</span>
+                  <span class="win__by">Luti<b data-by>edit_files</b></span>
+                </div>
+                <div class="win__body">
+                  <div class="editor" id="editor">
+                    <div class="line"><span class="line__no">1</span><span class="line__code"><span class="tk-key">import</span> { open } <span class="tk-key">from</span> <span class="tk-str">"./sqlite"</span></span></div>
+                    <div class="line"><span class="line__no">2</span><span class="line__code"><span class="tk-key">export async function</span> <span class="tk-fn">createQueue</span>() {</span></div>
+                    <div class="line"><span class="line__no">3</span><span class="line__code">  <span class="tk-key">const</span> db = <span class="tk-key">await</span> <span class="tk-fn">open</span>(<span class="tk-str">"queue.db"</span>)</span></div>
+                    <div class="line is-pending" data-add><span class="line__no">4</span><span class="line__code">  <span class="tk-key">await</span> db.<span class="tk-fn">exec</span>(</span></div>
+                    <div class="line is-pending" data-add><span class="line__no">5</span><span class="line__code">    <span class="tk-str">"CREATE TABLE IF NOT EXISTS jobs ("</span> +</span></div>
+                    <div class="line is-pending" data-add><span class="line__no">6</span><span class="line__code">    <span class="tk-str">"id TEXT PRIMARY KEY,"</span> +</span></div>
+                    <div class="line is-pending" data-add><span class="line__no">7</span><span class="line__code">    <span class="tk-str">"payload TEXT NOT NULL)"</span></span></div>
+                    <div class="line is-pending" data-add><span class="line__no">8</span><span class="line__code">  )</span></div>
+                    <div class="line"><span class="line__no">9</span><span class="line__code">  <span class="tk-key">return</span> db</span></div>
+                    <div class="line"><span class="line__no">10</span><span class="line__code">}</span></div>
+                  </div>
+                </div>
+              </section>
+
+              <section class="win win--browser" data-pos="1" id="viewBrowser">
+                <div class="win__bar">
+                  <span class="lights"><i></i><i></i><i></i></span>
+                  <span class="win__title" data-i18n="stage.winPreview">Preview — acme-dashboard</span>
+                  <span class="win__by">Luti<b data-by>browser_observe</b></span>
+                </div>
+                <div class="win__body">
+                  <div class="chrome">
+                    <span class="chrome__nav"><svg><use href="#i-back"/></svg><svg><use href="#i-fwd"/></svg></span>
+                    <span class="chrome__url"><svg><use href="#i-lock-s"/></svg><span id="urlText">localhost:5173</span></span>
+                    <span class="chrome__spin"></span>
+                  </div>
+                  <div class="viewport">
+                    <div class="mini" id="miniPreview">
+                      <div class="mini__card">
+                        <span class="mini__dot"></span>
+                        <span><span class="mini__t">Queue</span><br><span class="mini__s" data-i18n="stage.miniSub">SQLite · 3 workers ready</span></span>
+                      </div>
+                      <div class="mini__bars">
+                        <div class="mini__bar"></div><div class="mini__bar"></div><div class="mini__bar"></div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="shot" id="shot">
+                    <span class="shot__frame"></span>
+                    <span class="shot__flash"></span>
+                  </div>
+                </div>
+              </section>
+              </div>
+
+              <!-- Memory stays visible beside the window stack. -->
+              <aside class="ledger" id="viewContext">
+                <div class="ledger__bar">
+                  <span class="ledger__title" data-i18n="stage.ctxTitle">Project memory</span>
+                  <span class="win__by ledger__by"><b data-by>memory</b></span>
+                </div>
+                <div class="ledger__body">
+                  <div class="ctx">
+                    <div class="ctx__head">
+                      <span class="ctx__tab is-on">Memory</span>
+                      <span class="ctx__tab">Sessions</span>
+                      <span class="ctx__tab">Activity</span>
+                    </div>
+                    <div class="ctx__list" id="ctxList">
+                      <article class="mem">
+                        <p class="mem__top"><span class="mem__kind" data-kind="convention">convention</span><span class="mem__src">claude · 2d</span></p>
+                        <p class="mem__body" data-i18n="stage.mem1">pnpm only. CI rejects npm lockfiles.</p>
+                      </article>
+                      <article class="mem">
+                        <p class="mem__top"><span class="mem__kind" data-kind="pitfall">pitfall</span><span class="mem__src">cursor · 5d</span></p>
+                        <p class="mem__body" data-i18n="stage.mem2">The /api dev proxy needs changeOrigin, or cookies are dropped.</p>
+                      </article>
+                      <article class="mem">
+                        <p class="mem__top"><span class="mem__kind" data-kind="constraint">constraint</span><span class="mem__src">chatgpt · 9d</span></p>
+                        <p class="mem__body" data-i18n="stage.mem3">The local queue must not depend on the network; it has to persist offline.</p>
+                      </article>
+                    </div>
+                    <p class="ctx__foot" id="ctxCount" data-i18n="demo.count">24 memories · 7 sessions</p>
+                  </div>
+                </div>
+              </aside>
+
+            </div>
+          </div>
+          <div class="mac__chin"></div>
+        </div>
+        <div class="mac__neck"></div>
+        <div class="mac__foot"></div>
+      </div>
+
+      <div class="packets" id="packets"></div>
+
+    </div>
+
+    <p class="stage__note" data-i18n="hero.demoNote">Illustrative demo · example conversations and results</p>
+    <div class="stage__caption">
+      <span class="hop" data-hop="client" id="hopClient">Claude</span>
+      <span class="hop__sep">&rarr;</span>
+      <span class="hop" data-hop="tunnel" id="hopLink">MCP · localhost</span>
+      <span class="hop__sep">&rarr;</span>
+      <span class="hop" data-hop="luti" data-i18n="stage.hopLuti">Luti · project runtime</span>
+      <span class="hop__sep">&rarr;</span>
+      <span class="hop" data-hop="project">acme-dashboard</span>
+      <button class="stage__toggle" id="stageToggle" aria-pressed="false">
+        <svg aria-hidden="true"><use href="#i-pause" id="toggleIcon"/></svg><span id="toggleText" data-i18n="demo.pause">Pause demo</span>
+      </button>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="capabilities">
+  <div class="wrap">
+    <header class="section__head reveal">
+      <p class="section__label" data-i18n="caps.label">Local capabilities</p>
+      <h2 class="section__title" data-i18n="caps.title">From code changes to a working preview.</h2>
+      <p class="section__lede" data-i18n="caps.lede">Give your AI a task, and Luti runs the local steps on your Mac. Code, command output and screenshots can return to the conversation as tool results.</p>
+    </header>
+
+    <div class="grid grid--4 reveal">
+      <article class="card">
+        <h3 class="card__title"><span class="icon-circle" data-tone="green"><svg><use href="#i-file"/></svg></span><span data-i18n="caps.task3">Read and change code</span></h3>
+        <p class="card__body" data-i18n="tools.t3b">Search files and symbols, edit code, and review Git diffs. Structured file edits create a checkpoint before changing the file.</p>
+      </article>
+      <article class="card">
+        <h3 class="card__title"><span class="icon-circle" data-tone="orange"><svg><use href="#i-terminal"/></svg></span><span data-i18n="caps.task4">Run builds and tests</span></h3>
+        <p class="card__body" data-i18n="tools.t4b">Run builds, tests and dev servers as background jobs. Read logs, respond to prompts, or stop a job from the conversation.</p>
+      </article>
+      <article class="card">
+        <h3 class="card__title"><span class="icon-circle" data-tone="pink"><svg><use href="#i-globe"/></svg></span><span data-i18n="caps.task6">Check the actual page</span></h3>
+        <p class="card__body" data-i18n="tools.t6b">Open your local preview, click through the page, and capture screenshots or PDFs. Inspect console errors and network requests.</p>
+      </article>
+      <article class="card">
+        <h3 class="card__title"><span class="icon-circle" data-tone="yellow"><svg><use href="#i-display"/></svg></span><span data-i18n="caps.task7">Work with Mac apps</span></h3>
+        <p class="card__body" data-i18n="tools.t7b">Inspect windows and interact with native apps and system dialogs, using the macOS permissions you grant.</p>
+      </article>
+    </div>
+
+    <details class="disclose reveal">
+      <summary data-i18n="tools.all">All 29 tools</summary>
+      <div class="disclose__body">
+        <div class="disclose__group">
+          <p class="disclose__name" data-i18n="tools.t1">Context</p>
+          <div class="chips"><span class="chip">memory</span></div>
+        </div>
+        <div class="disclose__group">
+          <p class="disclose__name" data-i18n="tools.t2">Project</p>
+          <div class="chips"><span class="chip">projects</span><span class="chip">project_info</span><span class="chip">inspect_project</span><span class="chip">runtime_status</span></div>
+        </div>
+        <div class="disclose__group">
+          <p class="disclose__name" data-i18n="tools.t3">Files &amp; code</p>
+          <div class="chips"><span class="chip">read_files</span><span class="chip">search_project</span><span class="chip">list_directory</span><span class="chip">read_image</span><span class="chip">edit_files</span><span class="chip">path_action</span><span class="chip">code_query</span></div>
+        </div>
+        <div class="disclose__group">
+          <p class="disclose__name" data-i18n="tools.t4">Processes &amp; jobs</p>
+          <div class="chips"><span class="chip">run_process</span><span class="chip">run_shell</span><span class="chip">job_query</span><span class="chip">job_action</span></div>
+        </div>
+        <div class="disclose__group">
+          <p class="disclose__name" data-i18n="tools.t5">Git</p>
+          <div class="chips"><span class="chip">git_query</span></div>
+        </div>
+        <div class="disclose__group">
+          <p class="disclose__name" data-i18n="tools.t6">Browser</p>
+          <div class="chips"><span class="chip">browser_session</span><span class="chip">browser_observe</span><span class="chip">browser_action</span><span class="chip">browser_inspect</span><span class="chip">browser_transfer</span><span class="chip">browser_dialog</span><span class="chip">browser_evaluate</span></div>
+        </div>
+        <div class="disclose__group">
+          <p class="disclose__name" data-i18n="tools.t7">Computer Use</p>
+          <div class="chips"><span class="chip">computer_observe</span><span class="chip">computer_action</span><span class="chip">computer_wait</span></div>
+        </div>
+        <div class="disclose__group">
+          <p class="disclose__name" data-i18n="tools.t8">Skills &amp; artifacts</p>
+          <div class="chips"><span class="chip">skills</span><span class="chip">export_artifact</span></div>
+        </div>
+      </div>
+    </details>
+  </div>
+</section>
+
+<section class="section section--tint" id="context">
+  <div class="wrap">
+    <header class="section__head reveal">
+      <p class="section__label" data-i18n="context.label">Project context</p>
+      <h2 class="section__title" data-i18n="context.title">Switch clients. Keep the project context.</h2>
+      <p class="section__lede" data-i18n="context.lede">Save decisions and conventions to project memory so another connected AI can recall them. Memory is written explicitly; Luti does not sync entire chat histories.</p>
+    </header>
+
+    <div class="grid grid--3 reveal">
+      <article class="card">
+        <h3 class="card__title"><span class="icon-circle" data-tone="purple"><svg><use href="#i-brain"/></svg></span><span data-i18n="context.memTitle">Project memory</span></h3>
+        <p class="card__body" data-i18n="context.memBody">Keep architecture choices, conventions and lessons from past work. Entries retain their source and revision; conflicting updates are rejected.</p>
+      </article>
+      <article class="card">
+        <h3 class="card__title"><span class="icon-circle" data-tone="blue"><svg><use href="#i-clock"/></svg></span><span data-i18n="context.sesTitle">Session history</span></h3>
+        <p class="card__body" data-i18n="context.sesBody">Review changed files, completed jobs and test outcomes. Session summaries exclude chat transcripts, command arguments and output bodies.</p>
+        <div class="chips chips--plain">
+          <span class="chip" data-i18n="context.sesC1">changed paths</span><span class="chip" data-i18n="context.sesC2">jobs and results</span><span class="chip" data-i18n="context.sesC3">failures and recovery</span>
+        </div>
+      </article>
+      <article class="card">
+        <h3 class="card__title"><span class="icon-circle" data-tone="gray"><svg><use href="#i-list"/></svg></span><span data-i18n="context.actTitle">Activity log</span></h3>
+        <p class="card__body" data-i18n="context.actBody">See which client called a tool, when it ran and how it ended. Use the record to understand changes and investigate failures.</p>
+        <div class="chips chips--plain">
+          <span class="chip" data-i18n="context.actC1">caller</span><span class="chip" data-i18n="context.actC2">tool and effect</span><span class="chip" data-i18n="context.actC3">timeline</span>
+        </div>
+      </article>
+    </div>
+
+    <p class="flow reveal" aria-hidden="true">
+      <span data-i18n="context.f1">a tool call</span><i>&rarr;</i>
+      <span>Activity</span><i>&rarr;</i>
+      <span>Session Journal</span><i>&rarr;</i>
+      <span data-i18n="context.f2">the model decides what is worth keeping</span><i>&rarr;</i>
+      <span class="is-key">Project Memory</span>
+    </p>
+  </div>
+</section>
+
+<section class="section" id="start">
+  <div class="wrap">
+    <header class="section__head reveal">
+      <p class="section__label" data-i18n="start.label">Get started</p>
+      <h2 class="section__title" data-i18n="start.title">Connect your AI. Try one task.</h2>
+      <p class="section__lede" data-i18n="start.lede">For ChatGPT, use OpenAI Secure MCP Tunnel. Your account and workspace need access to developer mode and tunnels. Other connection options are below.</p>
+    </header>
+
+    <ul class="list reveal">
+      <li class="list__row">
+        <span class="icon-circle" data-tone="purple"><svg><use href="#i-folder"/></svg></span>
+        <span class="row__text">
+          <b class="row__headline" data-i18n="start.s1">Install Luti and select a project</b>
+          <span class="row__support" data-i18n="start.s1b">Download Luti, add your project folder in Projects, and start the runtime.</span>
+        </span>
+
+      </li>
+      <li class="list__row">
+        <span class="icon-circle" data-tone="green"><svg><use href="#i-bolt"/></svg></span>
+        <span class="row__text">
+          <b class="row__headline" data-i18n="start.s2">Connect an OpenAI Tunnel</b>
+          <span class="row__support" data-i18n="start.s2b">Create a tunnel in OpenAI Platform and associate your ChatGPT workspace. Enter its Tunnel ID and a runtime API key with tunnel Read + Use permissions in Luti → Connections → OpenAI, then enable the connection.</span>
+        </span>
+
+      </li>
+      <li class="list__row">
+        <span class="icon-circle" data-tone="orange"><svg><use href="#i-cloud"/></svg></span>
+        <span class="row__text">
+          <b class="row__headline" data-i18n="start.s3">Add Luti in ChatGPT</b>
+          <span class="row__support" data-i18n="start.s3b">Enable developer mode in ChatGPT settings, then create an app from Apps. Choose Tunnel and select your Tunnel ID. Luti’s OpenAI connection does not use the public HTTPS OAuth flow.</span>
+        </span>
+
+      </li>
+      <li class="list__row">
+        <span class="icon-circle" data-tone="blue"><svg><use href="#i-lock"/></svg></span>
+        <span class="row__text">
+          <b class="row__headline" data-i18n="start.s4">Check the connection with a small task</b>
+          <span class="row__support" data-i18n="start.s4b">Select Luti in a new conversation and ask: “List the top-level files in my selected project.” Check that the result matches the folder on your Mac.</span>
+        </span>
+
+      </li>
+    </ul>
+
+    <p class="list__foot reveal"><a href="https://developers.openai.com/api/docs/guides/secure-mcp-tunnels" target="_blank" rel="noopener" data-i18n="start.guide">OpenAI Tunnel setup documentation ↗</a></p>
+    <details class="disclose reveal">
+      <summary data-i18n="start.https">Other remote clients · HTTPS + OAuth</summary>
+      <div class="disclose__body"><p data-i18n-html="start.httpsBody">Configure Cloudflare or ngrok in Luti’s Connections page. Add the full HTTPS MCP endpoint ending in <code>/mcp</code> to a client that supports remote MCP and OAuth. Complete OAuth and approve access on your Mac. Availability depends on the client and account.</p></div>
+    </details>
+    <details class="disclose reveal">
+      <summary data-i18n="start.local">Clients on this Mac · Local MCP</summary>
+      <div class="disclose__body"><p data-i18n="start.localBody">Start the runtime, then copy the Local MCP setup from Connections into your client’s MCP configuration. The setup includes the local endpoint and bearer credential; no remote tunnel is needed.</p></div>
+    </details>
+    <p class="list__foot reveal" data-i18n="start.foot">Browser automation currently requires Apple Silicon and an installed copy of Google Chrome.</p>
+  </div>
+</section>
+
+<section class="section section--tint" id="security">
+  <div class="wrap">
+    <header class="section__head reveal">
+      <p class="section__label" data-i18n="sec.label">Security</p>
+      <h2 class="section__title" data-i18n="sec.title">Choose what your AI can access.</h2>
+      <p class="section__lede" data-i18n="sec.lede">Choose which projects to expose and configure tool permissions. Review calls and results in the local activity log.</p>
+    </header>
+
+    <ul class="list reveal">
+      <li class="list__row">
+        <span class="icon-circle" data-tone="purple"><svg><use href="#i-folder"/></svg></span>
+        <span class="row__text">
+          <b class="row__headline" data-i18n="sec.r1">One active project at a time</b>
+          <span class="row__support" data-i18n="sec.r1b">Add projects on your Mac. Connected clients can switch between approved projects. Switching revokes the previous project’s workspace, jobs, browser and artifacts.</span>
+        </span>
+      </li>
+      <li class="list__row">
+        <span class="icon-circle" data-tone="orange"><svg><use href="#i-lock"/></svg></span>
+        <span class="row__text">
+          <b class="row__headline" data-i18n="sec.r3">Authentication follows the connection</b>
+          <span class="row__support" data-i18n="sec.r3b">Public HTTPS connections use OAuth and require approval on your Mac. OpenAI Tunnel uses workspace-authorized credentials; Local MCP uses a local bearer credential. Tool permissions apply separately.</span>
+        </span>
+      </li>
+      <li class="list__row">
+        <span class="icon-circle" data-tone="yellow"><svg><use href="#i-list"/></svg></span>
+        <span class="row__text">
+          <b class="row__headline" data-i18n="sec.r5">Every call leaves a trace</b>
+          <span class="row__support" data-i18n="sec.r5b">Review the caller, tool, time and result in the activity log. Caller identity comes from the authenticated connection.</span>
+        </span>
+      </li>
+      <li class="list__row">
+        <span class="icon-circle" data-tone="blue"><svg><use href="#i-back"/></svg></span>
+        <span class="row__text">
+          <b class="row__headline" data-i18n="sec.r8">Checkpoints for structured file changes</b>
+          <span class="row__support" data-i18n="sec.r8b">The edit_files and path_action tools save a checkpoint before changing files. Restore locally with the runtime stopped. Shell commands and external app changes are not covered by these checkpoints.</span>
+        </span>
+      </li>
+      <li class="list__row">
+        <span class="icon-circle" data-tone="pink"><svg><use href="#i-shield"/></svg></span>
+        <span class="row__text">
+          <b class="row__headline" data-i18n="sec.r6">Project context stays out of your repo</b>
+          <span class="row__support" data-i18n-html="sec.r6b">Project memory, sessions and activity are stored under <code>~/.luti/</code>, outside your repository. Connection credentials are stored in macOS Keychain.</span>
+        </span>
+      </li>
+      <li class="list__row">
+        <span class="icon-circle" data-tone="gray"><svg><use href="#i-bolt"/></svg></span>
+        <span class="row__text">
+          <b class="row__headline" data-i18n="sec.r7">Off means off</b>
+          <span class="row__support" data-i18n="sec.r7b">Stopping the runtime closes its connections and stops the jobs and browser sessions it manages.</span>
+        </span>
+      </li>
+    </ul>
+
+    <div class="note reveal">
+      <p class="note__title"><svg><use href="#i-info"/></svg><span data-i18n="sec.noteTitle">Where the boundary ends</span></p>
+      <ul>
+        <li data-i18n-html="sec.n1"><b>Local execution is not an OS sandbox.</b> Approved processes can run with your macOS user permissions.</li>
+        <li data-i18n-html="sec.n2"><b>Tool results reach your AI provider.</b> This can include code, command output and screenshots. Luti does not operate a cloud service that receives your project data.</li>
+        <li data-i18n-html="sec.n3"><b>Only what passes through Luti is Luti’s responsibility.</b> What a host runs elsewhere on its own is outside it.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="chain">
+  <div class="wrap">
+    <header class="section__head reveal">
+      <p class="section__label" data-i18n="chain.label">How it works</p>
+      <h2 class="section__title" data-i18n="chain.title">The model thinks above. Luti works below.</h2>
+      <p class="section__lede" data-i18n="chain.lede">The host owns understanding, planning and orchestration. Luti owns the project boundary, the persistent context, the local capabilities, the approvals and the record. Between them, only MCP.</p>
+    </header>
+
+    <figure class="diagram reveal" data-i18n-attr="aria-label:chain.figAlt" aria-label="Three layers: any MCP-compatible AI host on top, the Luti project runtime in the middle, macOS underneath.">
+      <svg viewBox="0 0 1160 434" role="img">
+        <rect class="dg__band" x="20" y="16" width="1120" height="72" rx="18"/>
+        <text class="dg__label" x="48" y="58" data-i18n="chain.b1">Any MCP-compatible AI host</text>
+        <text class="dg__detail" x="1112" y="58" text-anchor="end" data-i18n="chain.b1d">reasoning · planning · orchestration</text>
+
+        <path class="dg__arrow" d="M72 96v22M66 112l6 6 6-6"/>
+        <text class="dg__cap" x="100" y="116" data-i18n="chain.a1">a tunnel you own, or localhost</text>
+
+        <rect class="dg__band dg__band--luti" x="20" y="132" width="1120" height="170" rx="18"/>
+        <text class="dg__label dg__label--luti" x="48" y="164">Luti</text>
+        <text class="dg__detail" x="1112" y="164" text-anchor="end" data-i18n="chain.b2d">active project · configured permissions</text>
+
+        <rect class="dg__row" x="48" y="184" width="1064" height="46" rx="12"/>
+        <text class="dg__sub" x="72" y="213" data-i18n="chain.r1">Project context</text>
+        <text class="dg__mini" x="1088" y="213" text-anchor="end">Memory · Sessions · Activity</text>
+
+        <rect class="dg__row" x="48" y="238" width="1064" height="46" rx="12"/>
+        <text class="dg__sub" x="72" y="267" data-i18n="chain.r2">Local capabilities</text>
+        <text class="dg__mini" x="1088" y="267" text-anchor="end">Files · Git · Process · Browser · Computer</text>
+
+        <path class="dg__arrow" d="M72 310v22M66 326l6 6 6-6"/>
+
+        <rect class="dg__band" x="20" y="346" width="1120" height="72" rx="18"/>
+        <text class="dg__label" x="48" y="388">macOS</text>
+        <text class="dg__detail" x="1112" y="388" text-anchor="end" data-i18n="chain.b3d">~/.luti — one namespace per project</text>
+      </svg>
+    </figure>
+
+    <div class="tenet reveal">
+      <p data-i18n-html="chain.t1">Persistent context belongs to <em>Luti</em>.<br>Context intelligence belongs to the model.</p>
+      <p data-i18n-html="chain.t2">Project capability belongs to <em>Luti</em>.<br>Reasoning and orchestration stay with the host.</p>
+    </div>
+
+    <h3 class="section__sub reveal" data-i18n="chain.traceLabel">Example tool sequence</h3>
+    <ol class="trace reveal" role="img" data-i18n-attr="aria-label:chain.traceAlt" aria-label="Seven tool calls in order: memory recall finds 3 matches; inspect_project detects vite, pnpm and tsc; read_files reads 142 lines of src/queue.ts; edit_files applies plus 12 minus 3; run_process submits pnpm test as job_7c31; job_query returns 18 passed and 0 failed; memory remember writes the decision back as mem_9f3c1.">
+      <li><span class="trace__tool">memory</span><span class="trace__arg">action=recall "local queue"</span><span class="trace__out is-ok">3 matches</span></li>
+      <li><span class="trace__tool">inspect_project</span><span class="trace__arg">depth=2 vite · pnpm · tsc</span><span class="trace__out is-ok">ok</span></li>
+      <li><span class="trace__tool">read_files</span><span class="trace__arg">src/queue.ts 142 lines</span><span class="trace__out is-ok">ok</span></li>
+      <li><span class="trace__tool">edit_files</span><span class="trace__arg">action=edit +12 −3</span><span class="trace__out is-ok">confirmed</span></li>
+      <li><span class="trace__tool">run_process</span><span class="trace__arg">pnpm test job_7c31</span><span class="trace__out is-ok">submitted</span></li>
+      <li><span class="trace__tool">job_query</span><span class="trace__arg">action=logs 18 passed · 0 failed</span><span class="trace__out is-ok">ok</span></li>
+      <li><span class="trace__tool">memory</span><span class="trace__arg">action=remember kind=decision</span><span class="trace__out is-ok">mem_9f3c1</span></li>
+    </ol>
+  </div>
+</section>
+
+</main>
+
+<footer class="footer">
+  <div class="wrap">
+    <div class="footer__grid">
+      <div>
+        <a class="brand" href="#top"><img src="assets/luti-icon.png" alt="" width="30" height="30">Luti</a>
+        <p class="footer__tagline" data-i18n="footer.tagline">A project’s context and capabilities belong to the project.</p>
+        <a class="footer__support" href="https://buymeacoffee.com/boltguo" target="_blank" rel="noopener">
+          <svg aria-hidden="true"><use href="#i-coffee"/></svg><span data-i18n="footer.support">Buy me a coffee</span>
+        </a>
+      </div>
+      <div>
+        <h4 data-i18n="footer.product">Product</h4>
+        <ul>
+          <li><a href="#capabilities" data-i18n="nav.caps">Capabilities</a></li>
+          <li><a href="#context" data-i18n="nav.context">Context</a></li>
+          <li><a href="#start" data-i18n="hero.ctaChain">Setup guide</a></li>
+          <li><a href="#chain" data-i18n="chain.label">How it works</a></li>
+          <li><a href="https://github.com/boltguo/Luti" rel="noopener" data-i18n="footer.source">Source on GitHub</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4 data-i18n="footer.hosts">Hosts</h4>
+        <ul>
+          <li><a href="https://chatgpt.com/plugins" rel="noopener">ChatGPT</a></li>
+          <li><a href="https://claude.ai/settings/connectors" rel="noopener">Claude</a></li>
+          <li><a href="https://grok.com/" rel="noopener">Grok</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4 data-i18n="footer.entrances">Connections</h4>
+        <ul>
+          <li><a href="https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/" rel="noopener">Cloudflare Tunnel</a></li>
+          <li><a href="https://developers.openai.com/api/docs/guides/secure-mcp-tunnels" rel="noopener">OpenAI Secure MCP Tunnel</a></li>
+          <li><a href="https://ngrok.com/" rel="noopener">ngrok</a></li>
+        </ul>
+      </div>
+    </div>
+    <p class="footer__legal" data-i18n="footer.legal">© 2026 Luti · Built for macOS · Your projects stay yours</p>
+  </div>
+</footer>
+
+<script src="scripts/i18n.js" defer></script>
+<script src="scripts/main.js" defer></script>
+<script src="scripts/hero.js" defer></script>
+</body>
+</html>

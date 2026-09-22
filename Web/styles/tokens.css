@@ -1,0 +1,96 @@
+/* M3E tokens shared with the macOS app. */
+
+:root {
+  color-scheme: light dark;
+
+  /* Colors */
+  --primary: light-dark(#6750a4, #d0bcff);
+  --on-primary: light-dark(#ffffff, #381e72);
+  --primary-container: light-dark(#eaddff, #4f378b);
+  --on-primary-container: light-dark(#21005d, #eaddff);
+
+  --surface: light-dark(#fef7ff, #141218);
+  --surface-container-low: light-dark(#f7f2fa, #1d1b20);
+  --surface-container: light-dark(#f3edf7, #211f26);
+  --surface-container-high: light-dark(#ece6f0, #2b2930);
+  --surface-container-highest: light-dark(#e6e0e9, #36343b);
+
+  --on-surface: light-dark(#1d1b20, #e6e0e9);
+  --on-surface-variant: light-dark(#49454f, #cac4d0);
+  --outline: light-dark(#79747e, #938f99);
+  --outline-variant: light-dark(#cac4d0, #49454f);
+
+  --success: light-dark(#386a20, #aad38d);
+  --warning: light-dark(#825500, #ffcc80);
+  --error: light-dark(#b3261e, #f2b8b5);
+  --error-container: light-dark(#f9dedc, #8c1d18);
+  --on-error-container: light-dark(#410e0b, #f9dedc);
+
+  /* Category colors, independent of selection state. */
+  --icon-blue: light-dark(#0b57d0, #a8c7fa);
+  --icon-blue-container: light-dark(#d7e9ff, #183a5a);
+  --icon-pink: light-dark(#a30d5b, #ffb1c8);
+  --icon-pink-container: light-dark(#ffd9e7, #5a2137);
+  --icon-orange: light-dark(#8b4500, #ffb77a);
+  --icon-orange-container: light-dark(#ffe0c2, #5a3214);
+  --icon-yellow: light-dark(#6a5200, #e6c85c);
+  --icon-yellow-container: light-dark(#ffe59a, #514000);
+  --icon-green: light-dark(#126c2d, #9cd59f);
+  --icon-green-container: light-dark(#cfefce, #214324);
+  --icon-gray: light-dark(#50545a, #c7c7cc);
+  --icon-gray-container: light-dark(#e4e4e4, #39393b);
+
+  --state-hover: color-mix(in srgb, var(--primary) 8%, transparent);
+  --state-press: color-mix(in srgb, var(--primary) 12%, transparent);
+
+  /* Shape */
+  --radius-outer: 20px;   /* connected list outer */
+  --radius-inner: 6px;    /* connected list inner */
+  --radius-card: 20px;
+  --radius-dialog: 28px;
+  --radius-input: 16px;
+  --radius-run: 22px;     /* button run outer */
+  --radius-run-inner: 8px;
+
+  /* Spacing */
+  --gap-connected: 3px;
+  --sp-4: 4px;
+  --sp-8: 8px;
+  --sp-12: 12px;
+  --sp-16: 16px;
+  --sp-20: 20px;
+  --sp-22: 22px;
+
+  --sp-32: 32px;
+  --sp-48: 48px;
+
+  /* Motion */
+  --dur-state: 160ms;
+  --dur-tab: 180ms;
+  --dur-view: 420ms;
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+  --ease-expressive: cubic-bezier(0.34, 1.32, 0.42, 1);
+
+  /* Typography */
+  /* Use locale-specific CJK fonts to preserve Japanese glyph shapes. */
+  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC",
+    "Hiragino Sans GB", "Microsoft YaHei", system-ui, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, "JetBrains Mono",
+    monospace;
+
+  /* Elevation */
+  --shadow-1: 0 1px 2px light-dark(rgb(0 0 0 / 0.08), rgb(0 0 0 / 0.4));
+  --shadow-2: 0 4px 16px light-dark(rgb(29 27 32 / 0.1), rgb(0 0 0 / 0.5));
+  --shadow-3: 0 12px 40px light-dark(rgb(29 27 32 / 0.14), rgb(0 0 0 / 0.62));
+
+  --page-max: 1200px;
+}
+
+:root:lang(ja) {
+  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Hiragino Sans",
+    "Hiragino Kaku Gothic ProN", "Yu Gothic Medium", "Noto Sans JP", system-ui,
+    sans-serif;
+}
+
+:root[data-theme="light"] { color-scheme: only light; }
+:root[data-theme="dark"] { color-scheme: only dark; }

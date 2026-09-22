@@ -1,0 +1,7 @@
+# https://luti.aouos.com — a single static page. Everything here is public.
+User-agent: *
+Allow: /
+# The card that renders assets/og-image.png. A build input, not a page.
+Disallow: /assets/og-source.html
+
+Sitemap: https://luti.aouos.com/sitemap.xml
