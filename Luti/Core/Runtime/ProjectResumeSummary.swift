@@ -170,6 +170,9 @@ enum ProjectResumeSummary {
     if !session.touchedFiles.isEmpty || !session.commands.isEmpty || !session.jobs.isEmpty
       || !session.diagnostics.isEmpty || !session.artifacts.isEmpty { return true }
     return session.calls.contains { call in
+      // Rejected or unchanged calls must not hide prior work. Keep legacy records
+      // with an unknown effect and operations that may have changed state.
+      guard call.effect != "none" else { return false }
       if call.status == "interrupted" || call.operationState == "interrupted" {
         return call.tool != "project_info" && call.tool != "memory" && call.tool != "projects"
       }

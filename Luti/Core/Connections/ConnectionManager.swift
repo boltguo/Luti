@@ -114,7 +114,9 @@ public actor ConnectionManager {
       }
       let result = await provider.snapshot()
       try check(owned.id)
-      guard result.state == .ready else {
+      guard result.state == .ready
+        || (provider.id == .quick && result.state == .reconnecting)
+      else {
         throw Failure("connection_not_ready", "The remote provider did not confirm readiness.",
                       "Inspect the connection settings and reconnect explicitly. Local MCP is still available.")
       }

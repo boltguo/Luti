@@ -9,23 +9,22 @@
 "context.refresh" = "更新";
 "context.counts" = "メモリ%ld件 · セッション%ld件";
 "context.unavailable" = "コンテキストを利用できません";
-"context.memoryDescription" = "長く残るプロジェクトの決定と規約";
-"context.sessionsDescription" = "ランタイムセッションごとに検証された事実";
-"context.activityDescription" = "ツール呼び出しと診断イベント";
+"context.memoryDescription" = "プロジェクトの決定と規約";
+"context.sessionsDescription" = "実行履歴と検証結果";
+"context.activityDescription" = "ツール呼び出しと診断";
 "context.clearSelection" = "%@を消去";
 "context.clear" = "コンテキストを消去";
 "context.stopBeforeClear" = "コンテキストを消去する前に、ランタイムを停止してください。";
-"context.clearKeepsProject" = "コンテキストを消去しても、プロジェクトとファイルはそのまま残ります。承認を取り消した場合も、同じフォルダを追加し直せばコンテキストを引き続き使えます。";
-"context.clearConfirmation" = "このMac上にある「%2$@」の%1$@を完全に削除しますか？メモリを選ぶと、忘れられた履歴と置き換えられた履歴も削除されます。ソースファイル、プロジェクトの承認、OAuth接続、ほかのプロジェクトは変わりません。この操作は取り消せません。";
+"context.clearKeepsProject" = "コンテキストのみ消去します。プロジェクトのファイルは残ります。";
+"context.clearConfirmation" = "「%2$@」の%1$@を完全に削除します。元に戻せません。";
 "context.sessionDetails" = "セッションの詳細";
 "context.search" = "プロジェクトメモリを検索";
 "context.includeHistory" = "置き換えられた事実を含める";
 "context.revision" = "ソースリビジョン %ld";
 "context.updated" = "%@に更新";
-"context.summaryDescription" = "プロジェクトで共有される知識。事実ごとに、出どころと履歴が残ります。";
-"context.noMemories" = "条件に合うプロジェクトメモリはありません。";
+"context.noMemories" = "一致するプロジェクトメモリはありません";
 "context.loadMore" = "さらに読み込む";
-"context.noSessions" = "ランタイムセッションはまだありません。";
+"context.noSessions" = "セッションはまだありません";
 "context.sessionCounts" = "呼び出し%ld件 · 変更パス%ld件 · 失敗%ld件";
 "context.supersedes" = "%@を置き換え";
 "context.omitted" = "ストレージの上限により、古い明細%ld件を省略しました。";
@@ -38,7 +37,7 @@
 "context.diagnostics" = "診断";
 "context.artifacts" = "成果物（メタデータのみ）";
 "context.checkpoints" = "復旧チェックポイント（IDのみ）";
-"context.journalPrivacy" = "記録に残るのは、範囲の決まった実行メタデータと構造化された診断だけです。会話、ファイルの中身、コマンドの生出力、スクリーンショットは含みません。コマンドの成功は、正しさの証明ではありません。";
+"context.journalPrivacy" = "実行メタデータと診断のみ保存します。会話、ファイル内容、元の出力、スクリーンショットは保存しません。コマンドの成功は正しさの証明にはなりません。";
 "context.kind.architecture" = "アーキテクチャ";
 "context.kind.decision" = "決定";
 "context.kind.convention" = "規約";
@@ -64,16 +63,15 @@
 "activity.activityFilter" = "アクティビティのフィルタ";
 "activity.all" = "すべて";
 "activity.artifactCreated" = "成果物を作成";
-"activity.count" = "記録%ld件 · 実行中のジョブ%ld件";
+"activity.count" = "記録%ld件";
 "activity.currentErrors" = "現在のエラー";
 "activity.currentRun" = "現在の実行";
 "activity.errors" = "エラー";
 "activity.failed" = "失敗";
 "activity.interrupted" = "中断";
 "activity.last" = "最終呼び出し %@";
-"activity.lastCallNone" = "最終呼び出し: なし";
 "activity.needsVerification" = "確認が必要";
-"activity.noActivityMatchesFilter" = "このフィルタに合うアクティビティはありません";
+"activity.noActivityMatchesFilter" = "一致する記録はありません";
 "activity.noActivityYet" = "アクティビティはまだありません";
 "activity.outcomeUnknown" = "結果は不明";
 "activity.partiallyCompleted" = "一部完了";
@@ -82,15 +80,14 @@
 "activity.searchToolsTargetsResults" = "ツール、対象、結果を検索";
 "activity.success" = "成功";
 "activity.timedOut" = "タイムアウト";
-"activity.toolCallsAppearSessionRunning" = "セッションが動き出すと、ツール呼び出しがここに表示されます。";
-"activity.tryAnotherToolNameKeyword" = "別のツール名やキーワードをお試しください。";
+"activity.tryAnotherToolNameKeyword" = "別のキーワードをお試しください。";
 
 /* app */
 "app.chooseProjectsLutiEdit" = "Lutiが編集できるプロジェクトを選ぶ";
 "app.enterTunnelTokenSaving" = "保存する前にTunnel Tokenを入力してください。";
 
 /* approval */
-"approval.accessRemainsLimitedCurrentProjectTool" = "アクセスできる範囲は、使用中のプロジェクト、ツールポリシー、macOSの許可で決まります。「接続」からいつでも取り消せます。";
+"approval.accessRemainsLimitedCurrentProjectTool" = "アクセス範囲は現在のプロジェクト、ツールポリシー、システムの権限で制限されます。「接続」で取り消せます。";
 "approval.allow" = "許可";
 "approval.allowConnection" = "接続を許可しますか？";
 "approval.deny" = "拒否";
@@ -98,14 +95,12 @@
 "approval.receivePermissions" = "次の権限が渡されます";
 "approval.requestingAccessMac" = "%@がこのMacへのアクセスを求めています。";
 "approval.dynamicClientDetected" = "動的登録 · コールバックのドメインを%@として認識";
-"approval.dynamicClientUnverified" = "動的登録 · プラットフォームは未認識。下のコールバックを確認してください";
+"approval.dynamicClientUnverified" = "動的登録 · アプリを識別できません。コールバックURLを確認してください";
 
 /* operation approval */
-"operationApproval.title" = "このローカル操作を許可しますか？";
-"operationApproval.explanation" = "この操作には確認が必要です。";
+"operationApproval.title" = "この操作を許可しますか？";
 "operationApproval.command" = "コマンド";
 "operationApproval.project" = "使用中のプロジェクト";
-"operationApproval.oneShot" = "この操作だけを許可します。今後の操作では、もう一度確認します。";
 "operationApproval.allowOnce" = "1回だけ許可";
 
 /* capability */
@@ -170,19 +165,18 @@
 "clients.accessControl" = "アクセス制御";
 "clients.approvedUnknownPlatform" = "接続済み · プラットフォームは未認識";
 "clients.clientNoLongerExists" = "このOAuthクライアントは存在しません。";
-"clients.connectionIdentity" = "接続の識別情報";
-"clients.dcrClientsAppearAfterApproval" = "AIアプリが動的登録され、このMacで承認されると、ここに表示されます。";
+"clients.connectionIdentity" = "クライアント情報";
+"clients.dcrClientsAppearAfterApproval" = "動的登録されたAIアプリは、このMacで承認すると表示されます。";
 "clients.deleteClient" = "クライアントを削除";
 "clients.deleteClientConfirm" = "このOAuthクライアントを削除しますか？";
-"clients.deleteClientMessage" = "削除すると、このクライアントのトークンはすべて即座に無効になります。次の接続では、登録からやり直し、このMacで承認し直す必要があります。";
+"clients.deleteClientMessage" = "削除すると、このクライアントのトークンは直ちに無効になります。再接続には再登録と承認が必要です。";
 "clients.detectedPlatformReady" = "%@として認識 · 接続済み";
 "clients.noApprovedClients" = "接続済みのAIアプリはありません";
 "clients.platform" = "プラットフォーム";
-"clients.platformDetected" = "コールバックのドメインから%@として認識";
-"clients.platformUnverified" = "プラットフォームは未認識。クライアント名は自己申告です";
+"clients.platformDetected" = "コールバックドメインから識別";
+"clients.platformUnverified" = "プラットフォームは未識別。名前はクライアントが指定しています";
 "clients.remoteAccess" = "リモートアクセス";
 "clients.remoteAccessDisabled" = "一時停止中";
-"clients.remoteAccessEnabled" = "リモートアクセスはオン";
 
 /* common */
 "common.back" = "戻る";
@@ -245,7 +239,7 @@
 "provider.openai.step4.title" = "Lutiで設定を完了する";
 "provider.openai.step4.detail" = "Tunnel IDとRuntime API Keyを入力して保存し、この接続をオンにします。";
 "provider.doctor" = "接続診断";
-"provider.doctorBoundary" = "確認するのは、トランスポートと認証の設定だけです。合格しても、クラウドホストのセッションやツール呼び出しの成功を保証するものではありません。";
+"provider.doctorBoundary" = "トンネルと認証の設定のみ確認します。AIアプリの接続やツール呼び出しは検証しません。";
 "provider.checking" = "確認中…";
 "provider.runDoctor" = "チェックを実行";
 "doctor.reachable" = "公開エンドポイントにリダイレクトなしで到達できる";
@@ -259,7 +253,7 @@
 
 /* home */
 "home.addProjectGetStarted" = "プロジェクトを追加して始めましょう。";
-"home.checkErrorDetailsTryingAgain" = "もう一度試す前に、エラーの詳細を確認してください。";
+"home.checkErrorDetailsTryingAgain" = "エラーを確認して再試行してください。";
 "home.checkingTunnelClient" = "Tunnelクライアントを確認しています。";
 "home.chooseProject" = "プロジェクトを選択";
 "home.configuration" = "設定";
@@ -332,22 +326,18 @@
 "oauth.viewScreen" = "画面の表示";
 
 /* recovery */
-"recovery.title" = "復旧";
-"recovery.description" = "ローカルファイルの復旧記録";
-"recovery.count" = "復旧チェックポイント %ld 件";
+"recovery.title" = "ファイルの復元";
 "recovery.empty" = "復旧チェックポイントはありません";
-"recovery.emptyDescription" = "ファイル変更前に作成された復旧可能なチェックポイントがここに表示されます。";
 "recovery.loading" = "復旧チェックポイントを読み込み中…";
 "recovery.checkpointSummary" = "%ldファイル · %@";
 "recovery.restore" = "復元";
 "recovery.restoreConfirmation" = "このチェックポイントを復元しますか？";
 "recovery.restoreMessage" = "AIによる編集の直前、検証済みだった状態に%ldファイルを戻します。そのあとに変更されたファイルがあれば、Lutiは上書きせずに復元を中止します。";
-"recovery.reviewSummary" = "%ldファイル · 復元する前に、変更の範囲を確認してください";
-"recovery.previewVerified" = "現在のファイルは、このチェックポイントと一致しています。復元の直前に、もう一度検証します。";
-"recovery.previewTruncated" = "このプレビューは意図的に範囲を限っています。変更内容の一部は省略されますが、ファイルのメタデータは表示されます。";
-"recovery.metadataOnly" = "変更がモードのみ、サイズが大きすぎる、またはUTF-8テキストでないファイルは、メタデータのみ表示されます。";
-"recovery.restoreSafety" = "復元はローカルのみで、確認が必要です。Lutiは置き換える直前に、編集後の現在のSHAを検証します。";
-"recovery.stopBeforeRestore" = "ファイルを復元する前に、Lutiを停止してください。";
+"recovery.reviewSummary" = "%ldファイルをAIによる編集前に戻します";
+"recovery.previewVerified" = "ファイルを確認済みです。復元時に再確認します。";
+"recovery.previewTruncated" = "プレビューは途中までです。一部の変更は表示されません。";
+"recovery.metadataOnly" = "権限の変更、大きなファイル、UTF-8以外のファイルはメタデータのみ表示します。";
+"recovery.stopBeforeRestore" = "復元する前にLutiを停止してください。";
 "recovery.state.ready" = "準備完了";
 "recovery.state.restored" = "復元済み";
 "recovery.state.uncertain" = "確認が必要";
@@ -361,7 +351,7 @@
 "projects.noMatchingSkills" = "条件に合うSkillsはありません";
 "projects.noProjectSkillsFound" = "プロジェクトのSkillsは見つかりませんでした";
 "projects.noProjectsYet" = "プロジェクトはまだありません";
-"projects.onlyRemovesProjectListFilesDisk" = "Lutiから取り除くだけです。ファイルはMacに残ります。";
+"projects.onlyRemovesProjectListFilesDisk" = "プロジェクト一覧からのみ削除します。ファイルとコンテキストは残ります。";
 "projects.projectAccess" = "プロジェクトのアクセス範囲";
 "projects.projectActions" = "プロジェクトの操作";
 "projects.projectFolder" = "プロジェクトフォルダ";
@@ -390,17 +380,14 @@
 "settings.components" = "コンポーネント";
 "settings.controlWindowsKeyboardMouse" = "ウインドウ、キーボード、マウスの操作に使用";
 "settings.defaultFullProjectAccess" = "新規プロジェクトはフルアクセス";
-"settings.defaultFullProjectAccessDescription" = "新しく追加するプロジェクトでは、フルアクセスを標準で使用します。既存のプロジェクトには影響しません。";
+"settings.defaultFullProjectAccessDescription" = "新しく追加するプロジェクトのみに適用されます。";
 "settings.displayLanguage" = "表示言語";
 "settings.general" = "一般";
 "settings.updates" = "アップデート";
 "settings.automaticUpdateChecks" = "アップデートを自動確認";
-"settings.automaticUpdateChecksDescription" = "署名済みの更新フィードを定期的に確認します。";
-"settings.checkForUpdatesDescription" = "今すぐ更新フィードを確認します。";
 "settings.japanese" = "日本語";
-"settings.launchLogin" = "ログイン時に開く";
+"settings.launchLogin" = "ログイン時にLutiを開く";
 "settings.notRegistered" = "未登録";
-"settings.opensAppNotService" = "ログイン時にLutiを開きます";
 "settings.screenRecording" = "画面収録";
 "settings.simplifiedChinese" = "簡体字中国語";
 "settings.system" = "システムに合わせる";
@@ -426,7 +413,7 @@
 "connection.startingLocal" = "Lutiを起動しています…";
 "home.capabilitiesPermissions" = "機能と権限";
 "connection.copyLocalSetup" = "コピー";
-"connection.localCredentialHint" = "今回の実行のアクセスキーが含まれます。貼り付け先は、信頼できるローカルクライアントだけにしてください。Lutiは30秒後にクリップボードの内容を消去します。再起動後はもう一度コピーしてください。";
+"connection.localCredentialHint" = "実行キーを含みます。信頼できるローカルアプリでのみ使用してください。";
 "connection.startLocalHint" = "Lutiを起動すると、ローカルのMCPクライアントも同じプロジェクトコンテキストを使えます。";
 "connection.optionalRemote" = "リモート接続";
 "connection.remoteAccess" = "リモートアクセス";
@@ -435,7 +422,7 @@
 "connection.startBeforeRemote" = "この接続をオンにする前に、Lutiを開始してください。";
 "connection.remoteFailureLocalSafe" = "ローカルのタスクは引き続き実行されます。";
 "connection.configuration" = "設定";
-"connection.disconnectToEdit" = "設定を変更する前に接続を解除してください。";
+"connection.disconnectToEdit" = "編集する前に接続を解除してください。";
 "connection.advanced" = "詳細";
 "connection.state.stopped" = "未接続";
 "connection.state.starting" = "接続中…";
@@ -447,43 +434,52 @@
 "projects.enabledCount" = "%d件がオン";
 
 "common.starting" = "開始中";
-"connection.copyFailed" = "接続設定をコピーできませんでした。ローカルMCPが動いているか確認してから、もう一度お試しください。";
+"connection.copyFailed" = "コピーできませんでした。Lutiが起動しているか確認してください。";
 "connection.setupHelp" = "設定のヘルプ";
 
 /* P1.1 terminal information architecture */
 "home.currentTask" = "現在のタスク";
 "home.idle" = "待機中";
-"home.taskRunningDescription" = "Lutiが使用中のプロジェクトでタスクを実行しています。";
-"home.idleDescription" = "実行中のタスクはありません。";
 
 "projects.noProjectsEnabled" = "オンになっているプロジェクトがありません";
-"projects.enableProjectFromProjects" = "「プロジェクト」でプロジェクトをオンにすると、ここで使えます。";
+"projects.enableProjectFromProjects" = "「プロジェクト」でプロジェクトを有効にしてください。";
 "projects.stopRuntimeToEditProject" = "プロジェクトの権限を変更したり、このプロジェクトを取り除いたりする前に、Lutiを停止してください。";
 
 "connection.noEnabledProvider" = "オンになっている接続がありません";
-"connection.enableProviderFromConnection" = "先に「接続」で設定を完了し、1つ以上の接続をオンにしてください。";
+"connection.enableProviderFromConnection" = "「接続」で接続を設定して有効にしてください。";
 "connection.tunnelProviders" = "接続方法";
 "connection.providerEnabled" = "この接続を有効にする";
 "connection.localRuntime" = "ローカルサービス";
-"connection.localCompatibilityHint" = "ローカルMCPのエンドポイントを公開するには、ホームからLutiを開始してください。";
+"connection.localCompatibilityHint" = "Lutiを起動すると、ローカルMCP設定をコピーできます。";
 "connection.providerSetupRequired" = "設定が必要";
 "connection.setupGuide" = "設定ガイド";
 "connection.changeOriginOrCredentials" = "この変更を保存しますか？";
-"connection.authorizationResetMessage" = "保存後、接続済みのAIアプリでは承認し直す必要があります。";
+"connection.authorizationResetMessage" = "AIアプリで再承認が必要です。";
 "connection.saveAndResetAuthorizations" = "保存";
 "connection.removeCredentialAuthorizationMessage" = "削除すると、この接続はオフになります。接続済みのAIアプリでは承認し直す必要があります。";
 "connection.clearConfigurationConfirmation" = "この設定を消去しますか？";
-"connection.clearConfigurationMessage" = "保存済みのアドレスと資格情報を削除し、この接続をオフにします。この接続で承認済みのAIアプリは、再承認が必要です。";
+"connection.clearConfigurationMessage" = "保存済みのアドレスと認証情報を削除し、接続を無効にします。AIアプリで再承認が必要です。";
 "connection.clearConfiguration" = "設定を消去";
 "connection.providerStatus" = "接続状態";
 "connection.authorizationOriginNote" = "接続先や資格情報を変更すると、AIアプリで承認し直す必要があります。";
 "connection.noAIAppsAuthorized" = "承認済みのAIアプリはありません";
-"connection.authorizeAfterProviderReady" = "この接続をオンにしたあと、AIアプリで承認を完了してください。";
+"connection.authorizeAfterProviderReady" = "AI アプリから接続して承認します。";
 "connection.providerActions" = "接続の操作";
 "connection.cloudflareStep1" = "Cloudflare Tunnelを開く";
 "connection.cloudflareStep1Description" = "Tunnelを作成または選択し、公開ホスト名を設定します。";
 "connection.cloudflareStep2" = "ローカルサービスを公開する";
 "connection.cloudflareStep3" = "接続情報を保存する";
+
+"quick.sectionTitle" = "クイックテスト";
+"quick.rowSubtitle" = "一時的な接続";
+"quick.temporaryNotice" = "一時的なテスト専用です。停止するとURLは無効になります。再接続と再承認が必要です。";
+"quick.runtimeRequired" = "先に Luti を起動してください。";
+"quick.start" = "Quick Tunnel を開始";
+"quick.stop" = "Quick Tunnel を停止";
+"quick.statusTitle" = "一時的な接続";
+"quick.readySummary" = "MCP URL をコピーしてテストします。";
+"quick.reconnectingSummary" = "再接続中。URLは変わりません。";
+"quick.startingSummary" = "一時的な URL を作成中です。";
 
 "settings.diagnostics" = "診断";
 "settings.activityDescription" = "最近のツール呼び出しと実行履歴を確認します。";
@@ -491,13 +487,10 @@
 "settings.capabilityDiagnosticsDescription" = "プロジェクト、ブラウザ、デスクトップの権限を確認します。";
 "settings.helpAndSupport" = "ヘルプとサポート";
 "settings.sourceCode" = "ソースコード";
-"settings.sourceCodeDescription" = "GitHubでLutiのソースコードを表示します。";
-"settings.supportLuti" = "Lutiをサポート";
-"settings.supportLutiDescription" = "Lutiが役に立ったら、コーヒーを一杯おごってください。";
+"settings.supportLuti" = "開発を支援";
 "settings.aboutLuti" = "Lutiについて";
 "settings.versionAndComponents" = "バージョンとサードパーティコンポーネント";
 "settings.thirdPartyComponents" = "サードパーティコンポーネント";
-"settings.thirdPartyComponentsDescription" = "Lutiが使用するサードパーティ製コンポーネントとバージョンを表示します。";
 
 "menu.checkForUpdates" = "アップデートを確認…";
 "projects.skills" = "Skills";
@@ -513,4 +506,4 @@
 "validation.kind.build_only" = "ビルド結果のみ";
 "validation.observedFiles" = "確認した入力ファイル：%d";
 "validation.stale" = "入力が変更されました。再検証が必要です。";
-"validation.scopeNotice" = "確認したファイルだけではプロジェクト全体の正しさは保証されません。";
+"validation.scopeNotice" = "確認したファイルだけでは、プロジェクト全体の正しさは証明できません。";

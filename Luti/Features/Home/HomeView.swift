@@ -37,7 +37,7 @@ struct HomeView: View {
 
   private var connectionSection: some View {
     MDSection(title: L10n.text("common.connection")) {
-      if model.availableConnectionProviders.isEmpty {
+      if homeConnectionProviders.isEmpty {
         MDNavigationRow(
           title: L10n.text("connection.noEnabledProvider"),
           symbol: "link",
@@ -48,7 +48,7 @@ struct HomeView: View {
       } else {
         MDList {
           ForEach(
-            Array(model.availableConnectionProviders.enumerated()),
+            Array(homeConnectionProviders.enumerated()),
             id: \.element
           ) { index, provider in
             MDListRow(
@@ -56,7 +56,7 @@ struct HomeView: View {
               symbol: provider.symbol,
               subtitle: providerSubtitle(provider),
               position: MDListRowPosition(
-                index: index, count: model.availableConnectionProviders.count),
+                index: index, count: homeConnectionProviders.count),
               iconTone: provider.iconTone,
               textLineLimit: 1,
               subtitleTruncationMode: .tail,
@@ -73,6 +73,14 @@ struct HomeView: View {
       }
     }
     .accessibilityIdentifier("home-connection")
+  }
+
+  private var homeConnectionProviders: [ConnectionProviderID] {
+    var providers = model.availableConnectionProviders
+    if model.providerSnapshot(.quick).state != .stopped {
+      providers.insert(.quick, at: 0)
+    }
+    return providers
   }
 
   private var runtimeSection: some View {
@@ -121,9 +129,6 @@ struct HomeView: View {
             ? L10n.format("common.runningTasksCount", model.activeJobs)
             : L10n.text("home.idle"),
           symbol: model.activeJobs > 0 ? "bolt.fill" : "checkmark.circle",
-          subtitle: model.activeJobs > 0
-            ? L10n.text("home.taskRunningDescription")
-            : L10n.text("home.idleDescription"),
           iconTone: model.activeJobs > 0 ? .orange : .green
         ) {
           if model.activeJobs > 0 {
@@ -145,6 +150,7 @@ struct HomeView: View {
   }
 
   private func providerSubtitle(_ id: ConnectionProviderID) -> String? {
+    if id == .quick { return L10n.text("quick.rowSubtitle") }
     let address = model.savedProviderAddress(id)
     return address.isEmpty ? nil : address
   }

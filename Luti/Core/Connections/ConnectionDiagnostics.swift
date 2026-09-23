@@ -9,8 +9,7 @@ private final class ProviderNoRedirect: NSObject, URLSessionTaskDelegate, @unche
   }
 }
 
-/// Bounded probes with no cookies, credential storage, redirects or implicit
-/// proxy. Neither a provider log nor an HTTP response body becomes a UI error.
+/// Bounded probes with no cookies, credential storage, redirects or system proxy.
 enum ConnectionProbe {
   struct Response: Sendable {
     let status: Int

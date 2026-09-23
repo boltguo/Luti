@@ -101,7 +101,7 @@ private struct ClientDetail: View {
             title: L10n.text("clients.platform"), symbol: platform.symbol,
             subtitle: platform == .custom
               ? L10n.text("clients.platformUnverified")
-              : L10n.format("clients.platformDetected", platform.displayName),
+              : L10n.text("clients.platformDetected"),
             position: .first, iconTone: platformTone
           ) {
             Text(platform == .custom ? record.name : platform.displayName)
@@ -133,9 +133,6 @@ private struct ClientDetail: View {
         MDList {
           MDListRow(
             title: L10n.text("clients.remoteAccess"), symbol: "network",
-            subtitle: record.isEnabled
-              ? L10n.text("clients.remoteAccessEnabled")
-              : L10n.text("clients.remoteAccessDisabled"),
             position: .single, iconTone: record.isEnabled ? .green : .gray
           ) {
             MDSwitch(

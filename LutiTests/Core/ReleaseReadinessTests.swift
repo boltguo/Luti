@@ -31,10 +31,12 @@ import XCTest
         "menu.checkForUpdates",
         "settings.updates",
         "settings.automaticUpdateChecks",
-        "settings.automaticUpdateChecksDescription",
-        "settings.checkForUpdatesDescription",
         "projects.skills",
         "connection.tunnelToken",
+        "quick.sectionTitle",
+        "quick.temporaryNotice",
+        "quick.start",
+        "quick.stop",
       ] {
         let value = bundle.localizedString(forKey: key, value: "__MISSING__", table: nil)
         XCTAssertNotEqual(value, "__MISSING__", "\(language): \(key)")

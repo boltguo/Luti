@@ -1,15 +1,21 @@
 import Foundation
 
 public enum ConnectionProviderID: String, Codable, CaseIterable, Hashable, Sendable, Identifiable {
-  case cloudflare, openAI = "openai", ngrok
+  case cloudflare, openAI = "openai", ngrok, quick
+
+  /// Providers whose configuration is user-owned, persisted and eligible for
+  /// automatic startup with the Runtime. Quick Tunnel is deliberately session-only.
+  public static let persistentProviders: [ConnectionProviderID] = [.cloudflare, .openAI, .ngrok]
 
   public var id: String { rawValue }
   public var usesOAuth: Bool { self != .openAI }
+  public var isPersistent: Bool { Self.persistentProviders.contains(self) }
   public var title: String {
     switch self {
     case .cloudflare: "Cloudflare BYO"
     case .openAI: "OpenAI Secure MCP Tunnel"
     case .ngrok: "ngrok"
+    case .quick: "Cloudflare Quick Tunnel"
     }
   }
   public var transport: TransportProviderID {
@@ -17,6 +23,7 @@ public enum ConnectionProviderID: String, Codable, CaseIterable, Hashable, Senda
     case .cloudflare: .cloudflare
     case .openAI: .openAI
     case .ngrok: .ngrok
+    case .quick: .quick
     }
   }
 }

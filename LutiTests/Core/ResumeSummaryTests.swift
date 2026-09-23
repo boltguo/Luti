@@ -106,6 +106,99 @@ import XCTest
     XCTAssertEqual(try s.session(current).calls.count, 1, "A resume query must not replay historical operations.")
   }
 
+  func testRejectedStaleBindingDoesNotHideWorkFromPreviousRuntime() async throws {
+    let f = try Fixture(); defer { f.remove() }
+    let original = try f.router(execution: true)
+    addTeardownBlock { await original.stop() }
+    let edit = await original.callInCurrentProject("edit_files", arguments: [
+      "action": "create", "path": "App.swift", "content": "let version = 1\n",
+    ])
+    XCTAssertFalse(edit.isError)
+    let before = await original.call("memory", arguments: ["action": "recent"])
+    XCTAssertFalse(before.isError)
+    let priorRunID = try XCTUnwrap(before.data["latestSession"]["runId"].string)
+    let priorToken = try XCTUnwrap(before.data["projectToken"].string)
+    await original.stop()
+
+    let restarted = try ToolRouter(workspace: WorkspaceFiles(root: f.root), jobs: JobManager(helper: Fixture.helper),
+      images: ImageStore(), computer: NoComputerBackend(), activity: ActivityStore(),
+      executionPolicy: .fullLocal(localApproval: true), contextDataRoot: f.contextDataRoot)
+    addTeardownBlock { await restarted.stop() }
+    let rejected = await restarted.call("edit_files", arguments: [
+      "action": "create", "path": "unwanted.txt", "content": "must not be written",
+      "projectToken": .string(priorToken),
+    ])
+    XCTAssertEqual(rejected.data["error"], "project_binding_mismatch")
+    XCTAssertFalse(FileManager.default.fileExists(atPath: f.root.appendingPathComponent("unwanted.txt").path))
+
+    let recent = await restarted.call("memory", arguments: ["action": "recent"])
+    XCTAssertFalse(recent.isError)
+    XCTAssertNotEqual(recent.data["projectToken"], .string(priorToken))
+    XCTAssertEqual(recent.data["latestSession"]["runId"], .string(priorRunID))
+    XCTAssertEqual(recent.data["runtimeFacts"]["touchedFiles"], ["App.swift"])
+    XCTAssertEqual(recent.data["continuation"]["sessions"]["arguments"]["runId"], .string(priorRunID))
+
+    let sessions = await restarted.call("memory", arguments: ["action": "sessions"])
+    XCTAssertFalse(sessions.isError)
+    let currentRunID = try XCTUnwrap(sessions.data["sessions"].array?.first {
+      $0["runId"] != .string(priorRunID)
+    }?["runId"].string)
+    let current = await restarted.call("memory", arguments: ["action": "sessions", "runId": .string(currentRunID)])
+    XCTAssertFalse(current.isError)
+    let recordedRejection = try XCTUnwrap(current.data["session"]["calls"].array?.first {
+      $0["tool"] == "edit_files" && $0["errorCode"] == "project_binding_mismatch"
+    })
+    XCTAssertEqual(recordedRejection["effect"], "none")
+    XCTAssertEqual(current.data["session"]["touchedFiles"], [])
+    XCTAssertEqual(try String(contentsOf: f.root.appendingPathComponent("App.swift"), encoding: .utf8),
+                   "let version = 1\n")
+    await restarted.stop()
+  }
+
+  func testFailedOrInterruptedCallsWithPossibleOrUnknownEffectsRemainResumable() throws {
+    let cases: [(effect: String?, status: String)] = [
+      ("possible", "failed"), ("partial", "failed"), ("submitted", "failed"),
+      (nil, "failed"), (nil, "interrupted"),
+    ]
+    for item in cases {
+      let f = try Fixture(); defer { f.remove() }
+      let s = try store(f)
+      var old = journal(s)
+      old.touchedFiles = ["Previous.swift"]
+      try persist(old, in: s)
+      var latest = journal(s, time: 2000)
+      latest.calls = [SessionCall(id: UUID(), tool: "edit_files", action: "replace",
+        startedAt: latest.startedAt, finishedAt: item.status == "interrupted" ? nil : latest.updatedAt,
+        status: item.status, operationState: item.status, effect: item.effect,
+        jobId: nil, errorCode: "operation_failed", recovery: "Observe first.", checkpointId: nil, source: nil)]
+      try persist(latest, in: s)
+
+      let result = try s.recent()
+      XCTAssertEqual(result["latestSession"]["runId"], .string(latest.runId.uuidString),
+                     "Do not hide \(item.status) with effect \(item.effect ?? "unknown").")
+      XCTAssertEqual(result["continuation"]["sessions"]["arguments"]["runId"], .string(latest.runId.uuidString))
+      if item.status == "interrupted" {
+        XCTAssertEqual(result["runtimeFacts"]["interruptedOperations"].array?.first?["requiresObservation"], true)
+      }
+    }
+  }
+
+  func testVerifiedFactsKeepSessionResumableDespiteNoEffectCalls() throws {
+    let f = try Fixture(); defer { f.remove() }
+    let s = try store(f)
+    var latest = journal(s)
+    latest.touchedFiles = ["Sources/Changed.swift"]
+    latest.calls = [SessionCall(id: UUID(), tool: "edit_files", action: "create",
+      startedAt: latest.startedAt, finishedAt: latest.updatedAt, status: "failed",
+      operationState: "rejected", effect: "none", jobId: nil,
+      errorCode: "project_binding_mismatch", recovery: nil, checkpointId: nil, source: nil)]
+    try persist(latest, in: s)
+
+    let result = try s.recent()
+    XCTAssertEqual(result["latestSession"]["runId"], .string(latest.runId.uuidString))
+    XCTAssertEqual(result["runtimeFacts"]["touchedFiles"], ["Sources/Changed.swift"])
+  }
+
   func testGoalsRetainModelProvenanceAndPrecedeNewerUnrelatedMemories() throws {
     let f = try Fixture(); defer { f.remove() }
     let s = try store(f)

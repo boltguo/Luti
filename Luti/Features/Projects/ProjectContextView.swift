@@ -98,7 +98,6 @@ struct ProjectContextSection: View {
           openContext(.activity)
         }
         MDNavigationRow(title: L10n.text("recovery.title"), symbol: "arrow.uturn.backward.circle",
-                        subtitle: L10n.text("recovery.description"),
                         detail: recoveryCount.map(String.init), position: .last, iconTone: .orange) {
           openRecovery()
         }
@@ -186,7 +185,7 @@ struct ProjectContextClearView: View {
       MDConfirmDialog(
         title: L10n.format("context.clearSelection", selection.title),
         message: L10n.format("context.clearConfirmation", selection.title, project.name),
-        confirmTitle: L10n.text("context.clear"),
+        confirmTitle: L10n.format("context.clearSelection", selection.title),
         icon: "trash.fill"
       ) {
         Task { await clearSelection(selection) }
@@ -265,8 +264,6 @@ struct ProjectContextBrowser: View {
                 Text(L10n.format("context.revision", summary.sourceRevision))
                   .font(.system(size: 12, weight: .semibold))
                 Text(L10n.format("context.updated", dateTitle(summary.generatedAt)))
-                  .font(.system(size: 12)).foregroundStyle(MDTheme.onSurfaceVariant)
-                Text(L10n.text("context.summaryDescription"))
                   .font(.system(size: 12)).foregroundStyle(MDTheme.onSurfaceVariant)
               }
             }

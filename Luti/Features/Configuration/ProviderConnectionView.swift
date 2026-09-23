@@ -7,6 +7,7 @@ extension ConnectionProviderID {
     case .cloudflare: "network"
     case .openAI: "lock.icloud"
     case .ngrok: "link"
+    case .quick: "bolt.horizontal.icloud"
     }
   }
 
@@ -15,6 +16,7 @@ extension ConnectionProviderID {
     case .cloudflare: .orange
     case .openAI: .green
     case .ngrok: .purple
+    case .quick: .blue
     }
   }
 }
@@ -53,12 +55,19 @@ struct ProviderInfoCallout: View {
 
       Text(text)
         .font(.system(size: 12))
-        .foregroundStyle(MDTheme.onSurfaceVariant)
+        .foregroundStyle(textColor)
         .fixedSize(horizontal: false, vertical: true)
     }
     .padding(12)
     .frame(maxWidth: .infinity, alignment: .leading)
     .background(tone.container, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+  }
+
+  private var textColor: Color {
+    switch tone {
+    case .red: MDTheme.onErrorContainer
+    default: MDTheme.onSurfaceVariant
+    }
   }
 }
 

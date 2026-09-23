@@ -54,6 +54,8 @@ flowchart TB
 
 ## 接続方式
 
+設定なしですぐ試す場合は、Connectionsページから **Quick Tunnel** を開始できます。一時的な `trycloudflare.com` MCP Endpointが作成され、Cloudflareアカウント、ドメイン、Tokenは不要です。現在のアドレスはそのQuick Tunnelの実行中は利用できますが、Tunnelを作り直すと変わる場合があり、クライアントで新しいURLへの再接続と再認証が必要になることがあります。Quick Tunnelはテスト用途で、稼働保証はありません。
+
 | 接続 | 用意するもの | 認証 | 向いている用途 |
 |---|---|---|---|
 | **Local MCP** | 追加設定なし | RuntimeごとのLoopback Bearer | 同じMac上のAIクライアント |

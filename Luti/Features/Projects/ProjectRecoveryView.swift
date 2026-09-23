@@ -22,18 +22,11 @@ struct ProjectRecoveryView: View {
           .accessibilityIdentifier("refresh-recovery")
       }
       MDPage {
-        if !loading {
-          Text(L10n.format("recovery.count", checkpoints.count))
-            .font(.system(size: 12))
-            .foregroundStyle(MDTheme.onSurfaceVariant)
-        }
-
         if loading {
           MDLoadingState(title: L10n.text("recovery.loading"), size: 36)
         } else if checkpoints.isEmpty, error == nil {
           MDEmptyState(
             title: L10n.text("recovery.empty"),
-            message: L10n.text("recovery.emptyDescription"),
             symbol: "arrow.uturn.backward.circle")
         } else if !checkpoints.isEmpty {
           MDList {
@@ -57,9 +50,11 @@ struct ProjectRecoveryView: View {
               .accessibilityIdentifier("checkpoint-" + checkpoint.id)
             }
           }
-          Text(L10n.text(model.active ? "recovery.stopBeforeRestore" : "recovery.restoreSafety"))
-            .font(.system(size: 12))
-            .foregroundStyle(MDTheme.onSurfaceVariant)
+          if model.active {
+            Text(L10n.text("recovery.stopBeforeRestore"))
+              .font(.system(size: 12))
+              .foregroundStyle(MDTheme.onSurfaceVariant)
+          }
         }
 
         if let error {

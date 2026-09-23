@@ -97,7 +97,7 @@ enum NativeApprovalPresentation: Identifiable {
       && (try? ConnectionContract.validatePublicBaseURL(savedPublicBaseURL)) != nil
   }
   var availableConnectionProviders: [ConnectionProviderID] {
-    ConnectionProviderID.allCases.filter {
+    ConnectionProviderID.persistentProviders.filter {
       enabledConnectionProviders.contains($0) && isConnectionProviderConfigured($0)
     }
   }
@@ -106,6 +106,7 @@ enum NativeApprovalPresentation: Identifiable {
   }
   var readyRemoteConnectionCount: Int {
     availableConnectionProviders.filter { providerSnapshot($0).state == .ready }.count
+      + (providerSnapshot(.quick).state == .ready ? 1 : 0)
   }
   init(contextDataRoot: URL = LutiPaths.root, defaults: UserDefaults = .standard) {
     self.contextDataRoot = contextDataRoot
@@ -132,7 +133,7 @@ enum NativeApprovalPresentation: Identifiable {
     if let data = defaults.data(forKey: Self.enabledConnectionProvidersKey),
        let stored = try? JSONDecoder().decode(Set<ConnectionProviderID>.self, from: data)
     {
-      enabledConnectionProviders = stored
+      enabledConnectionProviders = stored.intersection(Set(ConnectionProviderID.persistentProviders))
     } else if cloudflareConfigured {
       // Migration from the pre-P1.1 single-provider model: a complete existing
       // Cloudflare setup remains available instead of disappearing from Home.
@@ -174,6 +175,7 @@ enum NativeApprovalPresentation: Identifiable {
   }
 
   private func persistConnectionSelection() {
+    enabledConnectionProviders.formIntersection(Set(ConnectionProviderID.persistentProviders))
     if let data = try? JSONEncoder().encode(enabledConnectionProviders) {
       defaults.set(data, forKey: Self.enabledConnectionProvidersKey)
     }
@@ -415,6 +417,8 @@ enum NativeApprovalPresentation: Identifiable {
     case .ngrok:
       return otherProviderCredentials.contains(id)
         && (try? ConnectionContract.validatePublicBaseURL(savedProviderAddress(id))) != nil
+    case .quick:
+      return true
     }
   }
 
@@ -423,10 +427,14 @@ enum NativeApprovalPresentation: Identifiable {
     switch id {
     case .cloudflare: return savedPublicBaseURL
     case .openAI, .ngrok: return defaults.string(forKey: "connection." + id.rawValue + ".address") ?? ""
+    case .quick: return providerSnapshot(.quick).publicOrigin?.absoluteString ?? ""
     }
   }
 
   func configuredMCPServerURL(_ id: ConnectionProviderID) -> URL? {
+    if id == .quick {
+      return providerSnapshot(.quick).publicOrigin?.appendingPathComponent("mcp")
+    }
     guard id != .openAI, isConnectionProviderConfigured(id),
       let origin = try? ConnectionContract.validatePublicBaseURL(savedProviderAddress(id))
     else { return nil }
@@ -460,17 +468,32 @@ enum NativeApprovalPresentation: Identifiable {
   }
 
   func canConnectProvider(_ id: ConnectionProviderID) -> Bool {
-    phase == .running && !isProviderConnectionBusy(id)
+    id.isPersistent
+      && phase == .running && !isProviderConnectionBusy(id)
       && !providerSnapshot(id).state.isActive
       && enabledConnectionProviders.contains(id)
       && isConnectionProviderConfigured(id)
       && (id != .cloudflare || !hasUnsavedConnection)
   }
 
+  var canStartQuickTunnel: Bool {
+    phase == .running && !isProviderConnectionBusy(.quick)
+      && !providerSnapshot(.quick).state.isActive
+  }
+
+  func startQuickTunnel() {
+    guard canStartQuickTunnel else { return }
+    connectRemote(.quick)
+  }
+
+  func stopQuickTunnel() async {
+    await disconnectRemote(.quick)
+  }
+
   func authorizationStore(for id: ConnectionProviderID) -> OAuthStore {
     if let existing = authorizationStores[id] { return existing }
     let store: OAuthStore
-    if !id.usesOAuth {
+    if !id.usesOAuth || id == .quick {
       store = OAuthStore(url: nil)
     } else if id == .cloudflare && contextDataRoot == LutiPaths.root {
       store = .shared
@@ -563,6 +586,7 @@ enum NativeApprovalPresentation: Identifiable {
 
   @discardableResult
   func setConnectionProviderEnabled(_ id: ConnectionProviderID, enabled: Bool) -> Bool {
+    guard id.isPersistent else { return false }
     if enabled {
       guard isConnectionProviderConfigured(id) else { return false }
       enabledConnectionProviders.insert(id)
@@ -734,7 +758,12 @@ enum NativeApprovalPresentation: Identifiable {
   }
 
   func connectRemote(_ id: ConnectionProviderID) {
-    guard canConnectProvider(id), let runtime = session else { return }
+    guard let runtime = session else { return }
+    if id == .quick {
+      guard canStartQuickTunnel else { return }
+    } else {
+      guard canConnectProvider(id) else { return }
+    }
     let connection = ConnectionManager(
       router: runtime.router, store: authorizationStore(for: id))
     connections[id] = connection
@@ -774,6 +803,8 @@ enum NativeApprovalPresentation: Identifiable {
             let origin = try ConnectionContract.validatePublicBaseURL(self.savedProviderAddress(id))
             provider = try NgrokProvider(publicOrigin: origin, authtoken: secret, helper: Self.processHelper)
           }
+        case .quick:
+          provider = QuickTunnelProvider(helper: Self.processHelper)
         }
         try await connection.connect(
           provider, authorizationStore: self.authorizationStore(for: id))

@@ -11,7 +11,6 @@ private struct ActivityDisplayRow: Identifiable {
 struct ActivityView: View {
   let events: [ActivityEvent]
   @Binding var query: String
-  var activeJobs = 0
   var lastCall: Date? = nil
   var currentRunID: UUID? = nil
   @State private var filter = ActivityFilter.all
@@ -88,11 +87,15 @@ struct ActivityView: View {
         MDOption(value: .current, title: L10n.text("activity.currentRun")),
         MDOption(value: .currentErrors, title: L10n.text("activity.currentErrors"))
       ])
-      HStack {
-        Text(L10n.format("activity.count", events.count, activeJobs))
-        Spacer()
-        Text(lastCall.map { L10n.format("activity.last", $0.formatted(date: .omitted, time: .shortened)) } ?? L10n.text("activity.lastCallNone"))
-      }.font(.system(size: 12)).foregroundStyle(MDTheme.secondary)
+      if !events.isEmpty {
+        HStack {
+          Text(L10n.format("activity.count", events.count))
+          Spacer()
+          if let lastCall {
+            Text(L10n.format("activity.last", lastCall.formatted(date: .omitted, time: .shortened)))
+          }
+        }.font(.system(size: 12)).foregroundStyle(MDTheme.secondary)
+      }
       if filteredEvents.isEmpty {
         VStack(spacing: 14) {
           Image(systemName: events.isEmpty ? "clock.arrow.circlepath" : "magnifyingglass")
@@ -100,8 +103,10 @@ struct ActivityView: View {
             .frame(width: 72, height: 72)
             .background(MDTheme.primaryContainer, in: RoundedRectangle(cornerRadius: 24))
           Text(events.isEmpty ? L10n.text("activity.noActivityYet") : L10n.text("activity.noActivityMatchesFilter")).font(.system(size: 16, weight: .medium))
-          Text(events.isEmpty ? L10n.text("activity.toolCallsAppearSessionRunning") : L10n.text("activity.tryAnotherToolNameKeyword"))
-            .font(.system(size: 13)).foregroundStyle(MDTheme.secondary)
+          if !events.isEmpty {
+            Text(L10n.text("activity.tryAnotherToolNameKeyword"))
+              .font(.system(size: 13)).foregroundStyle(MDTheme.secondary)
+          }
         }.frame(maxWidth: .infinity, maxHeight: .infinity)
       } else {
         MDScrollView {
@@ -225,6 +230,7 @@ private struct ActivityEventRow: View {
     case .cloudflare: "Cloudflare BYO"
     case .openAI: "OpenAI Tunnel"
     case .ngrok: "ngrok"
+    case .quick: "Quick Tunnel"
     case .loopback: "Local"
     }
   }

@@ -54,6 +54,8 @@ A remote host can switch only between projects already enabled in Luti. Enabled 
 
 ## Connections
 
+For a zero-configuration test, **Quick Tunnel** creates a temporary `trycloudflare.com` MCP endpoint from the Connections page. No Cloudflare account, domain, or token is required. The address remains available while that Quick Tunnel is running and can change when the tunnel is recreated, so clients may need to connect and authorize again. Quick Tunnel is intended for testing and has no uptime guarantee.
+
 | Connection | What you provide | Authentication | Best for |
 |---|---|---|---|
 | **Local MCP** | No extra configuration | Per-runtime loopback bearer | AI clients on the same Mac |

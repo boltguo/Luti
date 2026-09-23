@@ -115,6 +115,8 @@
 		E7612F932AC349918F710005 /* ConnectionExecutables.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7612F932AC349918F720005 /* ConnectionExecutables.swift */; };
 		E7612F932AC349918F710006 /* ProviderConnectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7612F932AC349918F720006 /* ProviderConnectionView.swift */; };
 		E7612F932AC349918F710007 /* ConnectionProviderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7612F932AC349918F720007 /* ConnectionProviderTests.swift */; };
+		E7612F932AC349918F710008 /* QuickTunnelProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7612F932AC349918F720008 /* QuickTunnelProvider.swift */; };
+		E7612F932AC349918F710009 /* QuickTunnelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7612F932AC349918F720009 /* QuickTunnelView.swift */; };
 		E7E09D12C01DC0F84A4E364F /* ArtifactImport.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE28DE84200AC732C51DF025 /* ArtifactImport.swift */; };
 		E8C8052EFC3E751A63B8474D /* NIOCore in Frameworks */ = {isa = PBXBuildFile; productRef = 8D3F6949966C2A73CF07CCF9 /* NIOCore */; };
 		EA32A342CC313AD04D1A3FA5 /* ArtifactImportTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5029A88F90CE05A8F5A36B2C /* ArtifactImportTests.swift */; };
@@ -284,6 +286,8 @@
 		E7612F932AC349918F720005 /* ConnectionExecutables.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ConnectionExecutables.swift; path = Luti/Core/Connections/ConnectionExecutables.swift; sourceTree = SOURCE_ROOT; };
 		E7612F932AC349918F720006 /* ProviderConnectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ProviderConnectionView.swift; path = Luti/Features/Configuration/ProviderConnectionView.swift; sourceTree = SOURCE_ROOT; };
 		E7612F932AC349918F720007 /* ConnectionProviderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ConnectionProviderTests.swift; path = LutiTests/Core/ConnectionProviderTests.swift; sourceTree = SOURCE_ROOT; };
+		E7612F932AC349918F720008 /* QuickTunnelProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = QuickTunnelProvider.swift; path = Luti/Core/Connections/QuickTunnelProvider.swift; sourceTree = SOURCE_ROOT; };
+		E7612F932AC349918F720009 /* QuickTunnelView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = QuickTunnelView.swift; path = Luti/Features/Configuration/QuickTunnelView.swift; sourceTree = SOURCE_ROOT; };
 		E866D940DD8D5B94EE5A18DD /* Luti/Tools/MemoryTool.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/Tools/MemoryTool.swift; sourceTree = SOURCE_ROOT; };
 		EB6094E59F0C6D3D84E65384 /* Luti/App/LutiApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/App/LutiApp.swift; sourceTree = SOURCE_ROOT; };
 		EE28DE84200AC732C51DF025 /* ArtifactImport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArtifactImport.swift; sourceTree = "<group>"; };
@@ -722,6 +726,7 @@
 			isa = PBXGroup;
 			children = (
 				E7612F932AC349918F720006 /* ProviderConnectionView.swift */,
+				E7612F932AC349918F720009 /* QuickTunnelView.swift */,
 				8A34858E97E4A9C214108649 /* Luti/Features/Configuration/ConfigurationView.swift */,
 				F0A000000000000000000005 /* Luti/Features/Configuration/RemoteClientsView.swift */,
 			);
@@ -746,6 +751,7 @@
 				E7612F932AC349918F720003 /* OpenAITunnelProvider.swift */,
 				E7612F932AC349918F720004 /* NgrokProvider.swift */,
 				E7612F932AC349918F720005 /* ConnectionExecutables.swift */,
+				E7612F932AC349918F720008 /* QuickTunnelProvider.swift */,
 			);
 			name = "Connection Providers";
 			sourceTree = "<group>";
@@ -986,6 +992,8 @@
 				E7612F932AC349918F710004 /* NgrokProvider.swift in Sources */,
 				E7612F932AC349918F710005 /* ConnectionExecutables.swift in Sources */,
 				E7612F932AC349918F710006 /* ProviderConnectionView.swift in Sources */,
+				E7612F932AC349918F710008 /* QuickTunnelProvider.swift in Sources */,
+				E7612F932AC349918F710009 /* QuickTunnelView.swift in Sources */,
 				37312702E700A512322E1E57 /* SandboxBackend.swift in Sources */,
 				05131608A40C2B870E9C1AD4 /* Luti/Core/Processes/DiagnosticOutputParser.swift in Sources */,
 				34984D3DED40658B19F80B36 /* Luti/Tools/Project/LanguageServiceProvider.swift in Sources */,
@@ -1213,7 +1221,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_TEAM = 6Q5B4266TF;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_DEBUG_DYLIB = NO;
@@ -1231,7 +1239,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 1.0.1;
+				MARKETING_VERSION = 1.0.2;
 				PRODUCT_BUNDLE_IDENTIFIER = com.aouos.luti;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -1247,7 +1255,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_TEAM = 6Q5B4266TF;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_DEBUG_DYLIB = NO;
@@ -1265,7 +1273,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 1.0.1;
+				MARKETING_VERSION = 1.0.2;
 				PRODUCT_BUNDLE_IDENTIFIER = com.aouos.luti;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";

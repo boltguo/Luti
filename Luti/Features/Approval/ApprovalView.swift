@@ -13,7 +13,6 @@ struct OperationApprovalView: View {
     MDModalSurface(width: 430) {
       MDModalHeader(
         title: L10n.text("operationApproval.title"),
-        message: L10n.text("operationApproval.explanation"),
         symbol: "exclamationmark.shield",
         tone: .orange)
 
@@ -38,10 +37,6 @@ struct OperationApprovalView: View {
           .textSelection(.enabled)
           .lineLimit(2).truncationMode(.middle)
       }
-
-      Text(L10n.text("operationApproval.oneShot"))
-        .font(.system(size: 12))
-        .foregroundStyle(MDTheme.onSurfaceVariant)
 
       MDModalActions {
         Button { decide(false) } label: {

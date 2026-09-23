@@ -89,7 +89,7 @@ public enum OAuthScope: String, CaseIterable, Codable, Sendable {
 /// Which pipe a call arrived on. The tool runtime never branches on it; it exists
 /// so Activity can say where an effect came from.
 public enum TransportProviderID: String, Codable, Sendable {
-  case loopback, cloudflare, openAI = "openai", ngrok
+  case loopback, cloudflare, openAI = "openai", ngrok, quick
 }
 
 /// What the tool runtime is told about an authenticated remote caller.

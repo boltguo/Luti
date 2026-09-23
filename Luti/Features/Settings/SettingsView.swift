@@ -75,7 +75,6 @@ struct SettingsView: View {
           MDListRow(
             title: L10n.text("settings.launchLogin"),
             symbol: "power",
-            subtitle: L10n.text("settings.opensAppNotService"),
             position: .middle,
             iconTone: .green
           ) {
@@ -117,7 +116,6 @@ struct SettingsView: View {
           MDListRow(
             title: L10n.text("settings.automaticUpdateChecks"),
             symbol: "arrow.triangle.2.circlepath",
-            subtitle: L10n.text("settings.automaticUpdateChecksDescription"),
             position: .first,
             iconTone: .blue
           ) {
@@ -132,7 +130,6 @@ struct SettingsView: View {
           MDNavigationRow(
             title: L10n.text("menu.checkForUpdates"),
             symbol: "arrow.down.circle",
-            subtitle: L10n.text("settings.checkForUpdatesDescription"),
             position: .last,
             iconTone: .green,
             action: updater.checkForUpdates)
@@ -160,7 +157,6 @@ struct SettingsView: View {
           MDNavigationRow(
             title: L10n.text("settings.sourceCode"),
             symbol: "chevron.left.forwardslash.chevron.right",
-            subtitle: L10n.text("settings.sourceCodeDescription"),
             position: .first,
             iconTone: .blue,
             accessory: "arrow.up.right"
@@ -172,7 +168,6 @@ struct SettingsView: View {
           MDNavigationRow(
             title: L10n.text("settings.supportLuti"),
             symbol: "cup.and.saucer",
-            subtitle: L10n.text("settings.supportLutiDescription"),
             position: .last,
             iconTone: .orange,
             accessory: "arrow.up.right"
@@ -195,7 +190,6 @@ struct SettingsView: View {
           MDNavigationRow(
             title: L10n.text("settings.thirdPartyComponents"),
             symbol: "shippingbox",
-            subtitle: L10n.text("settings.thirdPartyComponentsDescription"),
             position: .last,
             iconTone: .blue
           ) {

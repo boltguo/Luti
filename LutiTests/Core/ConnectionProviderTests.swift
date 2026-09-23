@@ -11,16 +11,19 @@ private actor FixtureProvider: ConnectionProvider {
   nonisolated let privateCredential: String?
   private let suspended: Bool
   private let fails: Bool
+  private let initiallyReconnecting: Bool
   private var waiter: CheckedContinuation<Void, Never>?
   private var origin: URL?
   private var state = ConnectionSnapshot.stopped
   private(set) var endpoint: URL?
   private(set) var preAdmissionStatus: Int?
 
-  init(_ id: ConnectionProviderID, suspended: Bool = false, fails: Bool = false) {
+  init(_ id: ConnectionProviderID, suspended: Bool = false, fails: Bool = false,
+       initiallyReconnecting: Bool = false) {
     self.id = id
     self.suspended = suspended
     self.fails = fails
+    self.initiallyReconnecting = initiallyReconnecting
     privateCredential = id == .openAI ? OAuthContract.newClientSecret() : nil
     origin = id == .ngrok || id == .cloudflare ? URL(string: "https://mcp.example.com") : nil
   }
@@ -30,8 +33,10 @@ private actor FixtureProvider: ConnectionProvider {
     preAdmissionStatus = try await ConnectionProbe.request(endpoint, method: "POST").status
     if suspended { await withCheckedContinuation { waiter = $0 } }
     if fails { throw Failure.invalid("Synthetic provider startup failure.") }
-    state = ConnectionSnapshot(state: .ready)
+    if id == .quick { origin = URL(string: "https://fixture.trycloudflare.com") }
+    state = ConnectionSnapshot(state: initiallyReconnecting ? .reconnecting : .ready)
   }
+  func becomeReady() { state = ConnectionSnapshot(state: .ready) }
   func fail() { state = ConnectionSnapshot(state: .failed, message: "Synthetic child exit.") }
   func release() { waiter?.resume(); waiter = nil }
   func snapshot() -> ConnectionSnapshot { state }
@@ -82,10 +87,71 @@ private actor FixtureProvider: ConnectionProvider {
     return (try XCTUnwrap(response as? HTTPURLResponse).statusCode, (try? JSONValue.decode(data)) ?? .null)
   }
 
-  func testProviderCatalogIsExplicitAndContainsNoGenericHTTPS() {
-    XCTAssertEqual(ConnectionProviderID.allCases, [.cloudflare, .openAI, .ngrok])
+  func testProviderCatalogSeparatesTemporaryQuickFromPersistentConnections() {
+    XCTAssertEqual(ConnectionProviderID.allCases, [.cloudflare, .openAI, .ngrok, .quick])
+    XCTAssertEqual(ConnectionProviderID.persistentProviders, [.cloudflare, .openAI, .ngrok])
     XCTAssertNil(ConnectionProviderID(rawValue: "custom"))
     XCTAssertFalse(ConnectionProviderID.openAI.usesOAuth)
+    XCTAssertTrue(ConnectionProviderID.quick.usesOAuth)
+    XCTAssertFalse(ConnectionProviderID.quick.isPersistent)
+  }
+
+  func testQuickTunnelAcceptsOnlyTryCloudflareOrigins() throws {
+    XCTAssertEqual(
+      try QuickTunnelProvider.validateQuickOrigin("https://fixture.trycloudflare.com").absoluteString,
+      "https://fixture.trycloudflare.com")
+    for raw in [
+      "http://fixture.trycloudflare.com",
+      "https://trycloudflare.com",
+      "https://fixture.trycloudflare.com.evil.example",
+      "https://evil.example",
+      "https://user@fixture.trycloudflare.com",
+      "https://fixture.trycloudflare.com/path",
+      "https://fixture.trycloudflare.com?x=1",
+    ] {
+      XCTAssertThrowsError(try QuickTunnelProvider.validateQuickOrigin(raw), raw)
+    }
+  }
+
+  func testQuickTunnelExtractsOnlyValidatedOriginFromCloudflaredOutput() {
+    let json = #"{"level":"info","url":"https://first-example.trycloudflare.com"}"#
+    XCTAssertEqual(
+      QuickTunnelProvider.publicOrigin(from: json)?.absoluteString,
+      "https://first-example.trycloudflare.com")
+    XCTAssertEqual(
+      QuickTunnelProvider.publicOrigin(
+        from: "ignore https://evil.example then https://second-example.trycloudflare.com ready")?.absoluteString,
+      "https://second-example.trycloudflare.com")
+    XCTAssertNil(QuickTunnelProvider.publicOrigin(from: "https://trycloudflare.com"))
+    XCTAssertNil(QuickTunnelProvider.publicOrigin(from: "https://fixture.trycloudflare.com.evil.example"))
+  }
+
+  func testQuickTunnelUsesOnlyItsLoopbackMetricsEndpoint() {
+    let output = #"{"message":"Starting metrics server on 127.0.0.1:20242/metrics"}"#
+    XCTAssertEqual(QuickTunnelProvider.readinessURL(from: output)?.absoluteString,
+                   "http://127.0.0.1:20242/ready")
+    XCTAssertNil(QuickTunnelProvider.readinessURL(
+      from: "Starting metrics server on 198.18.0.1:20242/metrics"))
+    XCTAssertNil(QuickTunnelProvider.readinessURL(
+      from: "Starting metrics server on 127.0.0.1:65536/metrics"))
+  }
+
+  func testQuickTunnelKeepsItsAddressWhilePublicDNSWarmsUp() async throws {
+    let (_, runtime, manager) = try fixture()
+    try await runtime.start()
+    let provider = FixtureProvider(.quick, initiallyReconnecting: true)
+
+    try await manager.connect(provider)
+    let waiting = await manager.snapshot()
+    XCTAssertEqual(waiting.state, .reconnecting)
+    XCTAssertEqual(waiting.publicOrigin?.absoluteString,
+                   "https://fixture.trycloudflare.com")
+    let preAdmissionStatus = await provider.preAdmissionStatus
+    XCTAssertEqual(preAdmissionStatus, 503)
+
+    await provider.becomeReady()
+    let ready = await manager.snapshot()
+    XCTAssertEqual(ready.state, .ready)
   }
 
   func testProviderIngressCannotPointAtAnotherServiceOrPublicHost() throws {
@@ -327,9 +393,12 @@ private actor FixtureProvider: ConnectionProvider {
     let model = AppModel(contextDataRoot: f.contextDataRoot, defaults: f.defaults)
     model.tokenSaved = false
     model.otherProviderCredentials = []
-    for id in [ConnectionProviderID.cloudflare, .openAI, .ngrok] {
+    for id in ConnectionProviderID.persistentProviders {
       XCTAssertFalse(model.setConnectionProviderEnabled(id, enabled: true))
     }
+    XCTAssertTrue(model.isConnectionProviderConfigured(.quick))
+    XCTAssertFalse(model.setConnectionProviderEnabled(.quick, enabled: true))
+    XCTAssertTrue(model.authorizationStore(for: .quick).isEphemeral)
     f.defaults.set("tunnel_fixture123", forKey: "connection.openai.address")
     model.otherProviderCredentials.insert(.openAI)
     XCTAssertTrue(model.setConnectionProviderEnabled(.openAI, enabled: true))
@@ -337,6 +406,17 @@ private actor FixtureProvider: ConnectionProvider {
     XCTAssertFalse(model.isConnectionProviderConfigured(.ngrok))
     let persisted = try XCTUnwrap(f.defaults.data(forKey: "enabledConnectionProviders"))
     XCTAssertEqual(try JSONDecoder().decode(Set<ConnectionProviderID>.self, from: persisted), [.openAI])
+  }
+
+  func testPersistedProviderSelectionDropsTemporaryQuickTunnel() throws {
+    let f = try Fixture(); defer { f.remove() }
+    let encoded = try JSONEncoder().encode(Set<ConnectionProviderID>([.openAI, .quick]))
+    f.defaults.set(encoded, forKey: "enabledConnectionProviders")
+    f.defaults.set("tunnel_fixture123", forKey: "connection.openai.address")
+    let model = AppModel(contextDataRoot: f.contextDataRoot, defaults: f.defaults)
+    model.otherProviderCredentials.insert(.openAI)
+    XCTAssertEqual(model.enabledConnectionProviders, [.openAI])
+    XCTAssertFalse(model.isProviderEnabled(.quick))
   }
 
   func testConfiguredPublicProvidersExposeCompleteMCPServerURL() throws {

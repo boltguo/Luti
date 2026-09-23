@@ -6,6 +6,7 @@ struct ConfigurationView: View {
   @State private var clients = OAuthClientModel(store: OAuthStore(url: nil))
   @State private var selectedClientID: String?
   @State private var selectedProvider: ConnectionProviderID?
+  @State private var showingQuickTunnel = false
   @State private var localCopied = false
   @State private var localCopyFailed = false
 
@@ -17,6 +18,12 @@ struct ConfigurationView: View {
           clients: clients,
           clientID: clientID,
           onDeleted: { selectedClientID = nil })
+      } else if showingQuickTunnel {
+        MDDetailHeader(title: ConnectionProviderID.quick.title) { showingQuickTunnel = false }
+        QuickTunnelView(
+          model: model,
+          clients: clients,
+          openClient: { selectedClientID = $0 })
       } else if let provider = selectedProvider {
         MDDetailHeader(title: provider.title) { selectedProvider = nil }
         if provider == .cloudflare {
@@ -45,13 +52,14 @@ struct ConfigurationView: View {
   private var overview: some View {
     MDPage {
       localRuntimeSection
+      quickConnectionSection
 
       MDSection(title: L10n.text("connection.tunnelProviders")) {
         MDList {
-          ForEach(Array(ConnectionProviderID.allCases.enumerated()), id: \.element) { index, provider in
+          ForEach(Array(ConnectionProviderID.persistentProviders.enumerated()), id: \.element) { index, provider in
             MDSplitActionRow(title: provider.title, symbol: provider.symbol,
               subtitle: providerSummary(provider),
-              position: MDListRowPosition(index: index, count: ConnectionProviderID.allCases.count),
+              position: MDListRowPosition(index: index, count: ConnectionProviderID.persistentProviders.count),
               iconTone: provider.iconTone,
               accessory: "chevron.right", action: { openProvider(provider) }) {
               MDSwitch(isOn: Binding(
@@ -71,13 +79,37 @@ struct ConfigurationView: View {
     }
   }
 
+  private var quickConnectionSection: some View {
+    MDSection(title: L10n.text("quick.sectionTitle")) {
+      MDList {
+        MDNavigationRow(
+          title: ConnectionProviderID.quick.title,
+          symbol: ConnectionProviderID.quick.symbol,
+          subtitle: quickSummary,
+          iconTone: ConnectionProviderID.quick.iconTone,
+          action: openQuickTunnel)
+          .accessibilityIdentifier("provider-quick")
+      }
+    }
+  }
+
+  private var quickSummary: String {
+    let snapshot = model.providerSnapshot(.quick)
+    if let host = snapshot.publicOrigin?.host, [.ready, .reconnecting].contains(snapshot.state) {
+      return host
+    }
+    if snapshot.state != .stopped {
+      return L10n.text("connection.state." + snapshot.state.rawValue)
+    }
+    return L10n.text("quick.rowSubtitle")
+  }
+
   private var localRuntimeSection: some View {
     MDSection(title: L10n.text("connection.localRuntime")) {
       MDList {
         MDListRow(
           title: "Luti Runtime",
           symbol: "desktopcomputer",
-          subtitle: L10n.text(runtimeStatusKey),
           position: .first,
           iconTone: model.phase == .running ? .green : .gray
         ) {
@@ -105,6 +137,8 @@ struct ConfigurationView: View {
                 systemImage: localCopied ? "checkmark" : "doc.on.doc")
             }
             .buttonStyle(MDButtonStyle(kind: .text))
+            .help(L10n.text("connection.localCredentialHint"))
+            .accessibilityHint(L10n.text("connection.localCredentialHint"))
             .accessibilityIdentifier("copy-local-configuration")
           }
         }
@@ -115,11 +149,6 @@ struct ConfigurationView: View {
           text: L10n.text("connection.copyFailed"),
           icon: "exclamationmark.triangle",
           color: MDTheme.error)
-      }
-      if model.phase == .running {
-        Text(L10n.text("connection.localCredentialHint"))
-          .font(.system(size: 12))
-          .foregroundStyle(MDTheme.onSurfaceVariant)
       }
     }
   }
@@ -140,6 +169,11 @@ struct ConfigurationView: View {
     case .stopping: "common.stopping"
     case .failed: "connection.runtimeFailed"
     }
+  }
+
+  private func openQuickTunnel() {
+    clients.use(store: model.authorizationStore(for: .quick))
+    showingQuickTunnel = true
   }
 
   private func openProvider(_ provider: ConnectionProviderID) {
