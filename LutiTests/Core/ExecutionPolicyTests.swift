@@ -938,7 +938,8 @@ private struct TestEnforcedSandboxBackend: ProjectSandboxBackend {
 
   private func languageServerPIDs(_ fixture: Fixture) async throws -> [pid_t] {
     let marker = fixture.root.appendingPathComponent("language-server-ready")
-    for _ in 0..<150 {
+    // The first Python launch on a fresh CI runner can take longer than three seconds.
+    for _ in 0..<500 {
       if let text = try? String(contentsOf: marker, encoding: .utf8) {
         let pids = text.split(separator: " ").compactMap { Int32($0) }
         if pids.count == 2 { return pids }
