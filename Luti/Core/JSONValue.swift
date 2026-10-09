@@ -1,5 +1,24 @@
 import Foundation
 
+enum JSONCoding {
+  static func encode<T: Encodable>(_ value: T) throws -> Data {
+    let encoder = JSONEncoder()
+    encoder.dateEncodingStrategy = .iso8601
+    encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
+    return try encoder.encode(value)
+  }
+  static func decode<T: Decodable>(_ type: T.Type, _ data: Data) throws -> T {
+    // Validate duplicate keys/depth before Codable accepts a document.
+    _ = try JSONValue.decode(data)
+    let decoder = JSONDecoder()
+    decoder.dateDecodingStrategy = .iso8601
+    return try decoder.decode(type, from: data)
+  }
+  static func json<T: Encodable>(_ value: T) throws -> JSONValue {
+    try JSONValue.decode(encode(value))
+  }
+}
+
 /// JSON values crossing actors never contain non-Sendable `Any` dictionaries.
 public enum JSONValue: Codable, Sendable, Equatable {
   case object([String: JSONValue])
@@ -65,6 +84,9 @@ public enum JSONValue: Codable, Sendable, Equatable {
     var dict = object ?? [:]
     dict[key] = value
     return .object(dict)
+  }
+  func removing(_ keys: Set<String>) -> JSONValue {
+    .object((object ?? [:]).filter { !keys.contains($0.key) })
   }
   public static func decode(_ data: Data) throws -> JSONValue {
     // Reject excessive nesting and duplicate keys before Foundation decodes.

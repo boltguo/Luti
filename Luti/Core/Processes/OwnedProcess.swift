@@ -375,7 +375,7 @@ public final class OwnedProcess: @unchecked Sendable {
           terminal: true,
           outputComplete: !drainIncomplete && stdoutCount <= tailLimit && stderrCount <= tailLimit,
           observedAt: ended)
-        output = output.adding("validation", (try? ContextCoding.json(evidence)) ?? .null)
+        output = output.adding("validation", (try? JSONCoding.json(evidence)) ?? .null)
         if let tests = evidence.tests { output = output.adding("testSummary", tests.json) }
         if let report = DiagnosticOutputParser.parse(
           command: safeCommand,

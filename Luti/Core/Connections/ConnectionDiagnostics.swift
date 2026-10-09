@@ -47,9 +47,6 @@ enum ConnectionProbe {
                     challenge: http.value(forHTTPHeaderField: "WWW-Authenticate"))
   }
 
-  static func ready(_ url: URL) async -> Bool {
-    (try? await request(url).status) == 200
-  }
 }
 
 struct ConnectionDoctorReport: Sendable, Equatable {
@@ -99,75 +96,4 @@ enum ConnectionDoctor {
     ])
   }
 
-  static func privateEndpoint(_ endpoint: URL, credential: String, transportReady: Bool) async -> ConnectionDoctorReport {
-    let health = endpoint.deletingLastPathComponent().appendingPathComponent("healthz")
-    let authenticated = try? await ConnectionProbe.request(health,
-      headers: ["Authorization": "Bearer " + credential])
-    let unauthenticated = try? await ConnectionProbe.request(endpoint, method: "POST")
-    return ConnectionDoctorReport(checkedAt: Date(), checks: [
-      .init(id: "doctor.transport", passed: transportReady),
-      .init(id: "doctor.privateEndpoint", passed: authenticated?.status == 200 && authenticated?.json["ready"] == .bool(true)),
-      .init(id: "doctor.privateCredential", passed: unauthenticated?.status == 401),
-    ])
-  }
-}
-
-/// Small owner around the existing supervisor. It never enters JobManager and
-/// cannot cancel a project's jobs. Stop joins cleanup and permanently closes the
-/// owner, including a Stop racing with a binary download or process launch.
-actor ProviderProcess {
-  private var child: OwnedProcess?
-  private var runDirectory: URL?
-  private var closed = false
-  private var closing: Task<Void, Never>?
-
-  func prepareDirectory() throws -> URL {
-    guard !closed, child == nil else { throw Failure.stopped }
-    if let runDirectory { return runDirectory }
-    let directory = LutiPaths.runs.appendingPathComponent("connection-" + UUID().uuidString, isDirectory: true)
-    try PrivateFiles.directory(directory)
-    runDirectory = directory
-    return directory
-  }
-
-  func launch(binary: URL, helper: URL, args: [String], environment: [String: String] = [:],
-              secrets: [String] = []) throws {
-    guard !closed, child == nil, let directory = runDirectory else { throw Failure.stopped }
-    try Task.checkCancellation()
-    // In particular, do not inherit cloudflared/ngrok/tunnel-client user profiles.
-    var env = environment
-    env["HOME"] = directory.path
-    env["TMPDIR"] = directory.path
-    let request = ProcessRequest(program: binary.path, args: args, cwd: directory,
-      environment: env, timeout: 86_400, syncWait: 0)
-    child = try OwnedProcess(request, helper: helper, redactor: Redactor(known: secrets))
-  }
-
-  var running: Bool { child.map { !$0.finished } ?? false }
-  var output: String {
-    guard let child else { return "" }
-    let snapshot = child.snapshot(id: "connection")
-    return ["stdoutHead", "stderrHead", "stdoutTail", "stderrTail"]
-      .compactMap { snapshot[$0].string }.joined(separator: "\n")
-  }
-
-  func stop() async {
-    if let closing { await closing.value; return }
-    closed = true
-    let owned = child
-    let directory = runDirectory
-    child = nil
-    runDirectory = nil
-    let cleanup = Task {
-      owned?.requestStop()
-      let deadline = ContinuousClock.now.advanced(by: .seconds(4))
-      while let owned, !owned.finished, ContinuousClock.now < deadline {
-        try? await Task.sleep(for: .milliseconds(50))
-      }
-      if let directory { try? FileManager.default.removeItem(at: directory) }
-    }
-    closing = cleanup
-    await cleanup.value
-    closing = nil
-  }
 }

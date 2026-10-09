@@ -38,18 +38,25 @@ struct Fixture {
       at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
     try Data(text.utf8).write(to: url)
   }
-  func router(
-    execution: Bool = false,
-    permissionMode: ProjectPermissionMode = .fullProjectAccess,
-    operationApprovals: OperationApprovalBroker? = nil
-  ) throws -> ToolRouter {
-    let project = ApprovedProject(url: root, permissionMode: permissionMode)
-    return try ToolRouter(
+  func router(execution: Bool = false) throws -> ToolRouter {
+    try ToolRouter(
       workspace: files, jobs: JobManager(helper: Self.helper), images: ImageStore(),
       computer: NoComputerBackend(), activity: ActivityStore(),
       executionPolicy: execution ? .fullLocal(localApproval: true) : .readOnly,
-      operationApprovals: operationApprovals,
-      approvedProjects: [project], activeProjectID: project.id,
-      contextDataRoot: contextDataRoot)
+      project: ApprovedProject(url: root), helper: Self.helper, contextDataRoot: contextDataRoot)
   }
+}
+
+/// Authenticates scoped fixtures through the production Cloudflare OAuth verifier.
+func fixtureRemoteAuthentication(bearer: String, context: RequestContext) throws -> MCPAuthentication {
+  let issuer = URL(string: "https://mcp.example.com")!
+  let store = OAuthStore(url: nil)
+  let client = OAuthClientRecord(id: context.clientID, name: context.clientName,
+    redirectURIs: ["https://client.example/callback"], authMethod: .none)
+  try store.persistRegisteredClient(client, secret: nil)
+  try store.insert([StoredToken(hash: OAuthStore.hash(bearer), kind: .access,
+    clientID: client.id, authorizationID: context.authorizationID,
+    resource: issuer.absoluteString + "/mcp", scopes: Array(context.scopes),
+    createdAt: Date(), expiresAt: Date().addingTimeInterval(3600))])
+  return .remote(publicHost: issuer.host!, oauth: LutiOAuthService(issuer: issuer, store: store))
 }

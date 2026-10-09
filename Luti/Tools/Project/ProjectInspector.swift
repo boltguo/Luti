@@ -10,15 +10,14 @@ struct ProjectInspector: Sendable {
     try await ProjectDiscovery(workspace: workspace).discover(path: path)
   }
 
-  func inspect(path: String = ".", view: String = "full") async throws -> JSONValue {
+  func inspect(path: String = ".", view: String = "summary") async throws -> JSONValue {
     guard ["summary", "full"].contains(view) else {
       throw Failure.invalid("inspect_project view must be summary or full.")
     }
     let discovered = try await graph(path: path)
-    return view == "summary" ? discovered.summaryInspectionJSON : discovered.inspectionJSON
+    return discovered.inspectionJSON
   }
 }
-
 
 actor CodeQueryService {
   let workspace: WorkspaceFiles

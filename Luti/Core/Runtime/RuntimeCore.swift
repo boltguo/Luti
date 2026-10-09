@@ -5,9 +5,6 @@ public struct RuntimeSnapshot: Sendable {
   public let localEndpoint: URL?
   public let lastCall: Date?
   public let activeJobs: Int
-  public let activeProjectID: String
-  public let activeProjectName: String
-  public let projectGeneration: Int
   public let runID: UUID
 }
 
@@ -25,25 +22,22 @@ public actor RuntimeCore {
 
   public init(
     root: URL, helper: URL, executionPolicy: ProjectExecutionPolicy = .readOnly,
-    approvedProjects: [ApprovedProject]? = nil, activeProjectID: String? = nil,
+    project: ApprovedProject? = nil,
     contextDataRoot: URL? = nil
   ) throws {
     bearer = Budget.token()
     let redactor = Redactor(known: [bearer])
     let activity = ActivityStore(
       redactor: redactor,
-      persistenceDirectory: (contextDataRoot ?? LutiPaths.root).appendingPathComponent("projects")
-        .appendingPathComponent(LutiPaths.projectKey(for: root)).appendingPathComponent("activity"))
+      persistenceDirectory: LocalLogStore.activityDirectory(for: root, dataRoot: contextDataRoot ?? LutiPaths.root))
     self.activity = activity
     runID = activity.runID
     let images = ImageStore()
-    let operationApprovals = OperationApprovalBroker()
     router = try ToolRouter(
       workspace: WorkspaceFiles(root: root), jobs: JobManager(helper: helper, redactor: redactor),
       images: images, computer: ComputerService(images: images), activity: activity,
-      executionPolicy: executionPolicy, operationApprovals: operationApprovals,
-      redactor: redactor, approvedProjects: approvedProjects,
-      activeProjectID: activeProjectID, helper: helper, contextDataRoot: contextDataRoot)
+      executionPolicy: executionPolicy,
+      redactor: redactor, project: project, helper: helper, contextDataRoot: contextDataRoot)
   }
 
   @discardableResult
@@ -63,7 +57,7 @@ public actor RuntimeCore {
   }
 
   /// Only the native Copy action uses this in-process API. It is deliberately not
-  /// part of RuntimeSnapshot, Activity, Session, or the public MCP tool surface.
+  /// part of RuntimeSnapshot, Activity, or the public MCP tool surface.
   func localConnectionConfiguration() throws -> String {
     guard closing == nil, let endpoint else { throw Failure.stopped }
     let setup: JSONValue = [
@@ -75,14 +69,12 @@ public actor RuntimeCore {
 
   public func snapshot() async -> RuntimeSnapshot {
     let jobs = await router.jobList(refreshValidationInputs: false)
-    let project = await router.activeProjectState()
     await activity.reconcileJobs(jobs)
     return RuntimeSnapshot(
       activity: await activity.snapshot(), localEndpoint: endpoint,
       lastCall: await router.lastSuccessfulCall(),
       activeJobs: jobs.filter { $0["terminal"] != true }.count,
-      activeProjectID: project.id, activeProjectName: project.name,
-      projectGeneration: project.generation, runID: runID)
+      runID: runID)
   }
   public func activityUpdates() async -> AsyncStream<[ActivityEvent]> { await activity.updates() }
   public func stopActiveJobs() async -> Int { await router.stopActiveJobs() }

@@ -2,40 +2,24 @@ import Foundation
 
 private struct ProjectRuntimeContext: Sendable {
   let project: ApprovedProject
-  let generation: Int
-  // A fresh opaque identity on each context, including restarts and A → B → A.
   let projectToken = "project_" + UUID().uuidString.lowercased()
   let workspace: WorkspaceFiles
   let jobs: JobManager
   let artifacts: ArtifactStore
   let browser: BrowserProvider
   let code: CodeQueryService
-  let store: ProjectContextStore
-  let checkpoints: ProjectCheckpointStore
+  let activityDirectory: URL
 
-  init(
-    project: ApprovedProject, generation: Int, workspace: WorkspaceFiles, jobs: JobManager,
-    redactor: Redactor, dataRoot: URL, helper: URL
-  ) throws {
-    store = try ProjectContextStore(project: project, dataRoot: dataRoot, redactor: redactor)
-    checkpoints = try ProjectCheckpointStore(project: project, dataRoot: dataRoot)
-    let artifacts = ArtifactStore()
+  init(project: ApprovedProject, workspace: WorkspaceFiles, jobs: JobManager,
+       redactor: Redactor, dataRoot: URL, helper: URL) {
     self.project = project
-    self.generation = generation
     self.workspace = workspace
     self.jobs = jobs
+    let artifacts = ArtifactStore()
     self.artifacts = artifacts
     browser = BrowserProvider(workspace: workspace, artifacts: artifacts, redactor: redactor)
     code = CodeQueryService(workspace: workspace, helper: helper)
-  }
-
-  static func make(
-    project: ApprovedProject, generation: Int, helper: URL, redactor: Redactor, dataRoot: URL
-  ) throws -> ProjectRuntimeContext {
-    let workspace = try WorkspaceFiles(root: project.url)
-    let jobs = JobManager(helper: helper, redactor: redactor)
-    return try ProjectRuntimeContext(
-      project: project, generation: generation, workspace: workspace, jobs: jobs, redactor: redactor, dataRoot: dataRoot, helper: helper)
+    activityDirectory = LocalLogStore.activityDirectory(for: project.url, dataRoot: dataRoot)
   }
 
   func shutdown() async {
@@ -53,105 +37,47 @@ public actor ToolRouter {
   public nonisolated let images: ImageStore
   private let computer: any ComputerBackend
   private let executionPolicy: ProjectExecutionPolicy
-  private let sandboxBackend: any ProjectSandboxBackend
-  private let operationApprovals: OperationApprovalBroker?
-  private let helper: URL
   private let redactor: Redactor
-  private let approvedProjects: [ApprovedProject]
-  private var enabledProjects: [ApprovedProject] {
-    approvedProjects.filter(\.enabled)
-  }
-  private var context: ProjectRuntimeContext
+  private let context: ProjectRuntimeContext
   private var accepting = true
-  var switching = false
-  var projectCallsInFlight = 0
   private var lastSuccess: Date?
-  private let contextDataRoot: URL
-  private var visitedStores: [String: ProjectContextStore]
-  private var contextPersistenceWarning: String?
-
-  var memoryStore: ProjectContextStore { context.store }
-  func memorySource(_ grant: ToolGrant) -> MemorySource { .model(runID: activity.runID, grant: grant, redactor: redactor) }
+  // Bounded, current-run validation inputs. No session journal is persisted.
+  private var touchedFiles: [String] = []
 
   var workspace: WorkspaceFiles { context.workspace }
   var jobs: JobManager { context.jobs }
   var artifacts: ArtifactStore { context.artifacts }
   var browser: BrowserProvider { context.browser }
   var code: CodeQueryService { context.code }
-  var checkpoints: ProjectCheckpointStore { context.checkpoints }
   var projectToken: String { context.projectToken }
 
   public init(
     workspace: WorkspaceFiles, jobs: JobManager, images: ImageStore, computer: any ComputerBackend,
     activity: ActivityStore, executionPolicy: ProjectExecutionPolicy = .readOnly,
-    sandboxBackend: any ProjectSandboxBackend = UnsupportedProjectSandboxBackend(),
-    operationApprovals: OperationApprovalBroker? = nil,
-    redactor: Redactor = Redactor(),
-    approvedProjects: [ApprovedProject]? = nil, activeProjectID: String? = nil,
+    redactor: Redactor = Redactor(), project: ApprovedProject? = nil,
     helper: URL = JobManager.defaultHelper, contextDataRoot: URL? = nil
   ) throws {
-    let fallback = ApprovedProject(
-      id: activeProjectID ?? "runtime-project", url: workspace.root)
-    let records = (approvedProjects?.isEmpty == false) ? approvedProjects! : [fallback]
-    let enabled = records.filter(\.enabled)
-    guard !enabled.isEmpty else {
-      throw Failure(
-        "project_not_enabled", "No locally enabled project is available for this runtime.",
-        "Enable a project in Luti before starting the runtime.")
+    let selected = project ?? ApprovedProject(id: "runtime-project", url: workspace.root)
+    guard selected.url.standardizedFileURL.resolvingSymlinksInPath() == workspace.root else {
+      throw Failure.invalid("The selected folder must match this runtime's workspace.")
     }
-    let selected =
-      enabled.first(where: { $0.id == activeProjectID })
-      ?? enabled.first(where: { $0.path == workspace.root.path })
-      ?? enabled[0]
-
     self.images = images
     self.computer = computer
     self.activity = activity
     self.executionPolicy = executionPolicy
-    self.sandboxBackend = sandboxBackend
-    self.operationApprovals = operationApprovals
-    self.helper = helper
     self.redactor = redactor
-    self.approvedProjects = records
-    let dataRoot = contextDataRoot ?? LutiPaths.root
-    self.contextDataRoot = dataRoot
-    let initial = try ProjectRuntimeContext(
-      project: selected, generation: 1, workspace: workspace, jobs: jobs, redactor: redactor, dataRoot: dataRoot, helper: helper)
-    try initial.store.startSession(activity.runID)
-    context = initial
-    visitedStores = [initial.store.projectKey: initial.store]
+    context = ProjectRuntimeContext(
+      project: selected, workspace: workspace, jobs: jobs, redactor: redactor,
+      dataRoot: contextDataRoot ?? LutiPaths.root, helper: helper)
   }
 
   public func lastSuccessfulCall() -> Date? { lastSuccess }
 
-  public func pendingOperationApprovals() async -> [PendingOperationApproval] {
-    await operationApprovals?.pendingApprovals() ?? []
-  }
-
-  public func resolveOperationApproval(_ id: UUID, approved: Bool) async {
-    await operationApprovals?.resolve(id, approved: approved)
-  }
-
   public func jobList(refreshValidationInputs: Bool = true) async -> [JSONValue] {
-    let owner = context
-    let result = await owner.jobs.list(refreshInputs: refreshValidationInputs)
-    if accepting, owner.generation == context.generation {
-      journalWrite { try owner.store.reconcileSessionJobs(result, runID: activity.runID) }
-    }
-    return result
+    await jobs.list(refreshInputs: refreshValidationInputs)
   }
 
-  private func journalWrite(_ body: () throws -> Void) {
-    do { try body() }
-    catch {
-      contextPersistenceWarning = "Session journal persistence failed; tool effects are not rolled back. Inspect local storage before relying on history."
-      LocalLogStore.runtime("warning", "Session journal persistence failed.")
-    }
-  }
   public func stopActiveJobs() async -> Int { await context.jobs.stopActive() }
-  public func activeProjectState() -> (id: String, name: String, generation: Int) {
-    (context.project.id, context.project.name, context.generation)
-  }
 
   private var callsInFlight = 0
   private var drainWaiters: [CheckedContinuation<Void, Never>] = []
@@ -180,51 +106,38 @@ public actor ToolRouter {
     -> ToolOutput
   {
     // Once Stop has returned, even an in-process caller cannot recreate cleared
-    // history. Track every admitted call until its final journal write finishes.
+    // history. Track every admitted call until its final activity write finishes.
     guard accepting else { return .failure(.stopped) }
+    guard ToolCatalog.names.contains(name) else { return .failure(.invalid("Unknown tool.")) }
     callsInFlight += 1
     defer { finishTrackedCall() }
     let started = Date()
     let owner = context
-    let admitted = accepting && !switching
-    let isSwitch = name == "projects" && value["action"].string == "switch"
-    // Reserve the namespace before the first actor hop. Desktop calls also produce
-    // project context and must not straddle an untracked workspace switch.
-    let tracksProject = admitted && !isSwitch
-    if tracksProject { projectCallsInFlight += 1 }
-    defer { if tracksProject { projectCallsInFlight -= 1 } }
     let descriptor = activityDescriptor(name, value)
     let source = grant.context.map { ActivitySource(transport: $0.transport, clientID: $0.clientID,
       clientName: Budget.prefix(redactor.clean($0.clientName), bytes: 64), authorizationID: $0.authorizationID) }
     let activityID = await activity.begin(
       tool: name, action: descriptor.action, targetType: descriptor.targetType,
       target: descriptor.target, cwd: value["cwd"].string, source: source,
-      persistenceDirectory: owner.store.activityDirectory)
-    journalWrite {
-      try owner.store.recordCallStarted(runID: activity.runID, id: activityID, tool: name,
-        action: descriptor.action.map { Budget.prefix(redactor.clean($0), bytes: 64) }, startedAt: started, source: source)
-    }
+      persistenceDirectory: owner.activityDirectory)
     let output: ToolOutput
-    let event: ActivityEvent
     do {
       guard accepting else { throw Failure.stopped }
       try grant.authorize(tool: name, arguments: value)
-      guard admitted, !switching, owner.generation == context.generation else {
-        throw Failure("project_switch_in_progress", "The active project is being switched.",
-                      "Observe the current project after the switch before retrying.")
-      }
       try validateProjectBinding(name, arguments: value)
       try Task.checkCancellation()
       let arguments = ProjectBindingContract.acceptsToken(name) ? value.removing(["projectToken"]) : value
       output = try await dispatch(name, arguments, grant: grant)
-      if !output.isError { lastSuccess = Date() }
+      if !output.isError {
+        lastSuccess = Date()
+        recordTouchedFiles(tool: name, result: output.data)
+      }
       let failure = output.data["failure"]
-      event = await activity.finish(
+      await activity.finish(
         id: activityID, status: output.isError ? "failed" : "ok", started: started,
         summary: activitySummary(name, output), cwd: value["cwd"].string,
         jobID: output.data["jobId"].string,
         artifactURI: output.data["artifact"]["resource"].string ?? output.data["resource"].string,
-        checkpointID: output.data["checkpoint"]["id"].string,
         effect: activityEffect(name, output), operationState: activityOperationState(name, output),
         errorCode: failure["error"].string ?? output.data["error"].string,
         recovery: failure["recovery"].string ?? output.data["recovery"].string)
@@ -234,21 +147,14 @@ public actor ToolRouter {
         ?? (["outcome_unknown", "browser_outcome_unknown", "browser_transport_unknown"].contains(failure.code) ? "possible" : "none")
       if ["project_binding_required", "project_binding_mismatch"].contains(failure.code) {
         output = ToolOutput(failure.json.adding("currentProject", [
-          "projectId": .string(context.project.id), "generation": .int(context.generation),
+          "projectId": .string(context.project.id), "generation": .int(1),
         ]), isError: true)
       } else {
         output = .failure(failure)
       }
-      event = await activity.finish(id: activityID, status: "failed", started: started,
+      await activity.finish(id: activityID, status: "failed", started: started,
         summary: failure.message, cwd: value["cwd"].string, effect: effect,
         errorCode: failure.code, recovery: failure.recovery)
-    }
-    journalWrite {
-      try owner.store.recordCallFinished(runID: activity.runID, event: event, arguments: value, output: output)
-    }
-    if let contextPersistenceWarning {
-      return ToolOutput(output.data.adding("contextPersistenceWarning", .string(contextPersistenceWarning)),
-                        content: output.extraContent, isError: output.isError)
     }
     return output
   }
@@ -261,13 +167,13 @@ public actor ToolRouter {
     guard let supplied = arguments.object?["projectToken"] else {
       if ProjectBindingContract.requiresToken(name, arguments: arguments) {
         throw Failure("project_binding_required", "This operation requires the observed projectToken.",
-                      "Read projects(action=current), project_info or memory(action=recent), confirm the intended project, then submit the operation with that projectToken.")
+                      "Read project_info, confirm the intended workspace, then submit the operation with that projectToken.")
       }
       return
     }
     guard let token = supplied.string, token.utf8.count <= 80, token == context.projectToken else {
       throw Failure("project_binding_mismatch", "The operation targets a stale or different project context.",
-                    "Read projects(action=current), project_info or memory(action=recent) and confirm the intended project before deciding what to do. No requested operation was executed.")
+                    "Read project_info and confirm the intended workspace before deciding what to do. No requested operation was executed.")
     }
   }
   private func activityDescriptor(_ name: String, _ value: JSONValue) -> ActivityDescriptor {
@@ -282,12 +188,6 @@ public actor ToolRouter {
     }
 
     switch name {
-    case "memory":
-      return ActivityDescriptor(action: action, targetType: "projectContext", target: "project memory")
-    case "projects":
-      return ActivityDescriptor(
-        action: action, targetType: "project",
-        target: value["projectId"].string ?? "approved projects")
     case "project_info":
       return ActivityDescriptor(action: nil, targetType: "project", target: ".")
     case "runtime_status":
@@ -328,10 +228,6 @@ public actor ToolRouter {
     case "code_query":
       return ActivityDescriptor(
         action: action, targetType: "file", target: value["path"].string ?? "source")
-    case "skills":
-      return ActivityDescriptor(
-        action: action, targetType: "skill",
-        target: value["path"].string ?? "project skills")
     case "export_artifact":
       if value["paths"].array != nil {
         return ActivityDescriptor(
@@ -394,9 +290,6 @@ public actor ToolRouter {
     }
   }
   private func activitySummary(_ name: String, _ output: ToolOutput) -> String {
-    if name == "memory" {
-      return output.isError ? "Project memory operation failed." : "Project memory operation completed."
-    }
     if let summary = output.data["summary"].string, !summary.isEmpty { return summary }
     if output.data["testSummary"] != .null {
       let tests = output.data["testSummary"]
@@ -409,19 +302,6 @@ public actor ToolRouter {
     }
 
     switch name {
-    case "projects":
-      switch output.data["action"].string {
-      case "list":
-        return "\(output.data["projects"].array?.count ?? 0) enabled project(s)."
-      case "current":
-        return "Current project inspected."
-      case "switch":
-        return output.data["changed"] == true
-          ? "Active project switched; old project handles were revoked."
-          : "Requested project was already active."
-      default:
-        return "Project context updated."
-      }
     case "job_query":
       switch output.data["action"].string {
       case "list":
@@ -530,9 +410,6 @@ public actor ToolRouter {
     if output.data["submitted"] == true || output.data["observeAgain"] == true {
       return "submitted"
     }
-    if name == "projects" || name == "memory" {
-      return output.data["changed"] == true ? "confirmed" : "none"
-    }
     let mutations: Set<String> = [
       "edit_files", "path_action", "import_artifact", "run_process", "run_shell", "job_action",
       "browser_session", "browser_action", "browser_transfer",
@@ -544,217 +421,67 @@ public actor ToolRouter {
     return mutations.contains(name) ? "confirmed" : "none"
   }
 
-  private func projectJSON(_ project: ApprovedProject) -> JSONValue {
-    [
-      "id": .string(project.id),
-      "name": .string(project.name),
-      "path": .string(project.path),
-      "permissionMode": .string(project.permissionMode.rawValue),
-      "active": .bool(project.id == context.project.id),
-    ]
-  }
-
-  private func projectTool(_ value: JSONValue, grant: ToolGrant) async throws -> ToolOutput {
-    let root = try ActionContracts.arguments("projects", value)
-    let action = try root.string("action", max: 16)
-    switch action {
-    case "list":
-      return ToolOutput([
-        "action": "list",
-        "activeProjectId": .string(context.project.id),
-        "generation": .int(context.generation),
-        "projectToken": .string(context.projectToken),
-        "projects": .array(enabledProjects.map(projectJSON)),
-      ])
-
-    case "current":
-      let project: JSONValue = grant.scopes.map { !$0.contains(.projectRead) } == true
-        ? ["id": .string(context.project.id)] : projectJSON(context.project)
-      return ToolOutput([
-        "action": "current",
-        "generation": .int(context.generation),
-        "projectToken": .string(context.projectToken),
-        "project": project,
-      ])
-
-    case "switch":
-      let a = root
-      let id = try a.string("projectId", max: 80)
-      guard let target = approvedProjects.first(where: { $0.id == id }) else {
-        throw Failure(
-          "project_not_approved", "That project is not in the locally approved project list.",
-          "Call projects(action=list) and switch using an exact returned projectId.")
-      }
-      guard target.enabled else {
-        throw Failure(
-          "project_not_enabled", "This project is not enabled on this Mac.",
-          "Use projects(action=list) and switch to one of its project IDs. The Mac owner can enable other approved projects locally while the runtime is stopped.")
-      }
-      if target.id == context.project.id {
-        return ToolOutput([
-          "action": "switch",
-          "changed": false,
-          "generation": .int(context.generation),
-          "projectToken": .string(context.projectToken),
-          "project": projectJSON(context.project),
-        ])
-      }
-      guard projectCallsInFlight == 0 else {
-        throw Failure(
-          "project_busy", "Another tool call is still using the active project.",
-          "Wait for the existing call to finish, then retry the project switch.")
-      }
-
-      switching = true
-      defer { switching = false }
-
-      let activeJobs = await context.jobs.activeCount()
-      // Stop can enter the actor while activeCount is suspended.
-      guard accepting else { throw Failure.stopped }
-      guard activeJobs == 0 else {
-        throw Failure(
-          "project_busy", "\(activeJobs) project job(s) are still active.",
-          "Stop the active jobs before switching projects.")
-      }
-
-      let previous = context
-      let nextGeneration = previous.generation + 1
-      let next = try ProjectRuntimeContext.make(
-        project: target, generation: nextGeneration, helper: helper, redactor: redactor, dataRoot: contextDataRoot)
-      try next.store.startSession(activity.runID)
-      journalWrite { try previous.store.pauseSession(activity.runID) }
-      visitedStores[next.store.projectKey] = next.store
-      context = next
-      await activity.setPersistenceDirectory(next.store.activityDirectory)
-      await previous.shutdown()
-
-      return ToolOutput([
-        "action": "switch",
-        "changed": true,
-        "previousProjectId": .string(previous.project.id),
-        "previousProjectName": .string(previous.project.name),
-        "generation": .int(nextGeneration),
-        "projectToken": .string(context.projectToken),
-        "project": projectJSON(target),
-        "invalidated": .array([
-          "workspaceHandles", "jobs", "browserSessions", "artifacts"
-        ].map(JSONValue.string)),
-      ])
-
-    default:
-      throw Failure.invalid("projects action must be list, current or switch.")
+  private func recordTouchedFiles(tool: String, result: JSONValue) {
+    var paths: [JSONValue] = []
+    if ["edit_files", "import_artifact"].contains(tool), result["applied"] == true,
+       result["dryRun"] != true {
+      paths = (result["files"].array ?? []).filter { $0["wouldChange"] == true }.map { $0["path"] }
+        + [result["path"]]
+    } else if tool == "path_action", result["effect"] == "confirmed" {
+      paths = [result["path"], result["source"], result["destination"]]
     }
+    for value in paths {
+      guard let path = value.string, (try? WorkspaceFiles.components(path)) != nil else { continue }
+      touchedFiles.removeAll { $0 == path }
+      touchedFiles.append(path)
+    }
+    if touchedFiles.count > 512 { touchedFiles.removeFirst(touchedFiles.count - 512) }
   }
 
   func requireExecution(_ capability: ExecutionCapability) throws {
-    try executionPolicy.authorize(
-      capability, sandboxStatus: sandboxBackend.status)
+    try executionPolicy.authorize(capability)
   }
 
-  func validateExecutionExecutable(_ executable: URL, cwd: URL) throws {
-    try executionPolicy.validateExecutable(
-      program: executable.path,
-      cwd: cwd,
-      environment: [:],
-      sandboxStatus: sandboxBackend.status)
-  }
-
-  private func checkpointedEdit(
-    action: String,
-    paths: [String],
-    dryRun: Bool,
-    operation: () async throws -> JSONValue
-  ) async throws -> JSONValue {
-    if dryRun { return try await operation() }
-
-    let before = try await workspace.checkpointFiles(paths)
-    let prepared = try checkpoints.prepare(
-      runID: activity.runID, tool: "edit_files", reason: action, before: before)
-    do {
-      let result = try await operation()
-      guard result["applied"] == true else {
-        try? checkpoints.discard(prepared.id)
-        return result
-      }
-
-      do {
-        let after = try await workspace.checkpointFiles(paths)
-        let finalized = try checkpoints.finalize(id: prepared.id, after: after)
-        return result.adding(
-          "checkpoint", ProjectCheckpointStore.summaryJSON(finalized))
-      } catch {
-        // The primary file mutation has already committed. A recovery-metadata
-        // failure must not make the Host believe the edit itself failed and replay it.
-        LocalLogStore.runtime(
-          "warning", "Checkpoint finalization failed after a confirmed edit.")
-        return result
-          .adding("checkpoint", ProjectCheckpointStore.summaryJSON(prepared))
-          .adding(
-            "checkpointWarning",
-            "The edit succeeded but its checkpoint could not be finalized. Do not treat this warning as an edit failure.")
-      }
-    } catch {
-      // If an operation reports failure after producing an observable file change,
-      // retain the before-image but mark it uncertain. Uncertain checkpoints are
-      // intentionally not eligible for automatic restore.
-      if let after = try? await workspace.checkpointFiles(paths), after != before {
-        _ = try? checkpoints.finalize(id: prepared.id, after: after, uncertain: true)
-      } else {
-        try? checkpoints.discard(prepared.id)
-      }
-      throw error
-    }
-  }
   private func dispatch(_ name: String, _ value: JSONValue, grant: ToolGrant) async throws -> ToolOutput {
-    if name == "memory" { return try await memoryTool(value, grant: grant) }
-    if name == "projects" { return try await projectTool(value, grant: grant) }
     if let output = try await extendedTool(name, value, grant: grant) { return output }
     switch name {
     case "project_info":
       _ = try Arguments(value, allowed: [])
+      if let scopes = grant.scopes, !scopes.contains(.projectRead) {
+        return ToolOutput([
+          "projectId": .string(context.project.id), "generation": .int(1),
+          "projectToken": .string(context.projectToken),
+        ])
+      }
       let info = try await workspace.projectInfo()
       return ToolOutput(
         info
           .adding("projectId", .string(context.project.id))
-          .adding("generation", .int(context.generation))
-          .adding("projectToken", .string(context.projectToken))
-          .adding("approvedProjectCount", .int(approvedProjects.count))
-          .adding("enabledProjectCount", .int(enabledProjects.count))
-          .adding("context", ["projectKey": .string(context.store.projectKey),
-                              "discovery": "Use memory(action=recent) for a bounded summary, then recall relevant facts."]))
+          .adding("generation", .int(1))
+          .adding("projectToken", .string(context.projectToken)))
     case "runtime_status":
       _ = try Arguments(value, allowed: [])
       let permissions = await computer.permissions()
       return ToolOutput([
         "name": "Luti", "version": .string(Identity.version), "running": .bool(accepting),
         "executionEnabled": .bool(
-          executionPolicy.commandExecutionAvailable(
-            sandboxStatus: sandboxBackend.status)),
-        "executionPolicy": executionPolicy.statusJSON(
-          sandboxStatus: sandboxBackend.status)
-          .adding("permissionMode", .string(context.project.permissionMode.rawValue)),
+          executionPolicy.commandExecutionAvailable),
+        "executionPolicy": executionPolicy.statusJSON,
         "permissions": permissions.json,
         "activeProject": [
           "id": .string(context.project.id), "name": .string(context.project.name),
           "path": .string(context.project.path),
-          "permissionMode": .string(context.project.permissionMode.rawValue),
-          "generation": .int(context.generation),
+          "generation": .int(1),
         ],
-        "approvedProjectCount": .int(approvedProjects.count),
-        "enabledProjectCount": .int(enabledProjects.count),
-        "contextPersistenceWarning": contextPersistenceWarning.map(JSONValue.string) ?? .null,
         "jobs": .array(await jobs.list().map { $0.removing(["stdoutTail", "stderrTail", "stdoutHead", "stderrHead"]) }),
         "capabilities": [
           "projectFiles": true,
           "projectWrite": .bool(executionPolicy.workspaceWriteAvailable),
           "commandExecution": .bool(
-            executionPolicy.commandExecutionAvailable(
-              sandboxStatus: sandboxBackend.status)),
-          "rawShell": executionPolicy.statusJSON(
-            sandboxStatus: sandboxBackend.status)["rawShell"],
+            executionPolicy.commandExecutionAvailable),
+          "rawShell": executionPolicy.statusJSON["rawShell"],
           "executionScope": .string(
-            executionPolicy.scopeDescription(
-              sandboxStatus: sandboxBackend.status)),
+            executionPolicy.scopeDescription),
           "browserInstalled": .bool(BrowserInstallation.installed),
           "chromeAvailable": .bool(BrowserInstallation.chromeAvailable),
         ],
@@ -799,12 +526,8 @@ public actor ToolRouter {
         let path = try a.string("path")
         let content = try a.string("content", max: 1_048_576)
         let dryRun = try a.flag("dryRun", default: false)
-        let result = try await checkpointedEdit(
-          action: "create", paths: [path], dryRun: dryRun
-        ) {
-          try await workspace.create(path: path, content: content, dryRun: dryRun)
-        }
-        return ToolOutput(result)
+        return ToolOutput(try await workspace.create(
+          path: path, content: content, dryRun: dryRun))
       case "edit":
         let a = try Arguments(
           value, allowed: ["action", "path", "expectedSHA256", "edits", "dryRun"])
@@ -820,24 +543,13 @@ public actor ToolRouter {
         let path = try a.string("path")
         let expectedSHA = try a.string("expectedSHA256", max: 64)
         let dryRun = try a.flag("dryRun", default: false)
-        let result = try await checkpointedEdit(
-          action: "edit", paths: [path], dryRun: dryRun
-        ) {
-          try await workspace.edit(
-            path: path, expectedSHA: expectedSHA, edits: edits, dryRun: dryRun)
-        }
-        return ToolOutput(result)
+        return ToolOutput(try await workspace.edit(
+          path: path, expectedSHA: expectedSHA, edits: edits, dryRun: dryRun))
       case "patch":
         let a = try Arguments(value, allowed: ["action", "patch", "dryRun"])
         let patch = try a.string("patch", max: 1_048_576)
         let dryRun = try a.flag("dryRun", default: false)
-        let paths = try UnifiedPatch.parse(patch).map(\.path)
-        let result = try await checkpointedEdit(
-          action: "patch", paths: paths, dryRun: dryRun
-        ) {
-          try await workspace.applyPatch(patch, dryRun: dryRun)
-        }
-        return ToolOutput(result)
+        return ToolOutput(try await workspace.applyPatch(patch, dryRun: dryRun))
       default:
         throw Failure.invalid("edit_files action must be edit, create or patch.")
       }
@@ -875,8 +587,6 @@ public actor ToolRouter {
         let taskID = try a.string("taskId", max: 128)
         let graph = try await ProjectInspector(workspace: workspace).graph()
         let task = try ProjectTaskRegistry(graph: graph).task(taskID)
-        try executionPolicy.authorizeTask(
-          task.id, sandboxStatus: sandboxBackend.status)
         program = task.program
         args = task.args
         discoveredTask = task
@@ -899,13 +609,8 @@ public actor ToolRouter {
       let cwd = try await workspace.workingDirectory(workingPath)
       let environment = discoveredTask == nil && a.has("environment")
         ? try executionPolicy.userEnvironment(
-            a["environment"], sandboxStatus: sandboxBackend.status)
+            a["environment"])
         : [:]
-      try executionPolicy.validateExecutable(
-        program: program,
-        cwd: cwd,
-        environment: environment,
-        sandboxStatus: sandboxBackend.status)
       guard accepting else { throw Failure.stopped }
       let request = try ProcessRequest(
         program: program, args: args, cwd: cwd, projectRoot: workspace.root,
@@ -916,8 +621,7 @@ public actor ToolRouter {
         timeout: a.integer("timeout", default: 120, range: 1...86_400),
         syncWait: a.integer("syncWait", default: 2, range: 0...3),
         idempotencyKey: a.has("idempotencyKey") ? a.string("idempotencyKey", max: 128) : nil)
-      // Hard deny and Project scope are mode-independent. Permission Mode only
-      // decides whether an already project-scoped sensitive operation asks first.
+      // Full access retains explicit command denies and project scope checks.
       try ProcessPolicy.validate(request)
       try ProcessPolicy.validateProjectScope(request)
       if let discoveredScript {
@@ -925,63 +629,14 @@ public actor ToolRouter {
           discoveredScript, cwd: cwd, projectRoot: workspace.root)
       }
 
-      let requestRequirement = ProcessPolicy.approvalRequirement(
-        request, rawShell: name == "run_shell")
-      let scriptRequirement = try discoveredScript.flatMap {
-        try ProcessPolicy.projectScriptApprovalRequirement($0)
-      }
-      var localOperationApproval: PendingOperationApproval?
-      if executionPolicy.profile == .fullLocal,
-        context.project.permissionMode.asksForSensitiveProjectOperations,
-        let requirement = requestRequirement ?? scriptRequirement
-      {
-        guard let operationApprovals else {
-          throw Failure(
-            "local_action_approval_required",
-            "This command requires one-time local approval: \(requirement.reason)",
-            "Run it from the Luti app Runtime so the Mac user can approve the exact operation.")
-        }
-        let visibleCommand = Budget.prefix(
-          redactor.clean(([request.program] + request.args).joined(separator: " ")),
-          bytes: 768)
-        let approvalGeneration = context.generation
-        localOperationApproval = try await operationApprovals.request(
-          tool: name,
-          summary: visibleCommand,
-          reason: requirement.reason,
-          project: context.project)
-        // Approval is one-shot for this exact suspended call. Never use it as a
-        // durable permission, and never launch after Stop or a context change.
-        guard accepting, approvalGeneration == context.generation else {
-          throw Failure.stopped
-        }
-      }
-
-      var result: JSONValue
-      if executionPolicy.profile.requiresSandboxBackend {
-        // Recheck after asynchronous discovery/cwd resolution. The backend must
-        // also verify its project grant and enforcement when it actually launches.
-        try executionPolicy.authorize(.process, sandboxStatus: sandboxBackend.status)
-        result = try await sandboxBackend.submitProcess(
-          request, policy: executionPolicy, jobs: jobs)
-      } else {
-        let graph = try? await ProjectInspector(workspace: workspace).graph(path: workingPath)
-        let touched = (try? memoryStore.session(activity.runID).touchedFiles) ?? []
-        let scope = ValidationScopeRequest(
-          files: workspace, paths: touched + (graph?.manifests.map(\.path) ?? []),
-          taskID: discoveredTask?.id, purpose: discoveredTask?.kind,
-          reportPath: a.has("reportPath") ? try a.string("reportPath") : nil)
-        result = try await jobs.submit(request, validation: scope)
-      }
+      let graph = try? await ProjectInspector(workspace: workspace).graph(path: workingPath)
+      let scope = ValidationScopeRequest(
+        files: workspace, paths: touchedFiles + (graph?.manifests.map(\.path) ?? []),
+        taskID: discoveredTask?.id, purpose: discoveredTask?.kind,
+        reportPath: a.has("reportPath") ? try a.string("reportPath") : nil)
+      var result = try await jobs.submit(request, validation: scope)
       if let discoveredTask {
         result = result.adding("task", discoveredTask.json)
-      }
-      if let localOperationApproval {
-        result = result.adding("localApproval", [
-          "id": .string(localOperationApproval.id.uuidString.lowercased()),
-          "scope": "oneShot",
-          "approvedAt": .string(ISO8601DateFormatter().string(from: Date())),
-        ])
       }
       return ToolOutput(result, isError: result["failure"] != .null)
     case "job_query":
@@ -1127,19 +782,16 @@ public actor ToolRouter {
       return
     }
     accepting = false
-    switching = true
-    await operationApprovals?.stop()
     let owned = context
     async let project: Void = owned.shutdown()
     async let desktop: Void = computer.stop()
     async let screenshots: Void = images.stop()
     _ = await (project, desktop, screenshots)
-    // Providers are closed first so blocked calls can finish. Only then finalize
-    // durable sessions and allow AppModel to expose the stopped/clearable state.
+    // Close providers first to release blocked calls, then wait for final
+    // activity writes before exposing the stopped/clearable state.
     if callsInFlight > 0 { await withCheckedContinuation { drainWaiters.append($0) } }
-    let finalJobs = await owned.jobs.list()
-    journalWrite { try owned.store.reconcileSessionJobs(finalJobs, runID: activity.runID) }
-    for store in visitedStores.values { journalWrite { try store.finishSession(activity.runID) } }
+    await activity.reconcileJobs(await owned.jobs.list())
+    touchedFiles.removeAll()
     stopFinished = true
     let waiters = stopWaiters
     stopWaiters.removeAll()

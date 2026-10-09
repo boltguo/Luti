@@ -36,18 +36,12 @@ public enum OAuthScope: String, CaseIterable, Codable, Sendable {
   public static func required(tool: String, arguments: JSONValue) -> Set<OAuthScope>? {
     switch tool {
     case "project_info", "read_files", "search_project", "list_directory", "read_image",
-      "inspect_project", "skills", "git_query", "export_artifact", "runtime_status":
+      "inspect_project", "git_query", "export_artifact", "runtime_status":
       return [.projectRead]
     case "code_query":
       return [.projectRead, .processRun]
-    case "memory":
-      return ["remember", "forget"].contains(arguments["action"].string ?? "") ? [.projectWrite] : [.projectRead]
     case "edit_files", "path_action", "import_artifact":
       return [.projectWrite]
-    case "projects":
-      // Listing the approved projects is a read; switching the active one changes
-      // what every later write lands on, so it needs the write scope too.
-      return arguments["action"].string == "switch" ? [.projectRead, .projectWrite] : [.projectRead]
     case "run_process", "run_shell", "job_query", "job_action":
       return [.processRun]
     case "browser_transfer":
@@ -89,6 +83,7 @@ public enum OAuthScope: String, CaseIterable, Codable, Sendable {
 /// Which pipe a call arrived on. The tool runtime never branches on it; it exists
 /// so Activity can say where an effect came from.
 public enum TransportProviderID: String, Codable, Sendable {
+  // Retired transports remain decodable in existing local activity records.
   case loopback, cloudflare, openAI = "openai", ngrok, quick
 }
 
@@ -130,8 +125,8 @@ public enum ToolGrant: Sendable, Equatable {
   public func authorize(tool: String, arguments: JSONValue) throws {
     guard let context else { return }
     // Mutating project capabilities need a context precondition even when the
-    // Host has no file-read scope. This action returns only the minimal binding.
-    if tool == "projects", arguments["action"] == "current",
+    // Host has no file-read scope. These queries return only the minimal binding.
+    if tool == "project_info",
        !context.scopes.isDisjoint(with: [.projectWrite, .processRun, .browserUse]) {
       return
     }

@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 
-/// Provider-specific setup, health and origin-bound Host authorizations live here.
+/// Inline Cloudflare setup and origin-bound AI authorizations.
 struct CloudflareConnectionView: View {
   @Bindable var model: AppModel
   @Bindable var clients: OAuthClientModel
@@ -11,9 +11,7 @@ struct CloudflareConnectionView: View {
   @State private var confirmClearConfiguration = false
 
   var body: some View {
-    MDPage {
-      providerStatus
-
+    VStack(alignment: .leading, spacing: 22) {
       if let url = model.configuredMCPServerURL(.cloudflare) {
         ProviderMCPURLRow(
           value: url.absoluteString,
@@ -30,10 +28,10 @@ struct CloudflareConnectionView: View {
           .textSelection(.enabled)
       }
 
-      configurationCard
+      configurationForm
 
       if !model.cloudflareConfigured {
-        setupGuideCard
+        CloudflareConnectionHelp()
       }
 
       if clients.clients.isEmpty {
@@ -73,20 +71,12 @@ struct CloudflareConnectionView: View {
     model.providerSnapshot(.cloudflare)
   }
 
-  private var providerStatus: some View {
-    ProviderStatusSection(model: model, provider: .cloudflare)
-  }
-
   private var authorizationSection: some View {
     ProviderAuthorizationSection(clients: clients, openClient: openClient)
   }
 
-  private var configurationCard: some View {
-    ProviderDetailCard(
-      title: L10n.text("connection.configuration"),
-      symbol: "slider.horizontal.3",
-      tone: .purple
-    ) {
+  private var configurationForm: some View {
+    VStack(alignment: .leading, spacing: 12) {
       VStack(alignment: .leading, spacing: 16) {
         MDInput(title: L10n.text("connection.publicURL")) {
           TextField("https://mcp.example.com", text: $model.publicBaseURL)
@@ -106,15 +96,16 @@ struct CloudflareConnectionView: View {
             .accessibilityIdentifier("tunnel-token")
         }
 
-        MDTrailingActions {
+        MDButtonRun {
           if model.tokenSaved || !model.savedPublicBaseURL.isEmpty {
             Button(role: .destructive) {
               confirmClearConfiguration = true
             } label: {
               Text(L10n.text("connection.clearConfiguration"))
-                .frame(minWidth: 104)
+                .frame(maxWidth: .infinity)
             }
             .buttonStyle(MDConnectedButtonStyle(kind: .tonal, position: .first))
+            .frame(maxWidth: .infinity)
             .accessibilityIdentifier("clear-cloudflare-configuration")
           }
 
@@ -126,11 +117,12 @@ struct CloudflareConnectionView: View {
             }
           } label: {
             Text(L10n.text("connection.saveConfiguration"))
-              .frame(minWidth: 104)
+              .frame(maxWidth: .infinity)
           }
           .buttonStyle(MDConnectedButtonStyle(
             kind: .filled,
             position: model.tokenSaved || !model.savedPublicBaseURL.isEmpty ? .last : .single))
+          .frame(maxWidth: .infinity)
           .disabled(!model.hasUnsavedConnection && model.tokenSaved)
           .accessibilityIdentifier("save-configuration")
         }
@@ -144,25 +136,15 @@ struct CloudflareConnectionView: View {
           tone: .gray)
       }
 
-      if !model.settingsMessage.isEmpty {
+      if let message = model.connectionSettingsErrors[.cloudflare] {
         InlineNotice(
-          text: model.settingsMessage,
+          text: message,
           icon: "exclamationmark.triangle",
           color: MDTheme.error)
           .textSelection(.enabled)
       }
-
     }
-  }
-
-  private var setupGuideCard: some View {
-    ProviderDetailCard(
-      title: L10n.text("connection.setupGuide"),
-      symbol: "list.number",
-      tone: .blue
-    ) {
-      CloudflareConnectionHelp()
-    }
+    .frame(maxWidth: .infinity, alignment: .leading)
   }
 
   private var draftedOrigin: String? {
@@ -195,17 +177,17 @@ private struct CloudflareConnectionHelp: View {
 
   var body: some View {
     VStack(alignment: .leading, spacing: 14) {
-      ProviderInfoText(
-        text: L10n.text("connection.cloudflareStep1Description"),
-        symbol: "info.circle")
-
-      Button {
+      MDNavigationRow(
+        title: L10n.text("connection.cloudflareStep1"),
+        symbol: "network",
+        subtitle: L10n.text("connection.cloudflareStep1Description"),
+        iconTone: .orange,
+        accessory: "arrow.up.right"
+      ) {
         guard let url = URL(string: "https://dash.cloudflare.com/?to=/:account/tunnels") else { return }
         NSWorkspace.shared.open(url)
-      } label: {
-        Label(L10n.text("connection.cloudflareStep1"), systemImage: "arrow.up.right")
       }
-      .buttonStyle(MDButtonStyle(kind: .tonal))
+      .accessibilityIdentifier("open-cloudflare-tunnel")
 
       SetupCopyRow(
         title: L10n.text("connection.service"),
@@ -224,9 +206,6 @@ struct ProviderMCPURLRow: View {
       title: L10n.text("connection.mcpServerURL"),
       value: value,
       accessibilityID: accessibilityID)
-      .padding(.horizontal, 16)
-      .frame(maxWidth: .infinity, minHeight: 68, alignment: .leading)
-      .background(MDListRowSurface(position: .single))
   }
 }
 
@@ -235,38 +214,45 @@ struct SetupCopyRow: View {
   let value: String
   var enabled = true
   let accessibilityID: String
+
+  var body: some View {
+    MDList {
+      MDListRow(
+        title: title,
+        symbol: "link",
+        subtitle: value,
+        iconTone: .blue,
+        subtitleTruncationMode: .middle
+      ) {
+        ValueCopyButton(title: title, value: value, enabled: enabled, accessibilityID: accessibilityID)
+      }
+    }
+  }
+}
+
+private struct ValueCopyButton: View {
+  let title: String
+  let value: String
+  var enabled = true
+  let accessibilityID: String
   @State private var copied = false
   @State private var copyFeedbackRevision = 0
 
   var body: some View {
-    HStack(alignment: .center, spacing: 12) {
-      VStack(alignment: .leading, spacing: 4) {
-        Text(title)
-          .font(.system(size: 12, weight: .medium))
-          .foregroundStyle(MDTheme.onSurfaceVariant)
-        Text(value)
-          .font(.system(size: 12).monospaced())
-          .foregroundStyle(enabled ? MDTheme.onSurface : MDTheme.onSurfaceVariant)
-          .textSelection(.enabled)
-          .lineLimit(2)
-          .truncationMode(.middle)
-      }
-      Spacer(minLength: 10)
-      Button {
-        guard enabled else { return }
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(value, forType: .string)
-        copied = true
-        copyFeedbackRevision += 1
-      } label: {
-        Image(systemName: copied ? "checkmark" : "doc.on.doc")
-          .foregroundStyle(copied ? MDTheme.success : MDTheme.primary)
-      }
-      .buttonStyle(.plain)
-      .disabled(!enabled)
-      .accessibilityLabel(L10n.format("clients.copy", title))
-      .accessibilityIdentifier(accessibilityID)
+    Button {
+      guard enabled else { return }
+      NSPasteboard.general.clearContents()
+      copied = NSPasteboard.general.setString(value, forType: .string)
+      copyFeedbackRevision += 1
+    } label: {
+      Image(systemName: copied ? "checkmark" : "doc.on.doc")
+        .foregroundStyle(copied ? MDTheme.success : MDTheme.primary)
+        .frame(width: 32, height: 32)
     }
+    .buttonStyle(.plain)
+    .disabled(!enabled)
+    .accessibilityLabel(L10n.format("clients.copy", title))
+    .accessibilityIdentifier(accessibilityID)
     .onChange(of: value) { _, _ in
       copied = false
       copyFeedbackRevision += 1

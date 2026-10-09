@@ -26,11 +26,9 @@ public struct ConnectionSnapshot: Sendable, Equatable {
 /// resources, never the project's router, jobs, files or local credentials.
 public protocol ConnectionProvider: Sendable {
   var id: ConnectionProviderID { get }
-  /// Public OAuth providers expose their configured origin; private providers such as OpenAI return nil.
+  /// The configured public OAuth origin.
   var publicOrigin: URL? { get async }
   var ingressPort: Int { get }
-  /// A fresh per-connection credential, never the Local MCP credential or API key.
-  var privateCredential: String? { get }
   func start(endpoint: URL) async throws
   func stop() async
   func snapshot() async -> ConnectionSnapshot
@@ -38,7 +36,6 @@ public protocol ConnectionProvider: Sendable {
 
 public extension ConnectionProvider {
   var id: ConnectionProviderID { .cloudflare }
-  var privateCredential: String? { nil }
 }
 
 /// Optional OAuth ingress has a separate listener and failure domain. Both
@@ -51,7 +48,6 @@ public actor ConnectionManager {
     let provider: any ConnectionProvider
     let store: OAuthStore
     var origin: URL?
-    var endpoint: URL?
   }
   private let router: ToolRouter
   private let store: OAuthStore
@@ -73,7 +69,7 @@ public actor ConnectionManager {
     }
     let selectedStore = authorizationStore ?? store
     let owned = Attempt(id: UUID(), server: MCPServer(), oauth: nil,
-                        provider: provider, store: selectedStore, origin: nil, endpoint: nil)
+                        provider: provider, store: selectedStore, origin: nil)
     attempt = owned
     state = ConnectionSnapshot(state: .starting, providerID: provider.id)
     do {
@@ -81,42 +77,24 @@ public actor ConnectionManager {
       let endpoint = try await owned.server.start(
         router: router, authentication: nil, port: provider.ingressPort)
       try check(owned.id)
-      attempt?.endpoint = endpoint
       let configuredOrigin = await provider.publicOrigin
       try check(owned.id)
-      if provider.id.usesOAuth {
-        if let configuredOrigin {
-          try await activatePublic(owned.id, origin: configuredOrigin)
-        }
-      } else {
-        guard let credential = provider.privateCredential, credential.utf8.count >= 32 else {
-          throw Failure.invalid("The private tunnel requires a fresh ingress credential.")
-        }
-        let context = RequestContext(
-          transport: provider.id.transport, clientID: "openai-tunnel", clientName: provider.id.title,
-          authorizationID: owned.id, scopes: Set(OAuthScope.allCases),
-          resource: endpoint.absoluteString)
-        try await owned.server.activate(router: router,
-          authentication: .delegated(bearer: credential, context: context))
-        try check(owned.id)
+      if let configuredOrigin {
+        try await activatePublic(owned.id, origin: configuredOrigin)
       }
       try await provider.start(endpoint: endpoint)
       try check(owned.id)
-      if provider.id.usesOAuth {
-        guard let origin = await provider.publicOrigin else {
-          throw Failure.invalid("The provider did not return a public HTTPS origin.")
-        }
-        try check(owned.id)
-        if let configuredOrigin, origin != configuredOrigin {
-          throw Failure.invalid("The provider changed its configured public origin.")
-        }
-        if configuredOrigin == nil { try await activatePublic(owned.id, origin: origin) }
+      guard let origin = await provider.publicOrigin else {
+        throw Failure.invalid("The provider did not return a public HTTPS origin.")
       }
+      try check(owned.id)
+      if let configuredOrigin, origin != configuredOrigin {
+        throw Failure.invalid("The provider changed its configured public origin.")
+      }
+      if configuredOrigin == nil { try await activatePublic(owned.id, origin: origin) }
       let result = await provider.snapshot()
       try check(owned.id)
-      guard result.state == .ready
-        || (provider.id == .quick && result.state == .reconnecting)
-      else {
+      guard result.state == .ready else {
         throw Failure("connection_not_ready", "The remote provider did not confirm readiness.",
                       "Inspect the connection settings and reconnect explicitly. Local MCP is still available.")
       }
@@ -171,16 +149,9 @@ public actor ConnectionManager {
   }
 
   func doctor() async -> ConnectionDoctorReport? {
-    guard let owned = attempt, [.ready, .reconnecting].contains(state.state) else { return nil }
-    let report: ConnectionDoctorReport
-    if let origin = owned.origin {
-      report = await ConnectionDoctor.publicEndpoint(origin)
-    } else if let endpoint = owned.endpoint, let credential = owned.provider.privateCredential {
-      let transport = await owned.provider.snapshot()
-      guard attempt?.id == owned.id, closing == nil else { return nil }
-      report = await ConnectionDoctor.privateEndpoint(endpoint, credential: credential,
-                                                      transportReady: transport.state == .ready)
-    } else { return nil }
+    guard let owned = attempt, let origin = owned.origin,
+      [.ready, .reconnecting].contains(state.state) else { return nil }
+    let report = await ConnectionDoctor.publicEndpoint(origin)
     return attempt?.id == owned.id && closing == nil ? report : nil
   }
 

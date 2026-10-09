@@ -3,7 +3,7 @@ import XCTest
 @testable import Luti
 
 @MainActor final class MCPTests: XCTestCase {
-  private let token = String(repeating: "a", count: 64)
+  private let token = OAuthContract.accessPrefix + String(repeating: "a", count: 64)
   private func request(
     _ method: String, params: JSONValue = [:], modern: Bool = false, id: JSONValue? = 1,
     extra: [String: [String]] = [:]
@@ -45,8 +45,10 @@ import XCTest
     XCTAssertEqual(initResult.json["result"]["protocolVersion"], "2025-11-25")
     let list = await endpoint.handle(try request("tools/list"))
     let tools = try XCTUnwrap(list.json["result"]["tools"].array)
-    XCTAssertEqual(tools.count, 30)
-    XCTAssertNotNil(tools.first { $0["name"] == "projects" })
+    XCTAssertEqual(tools.count, 27)
+    XCTAssertNil(tools.first { $0["name"] == "projects" })
+    XCTAssertNil(tools.first { $0["name"] == "memory" })
+    XCTAssertNotNil(tools.first { $0["name"] == "project_info" })
     let readFiles = try XCTUnwrap(tools.first { $0["name"] == "read_files" })
     XCTAssertEqual(readFiles["inputSchema"]["properties"]["endLine"]["default"], .null)
     XCTAssertEqual(readFiles["inputSchema"]["properties"]["byteOffset"]["default"], 0)
@@ -91,6 +93,67 @@ import XCTest
     XCTAssertEqual(
       response.json["result"]["supportedVersions"].array?.first, .string(MCPDispatcher.modern))
     await router.stop()
+  }
+  func testLiteToolsCannotDiscoverOrCallOtherProjectsMemoryOrSkills() async throws {
+    let first = try Fixture(), second = try Fixture()
+    defer { first.remove(); second.remove() }
+    let router = try ToolRouter(
+      workspace: first.files, jobs: JobManager(helper: Fixture.helper), images: ImageStore(),
+      computer: NoComputerBackend(), activity: ActivityStore(), executionPolicy: .readOnly,
+      project: ApprovedProject(id: "a", url: first.root), contextDataRoot: first.contextDataRoot)
+    addTeardownBlock { await router.stop() }
+    let context = delegatedContext(Set(OAuthScope.allCases))
+    for authentication: MCPAuthentication in [.local(bearer: token), try fixtureRemoteAuthentication(bearer: token, context: context)] {
+      let endpoint = MCPDispatcher(authentication: authentication, port: TunnelContract.defaultPort, router: router)
+      for modern in [false, true] {
+        let list = await endpoint.handle(try request("tools/list", modern: modern))
+        let tools = try XCTUnwrap(list.json["result"]["tools"].array)
+        XCTAssertEqual(tools.count, 27)
+        XCTAssertNil(tools.first { $0["name"] == "projects" })
+        XCTAssertNil(tools.first { $0["name"] == "memory" })
+        XCTAssertNil(tools.first { $0["name"] == "skills" })
+        XCTAssertFalse(JSONValue.array(tools).text().contains("memory("))
+        XCTAssertFalse(JSONValue.array(tools).text().contains("projects("))
+        let before = await endpoint.handle(try request("tools/call", params: ["name": "project_info"], modern: modern))
+        let info = before.json["result"]["structuredContent"]
+        XCTAssertEqual(info["projectId"], "a")
+        XCTAssertEqual(info["root"], .string(first.root.path))
+        XCTAssertNotNil(info["projectToken"].string)
+        XCTAssertEqual(info["approvedProjectCount"], .null)
+        XCTAssertEqual(info["enabledProjectCount"], .null)
+        XCTAssertEqual(info["context"], .null)
+        XCTAssertFalse(info.text().contains(second.root.path))
+        let disabled: [(String, JSONValue)] = [
+          ("skills", ["action": "list"]),
+          ("skills", ["action": "read", "path": ".agents/skills/fixture/SKILL.md"]),
+          ("projects", ["action": "list"]),
+          ("projects", ["action": "current"]),
+          ("projects", ["action": "switch", "projectId": "b", "projectToken": info["projectToken"]]),
+          ("memory", ["action": "recall"]),
+          ("memory", ["action": "recent"]),
+          ("memory", ["action": "sessions"]),
+          ("memory", ["action": "remember", "kind": "goal", "content": "Must not persist", "projectToken": info["projectToken"]]),
+          ("memory", ["action": "forget", "memoryId": "memory_fixture", "expectedRevision": 1, "projectToken": info["projectToken"]]),
+        ]
+        for (name, arguments) in disabled {
+          let denied = await endpoint.handle(try request("tools/call", params: [
+            "name": .string(name), "arguments": arguments,
+          ], modern: modern))
+          XCTAssertEqual(denied.status, 400, name)
+          XCTAssertEqual(denied.json["error"]["code"], -32602, name)
+        }
+        let after = await endpoint.handle(try request("tools/call", params: ["name": "project_info"], modern: modern))
+        XCTAssertEqual(after.json["result"]["structuredContent"], info)
+        let status = await endpoint.handle(try request("tools/call", params: ["name": "runtime_status"], modern: modern))
+        XCTAssertEqual(status.json["result"]["structuredContent"]["activeProject"]["id"], "a")
+        XCTAssertEqual(status.json["result"]["structuredContent"]["approvedProjectCount"], .null)
+        XCTAssertEqual(status.json["result"]["structuredContent"]["enabledProjectCount"], .null)
+        XCTAssertFalse(status.json["result"]["structuredContent"].text().contains(second.root.path))
+      }
+      await endpoint.shutdown()
+    }
+    let memory = await router.call("memory", arguments: ["action": "recall"])
+    XCTAssertTrue(memory.isError)
   }
   func testModernHeaderMismatch() async throws {
     let f = try Fixture()
@@ -268,7 +331,7 @@ import XCTest
   }
 
   private func delegatedContext(_ scopes: Set<OAuthScope>) -> RequestContext {
-    RequestContext(transport: .loopback, clientID: "resource-reader", clientName: "Resource reader",
+    RequestContext(transport: .cloudflare, clientID: OAuthContract.newClientID(), clientName: "Resource reader",
       authorizationID: UUID(), scopes: scopes, resource: "http://localhost/mcp")
   }
 
@@ -298,7 +361,7 @@ import XCTest
       [.projectRead], [.processRun], [.browserUse], [.computerRead], [.projectWrite],
       [.computerControl], [], Set(OAuthScope.allCases),
     ] {
-      let endpoint = MCPDispatcher(authentication: .delegated(bearer: token, context: delegatedContext(scopes)),
+      let endpoint = MCPDispatcher(authentication: try fixtureRemoteAuthentication(bearer: token, context: delegatedContext(scopes)),
         port: TunnelContract.defaultPort, router: router)
       let listed = await endpoint.handle(try request("resources/list", modern: true))
       XCTAssertEqual(listed.status, 200)
@@ -328,7 +391,7 @@ import XCTest
       [.projectRead, .browserUse], [.projectRead, .processRun]] {
       let context = delegatedContext(scopes)
       let grant = ToolGrant.remote(context)
-      let endpoint = MCPDispatcher(authentication: .delegated(bearer: token, context: context),
+      let endpoint = MCPDispatcher(authentication: try fixtureRemoteAuthentication(bearer: token, context: context),
         port: TunnelContract.defaultPort, router: router)
       let reply = await endpoint.handle(try request("tools/list"))
       let definitions = try XCTUnwrap(reply.json["result"]["tools"].array)
@@ -368,8 +431,8 @@ import XCTest
     }
   }
   func testActionSchemasShareBoundariesAndNeverInjectForeignDefaults() throws {
-    XCTAssertEqual(ToolCatalog.names.count, 30)
-    for (name, contracts) in ActionContracts.rules {
+    XCTAssertEqual(ToolCatalog.names.count, 27)
+    for (name, contracts) in ActionContracts.rules where ToolCatalog.names.contains(name) {
       let definition = try XCTUnwrap(ToolCatalog.definitions.first { $0["name"].string == name })
       let schema = definition["inputSchema"]
       let properties = try XCTUnwrap(schema["properties"].object)
@@ -430,16 +493,12 @@ import XCTest
     XCTAssertEqual(try BrowserArguments.validate("browser_wait", ["tabId": "tab"])["state"], "load")
   }
 
-  func testInvalidActionArgumentsFailBeforeMemoryBrowserOrJobEffects() async throws {
+  func testInvalidActionArgumentsFailBeforeBrowserOrJobEffects() async throws {
     let f = try Fixture(); defer { f.remove() }
     let router = try f.router(execution: true)
     addTeardownBlock { await router.stop() }
     let target: JSONValue = ["action": "click", "tabId": "tab", "snapshotId": "snapshot", "ref": "e1"]
     let cases: [(String, JSONValue)] = [
-      ("memory", ["action": "recent", "limit": 10]),
-      ("memory", ["action": "recall", "limit": .null]),
-      ("memory", ["action": "sessions", "runId": .string(UUID().uuidString), "offset": 0]),
-      ("memory", ["action": "remember", "kind": "goal", "content": "Must not be saved", "supersedes": "memory_old"]),
       ("projects", ["action": "current", "projectId": "unused"]),
       ("job_query", ["action": "list", "waitMs": 0]),
       ("job_query", ["action": "status"]),
@@ -466,9 +525,8 @@ import XCTest
     XCTAssertTrue(events.allSatisfy { $0.effect == "none" })
     let jobs = await router.jobList()
     XCTAssertTrue(jobs.isEmpty)
-    let recent = await router.call("memory", arguments: ["action": "recent"])
-    XCTAssertFalse(recent.isError)
-    XCTAssertEqual(recent.data["memoryCount"], 0)
+    let status = await router.call("runtime_status", arguments: [:])
+    XCTAssertFalse(status.isError)
   }
 
   func testAuthorizedActionSchemasTrimFieldsRequiredBindingsAndRiskHints() async throws {
@@ -479,11 +537,13 @@ import XCTest
       [.projectRead, .projectWrite], [.projectRead, .browserUse], Set(OAuthScope.allCases)] {
       let context = delegatedContext(scopes)
       let grant = ToolGrant.remote(context)
-      let endpoint = MCPDispatcher(authentication: .delegated(bearer: token, context: context),
+      let endpoint = MCPDispatcher(authentication: try fixtureRemoteAuthentication(bearer: token, context: context),
         port: TunnelContract.defaultPort, router: router)
       let response = await endpoint.handle(try request("tools/list"))
       let tools = try XCTUnwrap(response.json["result"]["tools"].array)
-      for (name, contracts) in ActionContracts.rules {
+      XCTAssertNil(tools.first { $0["name"] == "projects" })
+      XCTAssertNil(tools.first { $0["name"] == "memory" })
+      for (name, contracts) in ActionContracts.rules where ToolCatalog.names.contains(name) {
         let allowed = contracts.filter { action, _ in
           (try? grant.authorize(tool: name, arguments: ["action": .string(action)])) != nil
         }
@@ -519,7 +579,9 @@ import XCTest
       "protocolVersion": "2025-11-25", "capabilities": [:], "clientInfo": ["name": "tests", "version": "1"],
     ]))
     let instructions = try XCTUnwrap(response.json["result"]["instructions"].string)
-    XCTAssertTrue(instructions.contains("memory(action=recent)"))
+    XCTAssertTrue(instructions.contains("Start with project_info"))
+    XCTAssertFalse(instructions.contains("memory("))
+    XCTAssertFalse(instructions.contains("projects("))
     XCTAssertTrue(instructions.contains("inspect_project(view=summary)"))
     XCTAssertTrue(instructions.contains("omit unused fields instead of null"))
     XCTAssertFalse(ToolCatalog.names.contains("agent_start"))

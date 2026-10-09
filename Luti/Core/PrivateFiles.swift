@@ -132,56 +132,6 @@ enum PrivateFiles {
     return try names(in: fd, limit: limit)
   }
 
-  /// Remove one app-owned private subtree without following symlinks.
-  /// Checkpoint retention uses this instead of FileManager recursive deletion so
-  /// an unexpected link can never redirect pruning outside Luti's namespace.
-  static func removeTree(_ directory: URL, maxEntries: Int = 4096) throws {
-    let parent = try directoryHandle(directory.deletingLastPathComponent(), create: false)
-    defer { close(parent) }
-    let rootName = directory.lastPathComponent
-    let root = openat(parent, rootName, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
-    guard root >= 0 else {
-      if errno == ENOENT { return }
-      throw Failure.invalid("Cannot open private subtree for removal.")
-    }
-    var visited = 0
-    func removeContents(_ fd: Int32) throws {
-      for name in try names(in: fd, limit: maxEntries) {
-        visited += 1
-        guard visited <= maxEntries else {
-          throw Failure.invalid("Private subtree exceeds its removal budget.")
-        }
-        var st = stat()
-        guard fstatat(fd, name, &st, AT_SYMLINK_NOFOLLOW) == 0 else {
-          throw Failure.invalid("Cannot inspect private subtree entry.")
-        }
-        switch st.st_mode & S_IFMT {
-        case S_IFDIR:
-          let child = openat(fd, name, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
-          guard child >= 0 else { throw Failure.invalid("Cannot open private subtree directory.") }
-          defer { close(child) }
-          try removeContents(child)
-          guard unlinkat(fd, name, AT_REMOVEDIR) == 0 else {
-            throw Failure.invalid("Cannot remove private subtree directory.")
-          }
-        case S_IFREG:
-          guard st.st_nlink == 1, unlinkat(fd, name, 0) == 0 else {
-            throw Failure.invalid("Cannot remove unsafe private subtree file.")
-          }
-        default:
-          throw Failure.invalid("Unexpected private subtree entry type.")
-        }
-      }
-      _ = fsync(fd)
-    }
-    defer { close(root) }
-    try removeContents(root)
-    guard unlinkat(parent, rootName, AT_REMOVEDIR) == 0 else {
-      throw Failure.invalid("Cannot remove private subtree root.")
-    }
-    _ = fsync(parent)
-  }
-
   /// Context components contain files only. Never traverse an unexpected directory
   /// or follow a symlink while honoring a confirmed local clear operation.
   static func clearDirectory(_ directory: URL) throws {
@@ -202,7 +152,7 @@ enum PrivateFiles {
   }
 
   /// Bounded diagnostic append/rotation without reopening an absolute path after
-  /// validation. Callers serialize writers; unlike semantic memory, logs may rotate.
+  /// validation. Callers serialize writers; logs may rotate.
   static func appendRotating(_ data: Data, to url: URL, maxBytes: Int) throws {
     guard data.count <= maxBytes else { throw Failure.invalid("Log entry exceeds its byte limit.") }
     let parent = try directoryHandle(url.deletingLastPathComponent(), create: true)
@@ -319,19 +269,4 @@ enum LutiPaths {
     return Budget.prefix(readable, bytes: 120) + "--" + Budget.sha256(Data(path.utf8))
   }
 
-  static func project(for url: URL) -> URL {
-    projects.appendingPathComponent(projectKey(for: url), isDirectory: true)
-  }
-
-  static func memory(for url: URL) -> URL {
-    project(for: url).appendingPathComponent("memory", isDirectory: true)
-  }
-
-  static func sessions(for url: URL) -> URL {
-    project(for: url).appendingPathComponent("sessions", isDirectory: true)
-  }
-
-  static func activity(for url: URL) -> URL {
-    project(for: url).appendingPathComponent("activity", isDirectory: true)
-  }
 }

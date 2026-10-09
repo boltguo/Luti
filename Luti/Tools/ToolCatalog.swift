@@ -13,8 +13,6 @@ enum ProjectBindingContract {
 
   static func requiresToken(_ name: String, arguments: JSONValue) -> Bool {
     requiredTools.contains(name)
-      || (name == "projects" && arguments["action"] == "switch")
-      || (name == "memory" && ["remember", "forget"].contains(arguments["action"].string ?? ""))
       || (name == "job_action" && arguments["action"] == "input")
   }
 }
@@ -59,7 +57,7 @@ public enum ToolCatalog {
       "inputSchema": object(
         ProjectBindingContract.acceptsToken(name)
           ? properties.merging([
-            "projectToken": string("Current binding from memory(recent) or projects(current). Refresh on mismatch; never automatically replay effects.", max: 80)
+            "projectToken": string("Current binding from project_info. Refresh on mismatch; never automatically replay effects.", max: 80)
           ], uniquingKeysWith: { _, new in new }) : properties,
         required + (ProjectBindingContract.requiredTools.contains(name) ? ["projectToken"] : [])),
       "annotations": [
@@ -132,16 +130,8 @@ public enum ToolCatalog {
     ]
     let base: [JSONValue] = [
       tool(
-        "projects",
-        "List enabled, locally approved project roots, inspect the current project, or switch to another enabled project. current returns projectToken; without project:read, callers with project:write, process:run or browser:use receive only the current project ID and binding. list requires project:read; switch requires project:read and project:write. Only one workspace is active at a time. Remote callers cannot add projects or provide filesystem paths. Switching revokes old workspace/job/browser/artifact handles and is refused while another project call or Job is active.",
-        [
-          "action": enumeration(["list", "current", "switch"]),
-          "projectId": string("Exact approved project ID returned by action=list", max: 80),
-        ],
-        required: ["action"], readOnly: false),
-      tool(
         "project_info",
-        "Inspect the active locally approved workspace, top-level files and active safety boundaries."),
+        "Start here for the current locally selected workspace and projectToken. With project:read, includes top-level files and safety boundaries; with only project:write, process:run or browser:use, returns just projectId, generation and projectToken."),
       tool(
         "runtime_status",
         "Inspect real permissions, running jobs and last successful tool call. Tunnel readiness is not proof of ChatGPT use."
@@ -262,7 +252,7 @@ public enum ToolCatalog {
         "Use AX semantics first: press/focus/type plus window activate/minimize/close. type replaces the target field value; keyboard fallback selects existing content first. Target-bound actions consume observationId, so re-observe after every action or error. Coordinates require fallbackReason.",
         action, required: ["action"], readOnly: false, openWorld: true),
     ]
-    return (base + additions + [memoryDefinition]).map { ActionContracts.present($0) }
+    return (base + additions).map { ActionContracts.present($0) }
       .sorted { $0["name"].string! < $1["name"].string! }
   }()
   public static let names = Set(definitions.compactMap { $0["name"].string })

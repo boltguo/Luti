@@ -8,7 +8,6 @@ import XCTest
 private actor FixtureProvider: ConnectionProvider {
   nonisolated let id: ConnectionProviderID
   nonisolated let ingressPort = 0
-  nonisolated let privateCredential: String?
   private let suspended: Bool
   private let fails: Bool
   private let initiallyReconnecting: Bool
@@ -24,8 +23,7 @@ private actor FixtureProvider: ConnectionProvider {
     self.suspended = suspended
     self.fails = fails
     self.initiallyReconnecting = initiallyReconnecting
-    privateCredential = id == .openAI ? OAuthContract.newClientSecret() : nil
-    origin = id == .ngrok || id == .cloudflare ? URL(string: "https://mcp.example.com") : nil
+    origin = URL(string: "https://mcp.example.com")
   }
   var publicOrigin: URL? { origin }
   func start(endpoint: URL) async throws {
@@ -33,10 +31,8 @@ private actor FixtureProvider: ConnectionProvider {
     preAdmissionStatus = try await ConnectionProbe.request(endpoint, method: "POST").status
     if suspended { await withCheckedContinuation { waiter = $0 } }
     if fails { throw Failure.invalid("Synthetic provider startup failure.") }
-    if id == .quick { origin = URL(string: "https://fixture.trycloudflare.com") }
     state = ConnectionSnapshot(state: initiallyReconnecting ? .reconnecting : .ready)
   }
-  func becomeReady() { state = ConnectionSnapshot(state: .ready) }
   func fail() { state = ConnectionSnapshot(state: .failed, message: "Synthetic child exit.") }
   func release() { waiter?.resume(); waiter = nil }
   func snapshot() -> ConnectionSnapshot { state }
@@ -87,71 +83,29 @@ private actor FixtureProvider: ConnectionProvider {
     return (try XCTUnwrap(response as? HTTPURLResponse).statusCode, (try? JSONValue.decode(data)) ?? .null)
   }
 
-  func testProviderCatalogSeparatesTemporaryQuickFromPersistentConnections() {
-    XCTAssertEqual(ConnectionProviderID.allCases, [.cloudflare, .openAI, .ngrok, .quick])
-    XCTAssertEqual(ConnectionProviderID.persistentProviders, [.cloudflare, .openAI, .ngrok])
-    XCTAssertNil(ConnectionProviderID(rawValue: "custom"))
-    XCTAssertFalse(ConnectionProviderID.openAI.usesOAuth)
-    XCTAssertTrue(ConnectionProviderID.quick.usesOAuth)
-    XCTAssertFalse(ConnectionProviderID.quick.isPersistent)
-  }
-
-  func testQuickTunnelAcceptsOnlyTryCloudflareOrigins() throws {
-    XCTAssertEqual(
-      try QuickTunnelProvider.validateQuickOrigin("https://fixture.trycloudflare.com").absoluteString,
-      "https://fixture.trycloudflare.com")
-    for raw in [
-      "http://fixture.trycloudflare.com",
-      "https://trycloudflare.com",
-      "https://fixture.trycloudflare.com.evil.example",
-      "https://evil.example",
-      "https://user@fixture.trycloudflare.com",
-      "https://fixture.trycloudflare.com/path",
-      "https://fixture.trycloudflare.com?x=1",
-    ] {
-      XCTAssertThrowsError(try QuickTunnelProvider.validateQuickOrigin(raw), raw)
+  func testLiteProviderCatalogContainsOnlySupportedConnections() {
+    XCTAssertEqual(ConnectionProviderID.allCases, [.cloudflare])
+    for removed in ["openai", "ngrok", "quick", "custom"] {
+      XCTAssertNil(ConnectionProviderID(rawValue: removed))
     }
   }
 
-  func testQuickTunnelExtractsOnlyValidatedOriginFromCloudflaredOutput() {
-    let json = #"{"level":"info","url":"https://first-example.trycloudflare.com"}"#
-    XCTAssertEqual(
-      QuickTunnelProvider.publicOrigin(from: json)?.absoluteString,
-      "https://first-example.trycloudflare.com")
-    XCTAssertEqual(
-      QuickTunnelProvider.publicOrigin(
-        from: "ignore https://evil.example then https://second-example.trycloudflare.com ready")?.absoluteString,
-      "https://second-example.trycloudflare.com")
-    XCTAssertNil(QuickTunnelProvider.publicOrigin(from: "https://trycloudflare.com"))
-    XCTAssertNil(QuickTunnelProvider.publicOrigin(from: "https://fixture.trycloudflare.com.evil.example"))
-  }
-
-  func testQuickTunnelUsesOnlyItsLoopbackMetricsEndpoint() {
-    let output = #"{"message":"Starting metrics server on 127.0.0.1:20242/metrics"}"#
-    XCTAssertEqual(QuickTunnelProvider.readinessURL(from: output)?.absoluteString,
-                   "http://127.0.0.1:20242/ready")
-    XCTAssertNil(QuickTunnelProvider.readinessURL(
-      from: "Starting metrics server on 198.18.0.1:20242/metrics"))
-    XCTAssertNil(QuickTunnelProvider.readinessURL(
-      from: "Starting metrics server on 127.0.0.1:65536/metrics"))
-  }
-
-  func testQuickTunnelKeepsItsAddressWhilePublicDNSWarmsUp() async throws {
+  func testProviderMustConfirmReadinessBeforeConnectionStarts() async throws {
     let (_, runtime, manager) = try fixture()
-    try await runtime.start()
-    let provider = FixtureProvider(.quick, initiallyReconnecting: true)
-
-    try await manager.connect(provider)
-    let waiting = await manager.snapshot()
-    XCTAssertEqual(waiting.state, .reconnecting)
-    XCTAssertEqual(waiting.publicOrigin?.absoluteString,
-                   "https://fixture.trycloudflare.com")
-    let preAdmissionStatus = await provider.preAdmissionStatus
-    XCTAssertEqual(preAdmissionStatus, 503)
-
-    await provider.becomeReady()
-    let ready = await manager.snapshot()
-    XCTAssertEqual(ready.state, .ready)
+    let local = try await runtime.start()
+    let provider = FixtureProvider(.cloudflare, initiallyReconnecting: true)
+    do {
+      try await manager.connect(provider)
+      XCTFail("A provider must confirm its connection before becoming available.")
+    } catch let failure as Failure {
+      XCTAssertEqual(failure.code, "connection_not_ready")
+    }
+    let failed = await manager.snapshot()
+    XCTAssertEqual(failed.state, .failed)
+    XCTAssertNil(failed.publicOrigin)
+    let setup = try JSONValue.decode(Data(try await runtime.localConnectionConfiguration().utf8))
+    let localReply = try await rpc(local, bearer: setup["headers"]["Authorization"].string)
+    XCTAssertEqual(localReply.0, 200)
   }
 
   func testProviderIngressCannotPointAtAnotherServiceOrPublicHost() throws {
@@ -163,74 +117,6 @@ private actor FixtureProvider: ConnectionProvider {
       "http://127.0.0.1:43219/mcp?x=1"] {
       XCTAssertThrowsError(try ConnectionContract.validateIngressEndpoint(URL(string: raw)!))
     }
-  }
-
-  func testProviderCredentialsAndTunnelIDsAreNotInterchangeable() throws {
-    XCTAssertNoThrow(try ConnectionContract.validateTunnelID("tunnel_fixture123"))
-    XCTAssertNoThrow(try ConnectionContract.validateCredential("sk-" + String(repeating: "x", count: 40), provider: .openAI))
-    XCTAssertNoThrow(try ConnectionContract.validateCredential(String(repeating: "n", count: 30), provider: .ngrok))
-    for id in ["https://example.com", "tunnel_", "tunnel_foo\nbar", "tunnel_foo/bar"] {
-      XCTAssertThrowsError(try ConnectionContract.validateTunnelID(id))
-    }
-    XCTAssertThrowsError(try ConnectionContract.validateCredential(String(repeating: "n", count: 30), provider: .openAI))
-    XCTAssertThrowsError(try ConnectionContract.validateCredential(String(repeating: "n", count: 30) + "\n", provider: .ngrok))
-  }
-
-  func testOpenAIRuntimeIsAnAppOwnedPinnedRelease() throws {
-    for build in [ConnectionExecutables.arm64, ConnectionExecutables.intel] {
-      XCTAssertEqual(build.openAIURL.scheme, "https")
-      XCTAssertEqual(build.openAIURL.host, "github.com")
-      XCTAssertTrue(build.openAIURL.path.contains("/openai/tunnel-client/releases/download/v0.0.14/"))
-      XCTAssertEqual(build.openAIArchiveSHA.count, 64)
-      XCTAssertEqual(build.openAIBinarySHA.count, 64)
-    }
-    XCTAssertNotEqual(ConnectionExecutables.arm64.openAIArchiveSHA,
-                      ConnectionExecutables.intel.openAIArchiveSHA)
-    XCTAssertNotEqual(ConnectionExecutables.arm64.openAIBinarySHA,
-                      ConnectionExecutables.intel.openAIBinarySHA)
-
-    let f = try Fixture(); defer { f.remove() }
-    let bytes = Data("reviewed-openai-runtime-fixture".utf8)
-    let file = f.contextDataRoot.appendingPathComponent("provider-runtime.bin")
-    try PrivateFiles.atomicWrite(bytes, to: file)
-    let digest = Budget.sha256(bytes)
-    let synthetic = ConnectionExecutables.Build(
-      architecture: "fixture", openAIArchiveSHA: digest, openAIBinarySHA: digest,
-      ngrokURL: URL(string: "https://bin.ngrok.com/fixture.zip")!, ngrokArchiveSHA: digest)
-    XCTAssertNoThrow(try ConnectionExecutables.verifyOpenAIArchive(file, build: synthetic))
-    XCTAssertNoThrow(try ConnectionExecutables.verifyOpenAIBinary(file, build: synthetic))
-
-    let changed = f.contextDataRoot.appendingPathComponent("provider-runtime-changed.bin")
-    try PrivateFiles.atomicWrite(Data("changed".utf8), to: changed)
-    XCTAssertThrowsError(try ConnectionExecutables.verifyOpenAIArchive(changed, build: synthetic))
-    XCTAssertThrowsError(try ConnectionExecutables.verifyOpenAIBinary(changed, build: synthetic))
-  }
-
-  func testOpenAIHealthFileCanOnlySelectLoopbackHTTP() {
-    XCTAssertEqual(OpenAITunnelProvider.healthBase("http://127.0.0.1:44123\n")?.port, 44123)
-    for raw in ["https://127.0.0.1:44123", "http://remote.example:44123",
-      "http://127.0.0.1", "http://127.0.0.1:0", "http://127.0.0.1:44123/path",
-      "http://a:b@127.0.0.1:44123", "http://127.0.0.1:44123?x=1", "file:///etc/hosts"] {
-      XCTAssertNil(OpenAITunnelProvider.healthBase(raw), raw)
-    }
-  }
-
-  func testNgrokReadinessMustMatchDomainAndOwnedUpstreamPort() {
-    let origin = URL(string: "https://fixture.ngrok-free.app")!
-    let endpoint = URL(string: "http://127.0.0.1:45678/mcp")!
-    func payload(_ domain: String, _ upstream: String) -> JSONValue {
-      ["tunnels": [["public_url": .string(domain), "config": ["addr": .string(upstream)]]]]
-    }
-    XCTAssertTrue(NgrokProvider.matches(payload(origin.absoluteString, "http://127.0.0.1:45678"), origin: origin, endpoint: endpoint))
-    for (domain, upstream) in [
-      ("https://other.ngrok-free.app", "http://127.0.0.1:45678"),
-      (origin.absoluteString, "http://127.0.0.1:45679"),
-      (origin.absoluteString, "http://192.168.0.1:45678"),
-      (origin.absoluteString, "http://u:p@127.0.0.1:45678"),
-      (origin.absoluteString, "http://127.0.0.1:45678/other"),
-    ] { XCTAssertFalse(NgrokProvider.matches(payload(domain, upstream), origin: origin, endpoint: endpoint)) }
-    XCTAssertTrue(NgrokProvider.configuration.contains("remote_management: false"))
-    XCTAssertFalse(NgrokProvider.configuration.contains("authtoken:"))
   }
 
   func testEphemeralStoreKeepsConfidentialSecretOutOfKeychainAndClearsIt() throws {
@@ -278,70 +164,6 @@ private actor FixtureProvider: ConnectionProvider {
     XCTAssertNotNil(store.token(hash: OAuthStore.hash(matchingToken)))
   }
 
-  func testOpenAIIngressUsesFreshRemoteCredentialNotLocalBearer() async throws {
-    let (_, runtime, manager) = try fixture()
-    try await runtime.start()
-    let local = try JSONValue.decode(Data(try await runtime.localConnectionConfiguration().utf8))
-    let provider = FixtureProvider(.openAI)
-    try await manager.connect(provider)
-    let captured = await provider.endpoint
-    let endpoint = try XCTUnwrap(captured)
-    let missing = try await rpc(endpoint)
-    let localBearer = try await rpc(endpoint, bearer: local["headers"]["Authorization"].string)
-    let ownBearer = "Bearer " + (try XCTUnwrap(provider.privateCredential))
-    let admitted = try await rpc(endpoint, bearer: ownBearer,
-      method: "tools/call", params: ["name": "project_info", "arguments": [:]])
-    XCTAssertEqual(missing.0, 401)
-    XCTAssertEqual(localBearer.0, 401)
-    XCTAssertEqual(admitted.0, 200)
-    let snapshot = await manager.snapshot()
-    XCTAssertEqual(snapshot.providerID, .openAI)
-    XCTAssertNil(snapshot.publicOrigin)
-    let runtimeSnapshot = await runtime.snapshot()
-    XCTAssertEqual(runtimeSnapshot.activity.last?.source?.transport, .openAI)
-    let report = await manager.doctor()
-    XCTAssertTrue(report?.passed == true)
-    let pending = await manager.pendingApprovals()
-    XCTAssertTrue(pending.isEmpty)
-    await manager.disconnect()
-    let second = FixtureProvider(.openAI)
-    XCTAssertNotEqual(provider.privateCredential, second.privateCredential)
-    let stillLocal = try await rpc(URL(string: try XCTUnwrap(local["url"].string))!,
-                                  bearer: local["headers"]["Authorization"].string)
-    XCTAssertEqual(stillLocal.0, 200)
-  }
-
-  func testIndependentProvidersRunInParallelAgainstOneRuntime() async throws {
-    let f = try Fixture()
-    let runtime = try RuntimeCore(
-      root: f.root, helper: Fixture.helper, contextDataRoot: f.contextDataRoot)
-    let cloudflare = ConnectionManager(
-      router: runtime.router, store: OAuthStore(url: nil))
-    let openAI = ConnectionManager(
-      router: runtime.router, store: OAuthStore(url: nil))
-    addTeardownBlock {
-      await cloudflare.shutdown()
-      await openAI.shutdown()
-      await runtime.stop()
-      f.remove()
-    }
-    try await runtime.start()
-
-    let cloudflareProvider = FixtureProvider(.cloudflare)
-    let openAIProvider = FixtureProvider(.openAI)
-    async let cloudflareStart: Void = cloudflare.connect(cloudflareProvider)
-    async let openAIStart: Void = openAI.connect(openAIProvider)
-    _ = try await (cloudflareStart, openAIStart)
-
-    let cloudflareState = await cloudflare.snapshot()
-    let openAIState = await openAI.snapshot()
-    let cloudflareEndpoint = await cloudflareProvider.endpoint
-    let openAIEndpoint = await openAIProvider.endpoint
-    XCTAssertEqual(cloudflareState.state, .ready)
-    XCTAssertEqual(openAIState.state, .ready)
-    XCTAssertNotEqual(cloudflareEndpoint, openAIEndpoint)
-  }
-
   func testPublicDoctorDetectsWrongIssuerAndUnexpectedSuccess() async throws {
     let f = try Fixture(); defer { f.remove() }
     let router = try f.router()
@@ -370,91 +192,106 @@ private actor FixtureProvider: ConnectionProvider {
     await oauth.shutdown()
   }
 
-  func testAuthorizationListsAreScopedToProviderAndNotGlobal() throws {
-    let f = try Fixture(); defer { f.remove() }
-    let model = AppModel(contextDataRoot: f.contextDataRoot, defaults: f.defaults)
-    let cloudflare = model.authorizationStore(for: .cloudflare)
-    let ngrok = model.authorizationStore(for: .ngrok)
-    try cloudflare.bindOrigin("https://mcp.example.com")
-    try ngrok.bindOrigin("https://fixture.ngrok-free.app")
-    let first = try approvedClient(cloudflare)
-    let second = try approvedClient(ngrok)
-    let list = OAuthClientModel(store: cloudflare)
-    XCTAssertEqual(list.clients.map(\.id), [first.id])
-    list.use(store: ngrok)
-    XCTAssertEqual(list.clients.map(\.id), [second.id])
-    list.delete(second.id)
-    XCTAssertNotNil(cloudflare.client(first.id))
-    XCTAssertTrue(ngrok.clients.isEmpty)
-  }
-
-  func testEveryOrdinaryProviderRequiresItsOwnConfigurationBeforeEnabling() throws {
+  func testCloudflareAutomaticallyBecomesAvailableWithOriginAndToken() throws {
     let f = try Fixture(); defer { f.remove() }
     let model = AppModel(contextDataRoot: f.contextDataRoot, defaults: f.defaults)
     model.tokenSaved = false
-    model.otherProviderCredentials = []
-    for id in ConnectionProviderID.persistentProviders {
-      XCTAssertFalse(model.setConnectionProviderEnabled(id, enabled: true))
-    }
-    XCTAssertTrue(model.isConnectionProviderConfigured(.quick))
-    XCTAssertFalse(model.setConnectionProviderEnabled(.quick, enabled: true))
-    XCTAssertTrue(model.authorizationStore(for: .quick).isEphemeral)
-    f.defaults.set("tunnel_fixture123", forKey: "connection.openai.address")
-    model.otherProviderCredentials.insert(.openAI)
-    XCTAssertTrue(model.setConnectionProviderEnabled(.openAI, enabled: true))
-    XCTAssertEqual(model.availableConnectionProviders, [.openAI])
-    XCTAssertFalse(model.isConnectionProviderConfigured(.ngrok))
-    let persisted = try XCTUnwrap(f.defaults.data(forKey: "enabledConnectionProviders"))
-    XCTAssertEqual(try JSONDecoder().decode(Set<ConnectionProviderID>.self, from: persisted), [.openAI])
+    XCTAssertTrue(model.availableConnectionProviders.isEmpty)
+    f.defaults.set("https://mcp.example.com", forKey: "publicBaseURL")
+    model.publicBaseURL = "https://mcp.example.com"
+    XCTAssertTrue(model.availableConnectionProviders.isEmpty)
+    model.tokenSaved = true
+    XCTAssertEqual(model.availableConnectionProviders, [.cloudflare])
+    XCTAssertNil(f.defaults.object(forKey: "enabledConnectionProviders"))
+    model.phase = .running
+    XCTAssertTrue(model.canConnectProvider(.cloudflare))
+    model.tokenSaved = false
+    XCTAssertFalse(model.canConnectProvider(.cloudflare))
   }
 
-  func testPersistedProviderSelectionDropsTemporaryQuickTunnel() throws {
-    let f = try Fixture(); defer { f.remove() }
-    let encoded = try JSONEncoder().encode(Set<ConnectionProviderID>([.openAI, .quick]))
-    f.defaults.set(encoded, forKey: "enabledConnectionProviders")
-    f.defaults.set("tunnel_fixture123", forKey: "connection.openai.address")
-    let model = AppModel(contextDataRoot: f.contextDataRoot, defaults: f.defaults)
-    model.otherProviderCredentials.insert(.openAI)
-    XCTAssertEqual(model.enabledConnectionProviders, [.openAI])
-    XCTAssertFalse(model.isProviderEnabled(.quick))
+  func testCloudflareIngressRejectsLocalBearerAndAcceptsOAuth() async throws {
+    let (_, runtime, manager) = try fixture()
+    let localEndpoint = try await runtime.start()
+    let local = try JSONValue.decode(Data(try await runtime.localConnectionConfiguration().utf8))
+    let store = OAuthStore(url: nil)
+    try store.bindOrigin("https://mcp.example.com")
+    let client = try approvedClient(store)
+    let token = try insertToken(store, client: client, resource: "https://mcp.example.com/mcp")
+    let provider = FixtureProvider(.cloudflare)
+    try await manager.connect(provider, authorizationStore: store)
+    let captured = await provider.endpoint
+    let endpoint = try XCTUnwrap(captured)
+    let missing = try await rpc(endpoint)
+    let localBearer = try await rpc(endpoint, bearer: local["headers"]["Authorization"].string)
+    let admitted = try await rpc(endpoint, bearer: "Bearer " + token,
+      method: "tools/call", params: ["name": "project_info", "arguments": [:]])
+    XCTAssertEqual(missing.0, 401)
+    XCTAssertEqual(localBearer.0, 401)
+    XCTAssertEqual(admitted.0, 200)
+    let snapshot = await manager.snapshot()
+    XCTAssertEqual(snapshot.providerID, .cloudflare)
+    XCTAssertEqual(snapshot.publicOrigin?.absoluteString, "https://mcp.example.com")
+    let runtimeSnapshot = await runtime.snapshot()
+    XCTAssertEqual(runtimeSnapshot.activity.last?.source?.transport, .cloudflare)
+    await manager.disconnect()
+    let stillLocal = try await rpc(localEndpoint, bearer: local["headers"]["Authorization"].string)
+    XCTAssertEqual(stillLocal.0, 200)
+  }
+
+  func testRetiredSelectionDoesNotGateConfiguredCloudflareOrResetAuthorizations() throws {
+    for stored in [["openai", "ngrok", "quick", "unknown"], ["cloudflare"],
+      ["cloudflare", "openai", "ngrok", "quick"], [], ["ngrok", "quick"]] {
+      let f = try Fixture(); defer { f.remove() }
+      f.defaults.set(try JSONEncoder().encode(stored), forKey: "enabledConnectionProviders")
+      f.defaults.set("openai", forKey: "activeConnectionProvider")
+      f.defaults.set("tunnel_fixture123", forKey: "connection.openai.address")
+      f.defaults.set("https://mcp.example.com", forKey: "publicBaseURL")
+      let store = OAuthStore(url: f.contextDataRoot.appendingPathComponent("auth/oauth.json"))
+      try store.bindOrigin("https://mcp.example.com")
+      let client = try approvedClient(store)
+      let model = AppModel(contextDataRoot: f.contextDataRoot, defaults: f.defaults)
+      model.tokenSaved = true
+      XCTAssertEqual(model.availableConnectionProviders, [.cloudflare])
+      XCTAssertEqual(model.savedPublicBaseURL, "https://mcp.example.com")
+      XCTAssertNotNil(model.authorizationStore(for: .cloudflare).client(client.id))
+      XCTAssertNil(f.defaults.object(forKey: "enabledConnectionProviders"))
+      XCTAssertNil(f.defaults.object(forKey: "activeConnectionProvider"))
+    }
+  }
+
+  func testRetiredTransportTagsStillDecodeHistoricalActivity() throws {
+    for tag in ["openai", "ngrok", "quick"] {
+      let transport = try JSONDecoder().decode(TransportProviderID.self, from: Data("\"\(tag)\"".utf8))
+      XCTAssertEqual(transport.rawValue, tag)
+      XCTAssertNil(ConnectionProviderID(rawValue: tag))
+    }
   }
 
   func testConfiguredPublicProvidersExposeCompleteMCPServerURL() throws {
     let f = try Fixture(); defer { f.remove() }
     f.defaults.set("https://mcp.example.com", forKey: "publicBaseURL")
-    f.defaults.set("https://fixture.ngrok-free.app", forKey: "connection.ngrok.address")
     let model = AppModel(contextDataRoot: f.contextDataRoot, defaults: f.defaults)
     model.tokenSaved = true
-    model.otherProviderCredentials = [.ngrok]
 
     XCTAssertEqual(
       model.configuredMCPServerURL(.cloudflare)?.absoluteString,
       "https://mcp.example.com/mcp")
-    XCTAssertEqual(
-      model.configuredMCPServerURL(.ngrok)?.absoluteString,
-      "https://fixture.ngrok-free.app/mcp")
-    XCTAssertNil(model.configuredMCPServerURL(.openAI))
   }
 
-  func testEnablingMultipleProvidersPreservesIndependentAuthorizations() throws {
+  func testCloudflareStatusRepresentsConfigurationAndActualConnection() throws {
     let f = try Fixture(); defer { f.remove() }
-    f.defaults.set("https://mcp.example.com", forKey: "publicBaseURL")
-    f.defaults.set("tunnel_fixture123", forKey: "connection.openai.address")
     let model = AppModel(contextDataRoot: f.contextDataRoot, defaults: f.defaults)
+    model.tokenSaved = false
+    XCTAssertEqual(model.cloudflareStatusKey, "connection.notConfigured")
+    f.defaults.set("https://mcp.example.com", forKey: "publicBaseURL")
     model.tokenSaved = true
-    model.otherProviderCredentials = [.openAI]
-    model.enabledConnectionProviders = [.cloudflare]
-    let store = model.authorizationStore(for: .cloudflare)
-    try store.bindOrigin("https://mcp.example.com")
-    _ = try approvedClient(store)
-    model.doctorReports[.cloudflare] = .init(checkedAt: Date(), checks: [.init(id: "doctor.resource", passed: true)])
-    XCTAssertTrue(model.setConnectionProviderEnabled(.openAI, enabled: true))
-    XCTAssertEqual(Set(model.availableConnectionProviders), [.cloudflare, .openAI])
-    XCTAssertFalse(store.clients.isEmpty)
-    XCTAssertNotNil(model.doctorReports[.cloudflare])
-    let persisted = try XCTUnwrap(f.defaults.data(forKey: "enabledConnectionProviders"))
-    XCTAssertEqual(
-      try JSONDecoder().decode(Set<ConnectionProviderID>.self, from: persisted),
-      [.cloudflare, .openAI])
+    XCTAssertEqual(model.cloudflareStatusKey, "connection.state.stopped")
+    for state in [ConnectionState.starting, .ready, .reconnecting, .failed, .stopping] {
+      model.connectionSnapshots[.cloudflare] = ConnectionSnapshot(state: state, providerID: .cloudflare)
+      XCTAssertEqual(model.cloudflareStatusKey, "connection.state." + state.rawValue)
+    }
+    model.connectionSnapshots = [:]
+    XCTAssertEqual(model.cloudflareStatusKey, "connection.state.stopped")
   }
+
 }

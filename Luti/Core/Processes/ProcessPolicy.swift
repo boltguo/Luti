@@ -48,16 +48,6 @@ public struct ProcessRequest: Sendable {
     return Budget.sha256((try? json.data()) ?? Data())
   }
 }
-public struct ProcessApprovalRequirement: Sendable, Equatable {
-  public let code: String
-  public let reason: String
-
-  public init(code: String, reason: String) {
-    self.code = code
-    self.reason = reason
-  }
-}
-
 public enum ProcessPolicy {
   public static var baseEnvironment: [String: String] {
     [
@@ -124,7 +114,7 @@ public enum ProcessPolicy {
     if ["osascript", "open"].contains(base) {
       throw scopeDenied("Use Browser or Computer Use for actions outside the active project.")
     }
-    if explicitExecutableRequiresApproval(request.program, projectRoot: projectRoot) {
+    if executableOutsideAllowedScope(request.program, projectRoot: projectRoot) {
       throw scopeDenied("The executable is outside the active project and outside standard developer-tool locations.")
     }
     for argument in request.args {
@@ -132,52 +122,6 @@ public enum ProcessPolicy {
         throw scopeDenied("The command explicitly references a path outside the active project: \(Budget.prefix(path, bytes: 256)).")
       }
     }
-  }
-
-  public static func approvalRequirement(
-    _ request: ProcessRequest,
-    rawShell: Bool = false
-  ) -> ProcessApprovalRequirement? {
-    if rawShell {
-      return ProcessApprovalRequirement(
-        code: "opaque_shell",
-        reason: "Raw shell text is a sensitive project operation in Ask mode.")
-    }
-
-    let base = URL(fileURLWithPath: request.program).lastPathComponent.lowercased()
-    let destructive: Set<String> = [
-      "rm", "rmdir", "unlink", "mv", "chmod", "chown", "chgrp", "truncate", "dd",
-    ]
-    if destructive.contains(base) {
-      return ProcessApprovalRequirement(
-        code: "destructive_command",
-        reason: "This command can make destructive changes inside the active project.")
-    }
-
-    if base == "git", let subcommand = request.args.first?.lowercased(),
-      ["clean", "reset", "checkout", "restore", "switch", "rebase", "merge", "pull", "push", "commit", "stash", "worktree"].contains(subcommand)
-    {
-      return ProcessApprovalRequirement(
-        code: "git_mutation",
-        reason: "This Git command can mutate the project working tree, repository state, or a remote.")
-    }
-
-    if ["sh", "bash", "zsh", "dash", "fish"].contains(base),
-      request.args.contains(where: { ["-c", "-lc"].contains($0) })
-    {
-      return ProcessApprovalRequirement(
-        code: "opaque_shell",
-        reason: "A shell -c invocation is treated as a sensitive project operation in Ask mode.")
-    }
-
-    if ["python", "python3", "node", "ruby", "perl"].contains(base),
-      request.args.contains(where: { ["-c", "-e", "--eval"].contains($0) })
-    {
-      return ProcessApprovalRequirement(
-        code: "inline_code",
-        reason: "Inline interpreter code is treated as a sensitive project operation in Ask mode.")
-    }
-    return nil
   }
 
   public static func validateProjectScriptScope(
@@ -204,7 +148,7 @@ public enum ProcessPolicy {
       let candidate = String(token)
         .trimmingCharacters(in: CharacterSet(charactersIn: "'\""))
       if candidate.hasPrefix("/"),
-        !explicitExecutableRequiresApproval(candidate, projectRoot: projectRoot)
+        !executableOutsideAllowedScope(candidate, projectRoot: projectRoot)
       {
         continue
       }
@@ -212,25 +156,6 @@ public enum ProcessPolicy {
         throw scopeDenied("The discovered project script resolves a path outside the active project: \(Budget.prefix(path, bytes: 256)).")
       }
     }
-  }
-
-  public static func projectScriptApprovalRequirement(
-    _ script: String
-  ) throws -> ProcessApprovalRequirement? {
-    try validateShell(script)
-    let destructivePattern = #"(?i)(?:^|[\s;&|])(rm|rmdir|unlink|mv|chmod|chown|chgrp|truncate|dd)(?:\s|$)"#
-    if script.range(of: destructivePattern, options: .regularExpression) != nil {
-      return ProcessApprovalRequirement(
-        code: "project_script_destructive",
-        reason: "The discovered project script contains a destructive project operation.")
-    }
-    let gitMutationPattern = #"(?i)(?:^|[\s;&|])git\s+(clean|reset|checkout|restore|switch|rebase|merge|pull|push|commit|stash|worktree)(?:\s|$)"#
-    if script.range(of: gitMutationPattern, options: .regularExpression) != nil {
-      return ProcessApprovalRequirement(
-        code: "project_script_git_mutation",
-        reason: "The discovered project script contains a mutating Git operation.")
-    }
-    return nil
   }
 
   public static func userEnvironment(_ value: JSONValue) throws -> [String: String] {
@@ -280,7 +205,7 @@ public enum ProcessPolicy {
     }
     return result.standardizedFileURL.resolvingSymlinksInPath()
   }
-  private static func explicitExecutableRequiresApproval(
+  private static func executableOutsideAllowedScope(
     _ program: String,
     projectRoot: URL
   ) -> Bool {

@@ -3,24 +3,12 @@ import XCTest
 @testable import Luti
 
 @MainActor final class ReleaseReadinessTests: XCTestCase {
-  func testUpdateFeedAndSecurityDefaults() throws {
-    let info = try XCTUnwrap(Bundle.main.infoDictionary)
-    XCTAssertEqual(info["SUFeedURL"] as? String,
-      "https://github.com/boltguo/Luti/releases/latest/download/appcast.xml")
-    let key = try XCTUnwrap(info["SUPublicEDKey"] as? String)
-    XCTAssertEqual(Data(base64Encoded: key)?.count, 32)
-    XCTAssertEqual(info["SUEnableAutomaticChecks"] as? Bool, true)
-    XCTAssertEqual(info["SUAutomaticallyUpdate"] as? Bool, false)
-    XCTAssertEqual(info["SUEnableSystemProfiling"] as? Bool, false)
-    XCTAssertEqual(info["SUVerifyUpdateBeforeExtraction"] as? Bool, true)
-    XCTAssertEqual(Identity.version, info["CFBundleShortVersionString"] as? String)
-  }
 
-  func testUpdaterCanBeConstructedWithoutStartingNetworkChecks() {
-    let updater = AppUpdater(startingUpdater: false)
-    XCTAssertFalse(updater.canCheckForUpdates)
-    updater.checkForUpdates() // A disabled menu action is also guarded in code.
-    XCTAssertFalse(updater.canCheckForUpdates)
+  func testLiteDoesNotUsePublicReleaseUpdateFeed() throws {
+    let info = try XCTUnwrap(Bundle.main.infoDictionary)
+    XCTAssertNil(info["SUFeedURL"])
+    XCTAssertNil(info["SUPublicEDKey"])
+    XCTAssertEqual(Identity.version, info["CFBundleShortVersionString"] as? String)
   }
 
   func testReleaseLabelsExistInEveryBundledLanguage() throws {
@@ -28,15 +16,12 @@ import XCTest
       let path = try XCTUnwrap(Bundle.main.path(forResource: language, ofType: "lproj"))
       let bundle = try XCTUnwrap(Bundle(path: path))
       for key in [
-        "menu.checkForUpdates",
-        "settings.updates",
-        "settings.automaticUpdateChecks",
-        "projects.skills",
+        "projects.noProjectsYet",
+        "projects.projectFolder",
+        "projects.removeProject",
         "connection.tunnelToken",
-        "quick.sectionTitle",
-        "quick.temporaryNotice",
-        "quick.start",
-        "quick.stop",
+        "connection.tunnelProviders",
+        "connection.notConfigured",
       ] {
         let value = bundle.localizedString(forKey: key, value: "__MISSING__", table: nil)
         XCTAssertNotEqual(value, "__MISSING__", "\(language): \(key)")
@@ -48,8 +33,9 @@ import XCTest
   func testThirdPartyNoticesAreIncludedInApplication() throws {
     let url = try XCTUnwrap(Bundle.main.url(forResource: "THIRD_PARTY_NOTICES", withExtension: nil))
     let notice = try String(contentsOf: url, encoding: .utf8)
-    for component in ["SwiftNIO 2.103.0", "Sparkle 2.10.0", "Playwright Core 1.63.0",
-                      "Node.js 24.21.0", "tunnel-client 0.0.14", "ngrok Agent 3.39.11",
+    XCTAssertFalse(notice.contains("openai/tunnel-client"))
+    for component in ["SwiftNIO 2.103.0", "Playwright Core 1.63.0",
+                      "Node.js 24.21.0", "cloudflare/cloudflared",
                       "utilsBundle.js.LICENSE", "Swift Runtime Library Exception"] {
       XCTAssertTrue(notice.contains(component), component)
     }
@@ -80,22 +66,6 @@ import XCTest
     let ordinary = "Use project-scoped storage and run the test task."
     XCTAssertEqual(Redactor().clean(ordinary), ordinary)
     XCTAssertEqual(Redactor(known: ["fixture-opaque-value"]).clean("fixture-opaque-value"), "[REDACTED]")
-  }
-
-  func testQuotedCredentialsAreRejectedBeforeMemoryPersistence() throws {
-    let fixture = try Fixture(); defer { fixture.remove() }
-    let store = try ProjectContextStore(project: ApprovedProject(url: fixture.root),
-      dataRoot: fixture.contextDataRoot)
-    let source = MemorySource(type: "model", runId: UUID(), host: "Fixture",
-      clientId: "fixture-client", transport: "loopback")
-    for input in credentialFixtures {
-      XCTAssertThrowsError(try store.remember(kind: .decision, content: input, tags: [],
-        supersedes: nil, expectedRevision: nil, source: source)) {
-        XCTAssertEqual(($0 as? Failure)?.code, "memory_sensitive_content")
-      }
-    }
-    XCTAssertEqual(try store.recall()["totalMatches"], 0)
-    XCTAssertEqual(try store.recall()["revision"], 0)
   }
 
   func testActivityRedactsBeforePersistenceAndAfterReload() async throws {

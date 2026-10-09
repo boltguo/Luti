@@ -4,46 +4,33 @@ import XCTest
 
 @MainActor final class ProjectBindingTests: XCTestCase {
   private func grant(_ scopes: Set<OAuthScope>) -> ToolGrant {
-    .remote(RequestContext(transport: .cloudflare, clientID: "scope-fixture", clientName: "Scoped Host",
+    .remote(RequestContext(transport: .cloudflare, clientID: OAuthContract.newClientID(), clientName: "Scoped Host",
       authorizationID: UUID(), scopes: scopes, resource: "https://example.com/mcp"))
   }
 
-  func testTwoHostsCannotWriteOrRunUsingOldProjectBinding() async throws {
+  func testReplacingFolderInvalidatesBothHostsOldBinding() async throws {
     let first = try Fixture(), second = try Fixture()
     defer { first.remove(); second.remove() }
-    let router = try ToolRouter(
-      workspace: first.files, jobs: JobManager(helper: Fixture.helper), images: ImageStore(),
-      computer: NoComputerBackend(), activity: ActivityStore(),
-      executionPolicy: .fullLocal(localApproval: true),
-      approvedProjects: [ApprovedProject(id: "a", url: first.root), ApprovedProject(id: "b", url: second.root)],
-      activeProjectID: "a", helper: Fixture.helper, contextDataRoot: first.contextDataRoot)
-    func host(_ id: String) -> ToolGrant {
-      .remote(RequestContext(transport: .cloudflare, clientID: id, clientName: id,
-        authorizationID: UUID(), scopes: Set(OAuthScope.allCases), resource: "https://example.com/mcp"))
-    }
-    let a = await router.call("project_info", arguments: [:], grant: host("A"))
-    let tokenA = a.data["projectToken"]
-    let switched = await router.call("projects", arguments: ["action": "switch", "projectId": "b", "projectToken": tokenA], grant: host("B"))
-    XCTAssertFalse(switched.isError)
-    for (name, arguments): (String, JSONValue) in [
-      ("edit_files", ["action": "create", "path": "wrong.txt", "content": "wrong"]),
-      ("run_process", ["program": "/usr/bin/touch", "args": ["wrong.txt"]]),
-      ("memory", ["action": "remember", "kind": "goal", "content": "wrong project"]),
-      ("projects", ["action": "switch", "projectId": "a"]),
-    ] {
-      let result = await router.call(name, arguments: arguments.adding("projectToken", tokenA), grant: host("A"))
-      XCTAssertEqual(result.data["error"], "project_binding_mismatch", name)
-      XCTAssertEqual(result.data["currentProject"]["projectId"], "b")
+    let old = try first.router(execution: true)
+    let token = await old.projectToken
+    await old.stop()
+    let current = try second.router(execution: true)
+    addTeardownBlock { await current.stop() }
+    for host in ["A", "B"] {
+      let permission = ToolGrant.remote(RequestContext(transport: .cloudflare, clientID: host,
+        clientName: host, authorizationID: UUID(), scopes: Set(OAuthScope.allCases),
+        resource: "https://example.com/mcp"))
+      for (name, arguments): (String, JSONValue) in [
+        ("edit_files", ["action": "create", "path": "wrong.txt", "content": "wrong"]),
+        ("run_process", ["program": "/usr/bin/touch", "args": ["wrong.txt"]]),
+      ] {
+        let result = await current.call(name, arguments: arguments.adding("projectToken", .string(token)), grant: permission)
+        XCTAssertEqual(result.data["error"], "project_binding_mismatch")
+      }
     }
     XCTAssertFalse(FileManager.default.fileExists(atPath: second.root.appendingPathComponent("wrong.txt").path))
-    let memory = await router.call("memory", arguments: ["action": "recall"])
-    XCTAssertEqual(memory.data["totalMatches"], 0)
-    let back = await router.call("projects", arguments: ["action": "switch", "projectId": "a", "projectToken": switched.data["projectToken"]])
-    XCTAssertFalse(back.isError)
-    XCTAssertNotEqual(back.data["projectToken"], tokenA)
-    let oldRead = await router.call("read_files", arguments: ["paths": ["wrong.txt"], "projectToken": tokenA])
-    XCTAssertEqual(oldRead.data["error"], "project_binding_mismatch")
-    await router.stop()
+    let fresh = await current.projectToken
+    XCTAssertNotEqual(fresh, token)
   }
 
   func testMissingBindingCannotMutateAndRestartInvalidatesBinding() async throws {
@@ -88,27 +75,26 @@ import XCTest
     let router = try f.router(execution: true)
     for scope in [OAuthScope.projectWrite, .processRun, .browserUse] {
       let delegated = grant([scope])
-      let current = await router.call("projects", arguments: ["action": "current"], grant: delegated)
+      let current = await router.call("project_info", arguments: [:], grant: delegated)
       XCTAssertFalse(current.isError, scope.rawValue)
-      XCTAssertEqual(Set(current.data.object?.keys.map { $0 } ?? []), ["action", "generation", "projectToken", "project"])
-      XCTAssertEqual(Set(current.data["project"].object?.keys.map { $0 } ?? []), ["id"])
+      XCTAssertEqual(Set(current.data.object?.keys.map { $0 } ?? []), ["projectId", "generation", "projectToken"])
       XCTAssertNotNil(current.data["projectToken"].string)
-      XCTAssertNotNil(current.data["project"]["id"].string)
+      XCTAssertNotNil(current.data["projectId"].string)
       XCTAssertFalse(current.data.text().contains(f.root.path))
+      XCTAssertFalse(current.data.text().contains("private.txt"))
       for (tool, arguments): (String, JSONValue) in [
-        ("project_info", [:]), ("read_files", ["paths": ["private.txt"]]),
-        ("memory", ["action": "recent"]), ("projects", ["action": "list"]),
-        ("projects", ["action": "switch", "projectId": current.data["project"]["id"],
-                      "projectToken": current.data["projectToken"]]),
+        ("read_files", ["paths": ["private.txt"]]),
+        ("runtime_status", [:]),
       ] {
         let denied = await router.call(tool, arguments: arguments, grant: delegated)
         XCTAssertEqual(denied.data["error"], "insufficient_scope", "\(scope.rawValue): \(tool)")
       }
       switch scope {
       case .projectWrite:
-        let saved = await router.call("memory", arguments: ["action": "remember", "kind": "goal",
-          "content": "Write-only Host goal", "projectToken": current.data["projectToken"]], grant: delegated)
+        let saved = await router.call("edit_files", arguments: ["action": "create", "path": "write-only.txt",
+          "content": "Write-only Host file", "projectToken": current.data["projectToken"]], grant: delegated)
         XCTAssertFalse(saved.isError)
+        XCTAssertEqual(try String(contentsOf: f.root.appendingPathComponent("write-only.txt"), encoding: .utf8), "Write-only Host file")
       case .processRun:
         let process = await router.call("run_process", arguments: ["program": "/usr/bin/true",
           "syncWait": 3, "projectToken": current.data["projectToken"]], grant: delegated)
@@ -121,19 +107,20 @@ import XCTest
     await router.stop()
   }
 
-  func testCurrentProjectKeepsDetailsForReadScopeAndLocalCallers() async throws {
+  func testProjectInfoKeepsDetailsForReadScopeAndLocalCallers() async throws {
     let f = try Fixture()
     defer { f.remove() }
     let router = try f.router()
     for delegated in [ToolGrant.local, grant([.projectRead]), grant([.projectRead, .processRun])] {
-      let current = await router.call("projects", arguments: ["action": "current"], grant: delegated)
+      let current = await router.call("project_info", arguments: [:], grant: delegated)
       XCTAssertFalse(current.isError)
-      XCTAssertEqual(current.data["project"]["path"], .string(f.root.path))
-      XCTAssertNotNil(current.data["project"]["name"].string)
-      XCTAssertNotNil(current.data["project"]["permissionMode"].string)
+      XCTAssertEqual(current.data["root"], .string(f.root.path))
+      XCTAssertNotNil(current.data["name"].string)
+      XCTAssertNotNil(current.data["entries"].array)
+      XCTAssertNotNil(current.data["projectToken"].string)
     }
     for scopes: Set<OAuthScope> in [[], [.computerRead], [.computerControl], [.computerRead, .computerControl]] {
-      let denied = await router.call("projects", arguments: ["action": "current"], grant: grant(scopes))
+      let denied = await router.call("project_info", arguments: [:], grant: grant(scopes))
       XCTAssertEqual(denied.data["error"], "insufficient_scope")
       XCTAssertEqual(denied.data["projectToken"], .null)
     }
@@ -144,7 +131,7 @@ import XCTest
     let f = try Fixture()
     defer { f.remove() }
     let router = try f.router()
-    let bearer = String(repeating: "s", count: 64)
+    let bearer = OAuthContract.accessPrefix + String(repeating: "s", count: 64)
     let body: JSONValue = ["jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": [:]]
     let request = HTTPRequest(headers: [
       "Host": ["127.0.0.1:\(TunnelContract.defaultPort)"], "Authorization": ["Bearer " + bearer],
@@ -155,27 +142,21 @@ import XCTest
       [.computerRead], [.computerControl], [],
     ] {
       let delegated = grant(scopes)
-      let endpoint = MCPDispatcher(authentication: .delegated(bearer: bearer, context: delegated.context!),
+      let endpoint = MCPDispatcher(authentication: try fixtureRemoteAuthentication(bearer: bearer, context: delegated.context!),
                                    port: TunnelContract.defaultPort, router: router)
       let reply = await endpoint.handle(request)
       XCTAssertEqual(reply.status, 200)
       let definitions = try XCTUnwrap(reply.json["result"]["tools"].array)
-      let projects = definitions.first { $0["name"] == "projects" }
-      if scopes.contains(.projectRead) {
-        XCTAssertEqual(projects?["inputSchema"]["properties"]["action"]["enum"],
-          scopes.contains(.projectWrite) ? ["list", "current", "switch"] : ["list", "current"])
-      } else if !scopes.isDisjoint(with: [.projectWrite, .processRun, .browserUse]) {
-        XCTAssertEqual(projects?["inputSchema"]["properties"]["action"]["enum"], ["current"])
-        XCTAssertNil(definitions.first { $0["name"] == "read_files" })
-        XCTAssertNil(definitions.first { $0["name"] == "project_info" })
+      XCTAssertNil(definitions.first { $0["name"] == "projects" })
+      XCTAssertNil(definitions.first { $0["name"] == "memory" })
+      let info = definitions.first { $0["name"] == "project_info" }
+      if !scopes.isDisjoint(with: [.projectRead, .projectWrite, .processRun, .browserUse]) {
+        XCTAssertNotNil(info)
       } else {
-        XCTAssertNil(projects)
+        XCTAssertNil(info)
       }
-      let memory = definitions.first { $0["name"] == "memory" }
-      if scopes == [.projectWrite] {
-        XCTAssertEqual(memory?["inputSchema"]["properties"]["action"]["enum"], ["remember", "forget"])
-      } else if scopes == [.projectRead] {
-        XCTAssertEqual(memory?["inputSchema"]["properties"]["action"]["enum"], ["recall", "recent", "sessions"])
+      if !scopes.contains(.projectRead) {
+        XCTAssertNil(definitions.first { $0["name"] == "read_files" })
       }
       for definition in definitions {
         let name = try XCTUnwrap(definition["name"].string)

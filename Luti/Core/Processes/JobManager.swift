@@ -220,11 +220,11 @@ public actor JobManager {
         status: result["status"].string ?? "running", terminal: false, outputComplete: false,
         observedAt: ISO8601DateFormatter().date(from: result["startedAt"].string ?? "") ?? before.observedAt)
       evidence.taskId = request.taskID
-      evidence.input = ValidationInputEvidence(scope: "session-touched-files-and-manifests",
+      evidence.input = ValidationInputEvidence(scope: "run-touched-files-and-manifests",
         scopeComplete: request.scopeComplete, before: before,
         consistency: "unknown", freshness: "unknown")
     }
-    result = result.adding("validation", (try? ContextCoding.json(evidence)) ?? .null)
+    result = result.adding("validation", (try? JSONCoding.json(evidence)) ?? .null)
     if let tests = evidence.tests { result = result.adding("testSummary", tests.json) }
     return result
   }
@@ -243,12 +243,12 @@ public actor JobManager {
   private static func completedEvidence(_ result: JSONValue, request: ValidationScopeRequest,
                                         before: ValidationScopeSnapshot,
                                         reportBefore: ValidationFileDigest?) async -> ValidationEvidence {
-    var evidence = (try? ContextCoding.decode(ValidationEvidence.self, result["validation"].data()))
+    var evidence = (try? JSONCoding.decode(ValidationEvidence.self, result["validation"].data()))
       ?? ValidationEvidence.process(command: "", stdout: "", stderr: "",
         status: result["status"].string ?? "failed", terminal: true, outputComplete: false, observedAt: Date())
     evidence.taskId = request.taskID
     let after = await ValidationScopeSnapshot.capture(files: request.files, paths: request.paths)
-    evidence.input = ValidationInputEvidence(scope: "session-touched-files-and-manifests",
+    evidence.input = ValidationInputEvidence(scope: "run-touched-files-and-manifests",
       scopeComplete: request.scopeComplete, before: before, after: after, current: after,
       consistency: "unknown", freshness: "unknown")
     evidence.input?.assess()

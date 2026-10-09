@@ -108,7 +108,7 @@ import XCTest
     try f.write("src/main.swift", "let first = 1")
     let files = try WorkspaceFiles(root: f.root)
     let before = await ValidationScopeSnapshot.capture(files: files, paths: ["src/main.swift", "missing.swift"])
-    var evidence = ValidationInputEvidence(scope: "session-touched-files-and-manifests", scopeComplete: false,
+    var evidence = ValidationInputEvidence(scope: "run-touched-files-and-manifests", scopeComplete: false,
       before: before, after: before, current: before, consistency: "unknown", freshness: "unknown")
     evidence.assess()
     XCTAssertEqual(evidence.freshness, "observed_match")
@@ -204,47 +204,23 @@ import XCTest
     await jobs.shutdown()
   }
 
-  func testSessionBudgetDropsOldEvidenceBeforeLosingTouchedFilesAndCommands() async throws {
+  func testRuntimeValidationTracksActualEditsWithoutPersistingSessionHistory() async throws {
     let f = try Fixture(); defer { f.remove() }
-    let store = try ProjectContextStore(project: ApprovedProject(url: f.root), dataRoot: f.contextDataRoot)
-    let run = UUID(), started = Date()
-    try store.startSession(run)
-    let paths = (0..<32).map { "Sources/" + String(repeating: "a", count: 96) + "-\($0).swift" }
-    for path in paths { try f.write(path, "let value = 1") }
-    let edit = ActivityEvent(id: UUID(), runID: run, startedAt: started, finishedAt: started,
-      tool: "edit_files", target: "Sources", status: "ok", summary: "Edited files", durationSeconds: 0)
-    try store.recordCallFinished(runID: run, event: edit, arguments: [:], output: ToolOutput([
-      "applied": true, "files": .array(paths.map { ["path": .string($0), "wouldChange": true] }),
-    ]))
-    let observed = await ValidationScopeSnapshot.capture(files: f.files, paths: paths)
-    XCTAssertTrue(observed.complete)
-    var snapshots: [JSONValue] = []
-    for index in 0..<10 {
-      let time = started.addingTimeInterval(Double(index + 1)), id = "job_budget_\(index)"
-      var evidence = ValidationEvidence.process(command: "swift test", stdout: "Executed 1 test, with 0 failures",
-        stderr: "", status: "completed", terminal: true, outputComplete: true, observedAt: time)
-      evidence.input = ValidationInputEvidence(scope: "session-touched-files-and-manifests", scopeComplete: false,
-        before: observed, after: observed, current: observed, consistency: "unknown", freshness: "observed_match")
-      let snapshot: JSONValue = ["jobId": .string(id), "status": "completed", "terminal": true, "exitCode": 0,
-        "testSummary": evidence.tests!.json, "validation": try ContextCoding.json(evidence)]
-      snapshots.append(snapshot)
-      let event = ActivityEvent(id: UUID(), runID: run, startedAt: time, finishedAt: time,
-        tool: "run_process", target: "swift", status: "ok", summary: "Tests completed", jobID: id, durationSeconds: 0)
-      try store.recordCallFinished(runID: run, event: event, arguments: ["program": "swift", "args": ["test"]],
-        output: ToolOutput(snapshot))
-    }
-    let journal = try store.session(run)
-    XCTAssertEqual(journal.touchedFiles, paths)
-    XCTAssertEqual(journal.commands.count, 10)
-    XCTAssertEqual(journal.jobs.count, 10)
-    XCTAssertNotNil(journal.jobs.last?.validation)
-    XCTAssertTrue(journal.jobs.contains { $0.validationOmitted == true && $0.validation == nil })
-    XCTAssertGreaterThan(journal.omittedFacts, 0)
-    XCTAssertLessThanOrEqual(try ContextCoding.encode(journal).count, ProjectContextStore.maxSessionBytes)
-    try store.reconcileSessionJobs(snapshots, runID: run)
-    try store.reconcileSessionJobs(snapshots, runID: run)
-    let reconciled = try store.session(run)
-    XCTAssertEqual(reconciled.omittedFacts, journal.omittedFacts)
-    XCTAssertEqual(reconciled.updatedAt, journal.updatedAt)
+    let router = try f.router(execution: true)
+    addTeardownBlock { await router.stop() }
+    let edit = await router.callInCurrentProject("edit_files", arguments: ["action": "create", "path": "source.txt", "content": "original"])
+    XCTAssertFalse(edit.isError)
+    let dryRun = await router.callInCurrentProject("edit_files", arguments: ["action": "create", "path": "dry.txt", "content": "unused", "dryRun": true])
+    XCTAssertFalse(dryRun.isError)
+    let process = await router.callInCurrentProject("run_process", arguments: ["program": "/usr/bin/true", "syncWait": 3])
+    XCTAssertFalse(process.isError)
+    let inputs = process.data["validation"]["input"]["before"]["files"].array ?? []
+    XCTAssertTrue(inputs.contains { $0["path"] == "source.txt" && $0["sha256"] == .string(Budget.sha256(Data("original".utf8))) })
+    XCTAssertFalse(inputs.contains { $0["path"] == "dry.txt" })
+    try f.write("source.txt", "external edit")
+    let query = await router.callInCurrentProject("job_query", arguments: ["action": "status", "jobId": process.data["jobId"]])
+    XCTAssertEqual(query.data["validation"]["input"]["freshness"], "stale")
+    let namespace = LocalLogStore.activityDirectory(for: f.root, dataRoot: f.contextDataRoot).deletingLastPathComponent()
+    XCTAssertFalse(FileManager.default.fileExists(atPath: namespace.appendingPathComponent("sessions").path))
   }
 }

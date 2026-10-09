@@ -3,7 +3,7 @@ import Foundation
 
 extension WorkspaceFiles {
   /// Stage beside the destination, then publish with one exclusive rename. The
-  /// caller resolves the source from its project runtime and prepares recovery.
+  /// caller resolves the source from its project runtime.
   func importArtifact(_ artifact: Artifact, path: String, dryRun: Bool = false) throws -> JSONValue {
     guard artifact.bytes.count <= ArtifactStore.maxBytes else {
       throw Failure.invalid("Imported artifacts are limited to 32 MiB each.")

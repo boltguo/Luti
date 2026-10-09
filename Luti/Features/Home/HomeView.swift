@@ -10,21 +10,16 @@ struct HomeView: View {
       runtimeSection
       currentTaskSection
 
-      HomeQuickChoice(
-        title: L10n.text("common.projects"),
-        emptyTitle: L10n.text("projects.noProjectsEnabled"),
-        emptySubtitle: L10n.text("projects.enableProjectFromProjects"),
-        symbol: "folder",
-        iconTone: .purple,
-        choices: model.enabledProjects.map {
-          HomeQuickChoice.Choice(id: $0.id, title: $0.name, subtitle: $0.path)
-        },
-        selectedID: model.activeProjectID,
-        selectionEnabled: !model.active && !model.contextBusy,
-        select: model.setActiveProject,
-        manage: openProjects
-      )
-      .accessibilityIdentifier("home-project")
+      MDSection(title: L10n.text("common.projects")) {
+        MDNavigationRow(
+          title: model.activeProject?.name ?? L10n.text("projects.noProjectsYet"),
+          symbol: "folder",
+          subtitle: model.activeProject?.path ?? L10n.text("projects.chooseLocalFolderProjectWorkspace"),
+          prominent: model.activeProject == nil,
+          iconTone: .purple,
+          action: openProjects)
+          .accessibilityIdentifier("home-project")
+      }
 
       connectionSection
 
@@ -37,50 +32,16 @@ struct HomeView: View {
 
   private var connectionSection: some View {
     MDSection(title: L10n.text("common.connection")) {
-      if homeConnectionProviders.isEmpty {
-        MDNavigationRow(
-          title: L10n.text("connection.noEnabledProvider"),
-          symbol: "link",
-          subtitle: L10n.text("connection.enableProviderFromConnection"),
-          prominent: true,
-          iconTone: .blue,
-          action: openConnection)
-      } else {
-        MDList {
-          ForEach(
-            Array(homeConnectionProviders.enumerated()),
-            id: \.element
-          ) { index, provider in
-            MDListRow(
-              title: providerTitle(provider),
-              symbol: provider.symbol,
-              subtitle: providerSubtitle(provider),
-              position: MDListRowPosition(
-                index: index, count: homeConnectionProviders.count),
-              iconTone: provider.iconTone,
-              textLineLimit: 1,
-              subtitleTruncationMode: .tail,
-              leadingWidth: 40
-            ) {
-              Text(providerStatus(provider))
-                .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(providerStatusColor(provider))
-                .lineLimit(1)
-            }
-            .frame(height: 60)
-          }
-        }
-      }
+      MDNavigationRow(
+        title: ConnectionProviderID.cloudflare.title,
+        symbol: ConnectionProviderID.cloudflare.symbol,
+        subtitle: model.savedPublicBaseURL.isEmpty ? nil : model.savedPublicBaseURL,
+        detail: L10n.text(model.cloudflareStatusKey),
+        iconTone: ConnectionProviderID.cloudflare.iconTone,
+        accessory: nil,
+        action: openConnection)
     }
     .accessibilityIdentifier("home-connection")
-  }
-
-  private var homeConnectionProviders: [ConnectionProviderID] {
-    var providers = model.availableConnectionProviders
-    if model.providerSnapshot(.quick).state != .stopped {
-      providers.insert(.quick, at: 0)
-    }
-    return providers
   }
 
   private var runtimeSection: some View {
@@ -92,13 +53,13 @@ struct HomeView: View {
       Button {
         if model.active {
           Task { await model.stop() }
-        } else if model.activeProject?.enabled != true {
+        } else if model.activeProject == nil {
           openProjects()
         } else {
           model.requestStart()
         }
       } label: {
-        if !model.active && model.activeProject?.enabled != true {
+        if !model.active && model.activeProject == nil {
           Label(L10n.text("home.chooseProject"), systemImage: "folder.badge.plus")
             .frame(maxWidth: .infinity)
         } else {
@@ -145,33 +106,6 @@ struct HomeView: View {
     }
   }
 
-  private func providerTitle(_ id: ConnectionProviderID) -> String {
-    id.title
-  }
-
-  private func providerSubtitle(_ id: ConnectionProviderID) -> String? {
-    if id == .quick { return L10n.text("quick.rowSubtitle") }
-    let address = model.savedProviderAddress(id)
-    return address.isEmpty ? nil : address
-  }
-
-  private func providerStatus(_ id: ConnectionProviderID) -> String {
-    let state = model.providerSnapshot(id).state
-    if model.phase == .running || state != .stopped {
-      return L10n.text("connection.state." + state.rawValue)
-    }
-    return L10n.text("common.enabled")
-  }
-
-  private func providerStatusColor(_ id: ConnectionProviderID) -> Color {
-    switch model.providerSnapshot(id).state {
-    case .ready: MDTheme.success
-    case .failed: MDTheme.error
-    case .starting, .reconnecting, .stopping: MDTheme.warning
-    case .stopped: MDTheme.onSurfaceVariant
-    }
-  }
-
   private var runtimeSymbol: String {
     switch model.phase {
     case .failed:
@@ -179,7 +113,7 @@ struct HomeView: View {
     case .running, .stopping:
       return "stop.fill"
     case .stopped, .preparing, .starting:
-      return model.activeProject?.enabled == true ? "play.fill" : "folder.badge.plus"
+      return model.activeProject != nil ? "play.fill" : "folder.badge.plus"
     }
   }
 
@@ -194,149 +128,4 @@ struct HomeView: View {
     }
   }
 
-  private var statusDescription: String? {
-    switch model.phase {
-    case .stopped:
-      if model.activeProject?.enabled != true { return L10n.text("home.addProjectGetStarted") }
-      return nil
-    case .preparing: return L10n.text("connection.preparingLocal")
-    case .starting: return L10n.text("connection.startingLocal")
-    case .running: return nil
-    case .stopping: return L10n.text("home.disconnectingStoppingSessionsTasks")
-    case .failed: return L10n.text("home.checkErrorDetailsTryingAgain")
-    }
-  }
-}
-
-private struct HomeQuickChoice: View {
-  struct Choice: Identifiable, Equatable {
-    let id: String
-    let title: String
-    let subtitle: String?
-  }
-
-  let title: String
-  let emptyTitle: String
-  let emptySubtitle: String
-  let symbol: String
-  let iconTone: MDIconTone
-  let choices: [Choice]
-  let selectedID: String?
-  let selectionEnabled: Bool
-  let select: (String) -> Void
-  let manage: () -> Void
-
-  @State private var expanded = false
-
-  private var selected: Choice? {
-    choices.first(where: { $0.id == selectedID }) ?? choices.first
-  }
-
-  var body: some View {
-    MDSection(title: title) {
-      if choices.isEmpty {
-        MDNavigationRow(
-          title: emptyTitle,
-          symbol: symbol,
-          subtitle: emptySubtitle,
-          prominent: true,
-          iconTone: iconTone,
-          action: manage)
-      } else if choices.count == 1, let choice = choices.first {
-        MDListRow(
-          title: choice.title,
-          symbol: symbol,
-          subtitle: choice.subtitle,
-          iconTone: iconTone,
-          textLineLimit: 1,
-          subtitleTruncationMode: .tail,
-          leadingWidth: 40
-        ) {
-          EmptyView()
-        }
-        .frame(height: 60)
-      } else if expanded {
-        expandedList
-      } else if let selected {
-        Button {
-          guard selectionEnabled else { return }
-          expanded = true
-        } label: {
-          MDListRow(
-            title: selected.title,
-            symbol: symbol,
-            subtitle: selected.subtitle,
-            iconTone: iconTone,
-            textLineLimit: 1,
-            subtitleTruncationMode: .tail,
-            leadingWidth: 40
-          ) {
-            Image(systemName: "chevron.down")
-              .font(.system(size: 11, weight: .semibold))
-              .foregroundStyle(MDTheme.onSurfaceVariant)
-              .accessibilityHidden(true)
-          }
-          .frame(height: 60)
-        }
-        .buttonStyle(.plain)
-        .disabled(!selectionEnabled)
-        .accessibilityLabel(title + ": " + selected.title)
-        .accessibilityValue(L10n.text(expanded ? "ui.expanded" : "ui.collapsed"))
-      }
-    }
-  }
-
-  @ViewBuilder private var expandedList: some View {
-    MDList {
-      ForEach(Array(choices.enumerated()), id: \.element.id) { index, choice in
-        let isSelected = choice.id == selected?.id
-        let position = MDListRowPosition(index: index, count: choices.count)
-        Button {
-          guard selectionEnabled else { return }
-          select(choice.id)
-          expanded = false
-        } label: {
-          HStack(spacing: 12) {
-            MDRadioMark(isSelected: isSelected)
-              .frame(width: 40, height: 40)
-
-            choiceText(choice)
-          }
-          .padding(.horizontal, 16)
-          .padding(.vertical, 10)
-          .frame(maxWidth: .infinity, alignment: .leading)
-          .frame(height: 60)
-          .background(MDListRowSurface(position: position))
-          .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .disabled(!selectionEnabled)
-        .accessibilityLabel(choice.title)
-        .accessibilityValue(
-          isSelected
-            ? L10n.text("projects.selected")
-            : L10n.text("common.notSelected"))
-      }
-    }
-  }
-
-  private func choiceText(_ choice: Choice) -> some View {
-    VStack(alignment: .leading, spacing: 4) {
-      Text(choice.title)
-        .font(.system(size: 14, weight: .medium))
-        .foregroundStyle(MDTheme.onSurface)
-        .lineLimit(1)
-        .truncationMode(.tail)
-        .help(choice.title)
-      if let subtitle = choice.subtitle {
-        Text(subtitle)
-          .font(.system(size: 12))
-          .foregroundStyle(MDTheme.onSurfaceVariant)
-          .lineLimit(1)
-          .truncationMode(.tail)
-          .help(subtitle)
-      }
-    }
-    .frame(maxWidth: .infinity, alignment: .leading)
-  }
 }

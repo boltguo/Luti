@@ -201,8 +201,8 @@ private actor TestConnectionProvider: ConnectionProvider {
     let f = try Fixture(); defer { f.remove() }
     let model = AppModel(contextDataRoot: f.contextDataRoot, defaults: f.defaults)
     let project = ApprovedProject(url: f.root)
-    model.approvedProjects = [project]
-    model.activeProjectID = project.id
+    model.activeProject = project
+
     model.publicBaseURL = "unfinished remote configuration"
     model.tokenDraft = "unsaved"
     model.tokenSaved = false
@@ -210,102 +210,62 @@ private actor TestConnectionProvider: ConnectionProvider {
     XCTAssertFalse(model.canConnectProvider(.cloudflare))
   }
 
-  func testConnectionProviderRequiresConfigurationAndPersistsEnabledSelection() throws {
+  func testInvalidCloudflareConfigurationDoesNotBlockLocalStartup() throws {
+    let f = try Fixture(); defer { f.remove() }
+    let model = AppModel(contextDataRoot: f.contextDataRoot, defaults: f.defaults)
+    model.activeProject = ApprovedProject(url: f.root)
+    model.publicBaseURL = "http://invalid-origin.example.com"
+    XCTAssertFalse(model.saveSettings())
+    XCTAssertNotNil(model.connectionSettingsErrors[.cloudflare])
+    XCTAssertTrue(model.availableConnectionProviders.isEmpty)
+    XCTAssertTrue(model.canStart)
+  }
+
+  func testCloudflareConfigurationAvailabilityDoesNotRewriteSelectedFolder() throws {
     let f = try Fixture(); defer { f.remove() }
     let model = AppModel(contextDataRoot: f.contextDataRoot, defaults: f.defaults)
     let project = ApprovedProject(url: f.root)
-    model.approvedProjects = [project]
-    model.activeProjectID = project.id
-
-    XCTAssertFalse(model.setConnectionProviderEnabled(.cloudflare, enabled: true))
-    XCTAssertTrue(model.enabledConnectionProviders.isEmpty)
-
+    model.activeProject = project
+    model.tokenSaved = false
+    XCTAssertTrue(model.availableConnectionProviders.isEmpty)
     f.defaults.set("https://mcp.example.com", forKey: "publicBaseURL")
     model.publicBaseURL = "https://mcp.example.com"
     model.tokenSaved = true
-    XCTAssertTrue(model.setConnectionProviderEnabled(.cloudflare, enabled: true))
     XCTAssertEqual(model.availableConnectionProviders, [.cloudflare])
-    XCTAssertEqual(model.approvedProjects, [project],
-                   "Connection Enabled must never rewrite project state.")
-
-    let persisted = try XCTUnwrap(f.defaults.data(forKey: "enabledConnectionProviders"))
-    XCTAssertEqual(
-      try JSONDecoder().decode(Set<ConnectionProviderID>.self, from: persisted),
-      [.cloudflare])
-
-    XCTAssertTrue(model.setConnectionProviderEnabled(.cloudflare, enabled: false))
-    XCTAssertTrue(model.enabledConnectionProviders.isEmpty)
+    XCTAssertEqual(model.activeProject, project)
+    model.tokenSaved = false
     XCTAssertTrue(model.availableConnectionProviders.isEmpty)
-    XCTAssertEqual(model.approvedProjects, [project])
+    XCTAssertEqual(model.activeProject, project)
   }
 
-  func testProjectPermissionDefaultsPersistPerProjectAndStopDoesNotReset() async throws {
-    let f = try Fixture()
-    defer { f.remove() }
-    let firstURL = f.root.appendingPathComponent("first", isDirectory: true)
-    let secondURL = f.root.appendingPathComponent("second", isDirectory: true)
-    try FileManager.default.createDirectory(at: firstURL, withIntermediateDirectories: true)
-    try FileManager.default.createDirectory(at: secondURL, withIntermediateDirectories: true)
-
+  func testSelectedFolderSurvivesDirectRuntimeStartStopAndReopen() async throws {
+    let f = try Fixture(); defer { f.remove() }
     let model = AppModel(contextDataRoot: f.contextDataRoot, defaults: f.defaults)
-    XCTAssertFalse(model.defaultFullProjectAccess)
-    model.addApprovedProjects([firstURL])
-    let firstID = try XCTUnwrap(model.approvedProjects.first?.id)
-    XCTAssertEqual(model.approvedProjects.first?.permissionMode, .ask)
-
-    model.setDefaultFullProjectAccess(true)
-    XCTAssertTrue(model.defaultFullProjectAccess)
-    XCTAssertEqual(model.approvedProjects.first?.permissionMode, .ask,
-                   "Changing the default must not rewrite existing projects.")
-
-    model.addApprovedProjects([secondURL])
-    let second = try XCTUnwrap(model.approvedProjects.first(where: { $0.path == secondURL.path }))
-    XCTAssertEqual(second.permissionMode, .fullProjectAccess)
-
-    model.setProjectPermissionMode(firstID, mode: .fullProjectAccess)
-    XCTAssertEqual(
-      model.approvedProjects.first(where: { $0.id == firstID })?.permissionMode,
-      .fullProjectAccess)
-
-    model.setActiveProject(firstID)
-    model.startWithLocalConsent()
+    model.addProject(f.root)
+    let project = try XCTUnwrap(model.activeProject)
+    addTeardownBlock { await model.stop() }
+    model.requestStart()
     for _ in 0..<200 {
       if model.phase == .running || model.phase == .failed { break }
       try await Task.sleep(for: .milliseconds(10))
     }
     XCTAssertEqual(model.phase, .running)
-    model.setProjectPermissionMode(second.id, mode: .ask)
-    XCTAssertEqual(
-      model.approvedProjects.first(where: { $0.id == second.id })?.permissionMode,
-      .fullProjectAccess,
-      "Permission changes are frozen while the Runtime is active.")
-
     await model.stop()
-    XCTAssertEqual(
-      model.approvedProjects.first(where: { $0.id == firstID })?.permissionMode,
-      .fullProjectAccess,
-      "Stop must never reset the project's configured permission mode.")
-
     let reopened = AppModel(contextDataRoot: f.contextDataRoot, defaults: f.defaults)
-    XCTAssertTrue(reopened.defaultFullProjectAccess)
-    XCTAssertEqual(
-      reopened.approvedProjects.first(where: { $0.id == firstID })?.permissionMode,
-      .fullProjectAccess)
-    XCTAssertEqual(
-      reopened.approvedProjects.first(where: { $0.id == second.id })?.permissionMode,
-      .fullProjectAccess)
+    XCTAssertEqual(reopened.activeProject, project)
   }
 
-  func testLegacyApprovedProjectWithoutPermissionModeMigratesToAsk() throws {
+  func testLegacyFolderWithoutPermissionModeRemainsStartable() throws {
     let f = try Fixture(); defer { f.remove() }
     let path = f.root.appendingPathComponent("legacy", isDirectory: true)
     try FileManager.default.createDirectory(at: path, withIntermediateDirectories: true)
     let legacy = "[{\"id\":\"legacy\",\"name\":\"Legacy\",\"path\":\"" + path.path + "\"}]"
     f.defaults.set(Data(legacy.utf8), forKey: "approvedProjects")
     f.defaults.set("legacy", forKey: "activeProjectID")
-
     let model = AppModel(contextDataRoot: f.contextDataRoot, defaults: f.defaults)
-    XCTAssertEqual(model.approvedProjects.first?.permissionMode, .ask)
+    XCTAssertEqual(model.activeProject?.id, "legacy")
+    XCTAssertEqual(model.project?.path, path.resolvingSymlinksInPath().standardizedFileURL.path)
+    XCTAssertTrue(model.canStart)
   }
 
   func testImmediateStopDoesNotResurrectQueuedNativeStartup() async throws {
@@ -313,9 +273,9 @@ private actor TestConnectionProvider: ConnectionProvider {
     let model = AppModel(contextDataRoot: f.contextDataRoot, defaults: f.defaults)
     addTeardownBlock { await model.stop(); f.remove() }
     let project = ApprovedProject(url: f.root)
-    model.approvedProjects = [project]
-    model.activeProjectID = project.id
-    model.startWithLocalConsent()
+    model.activeProject = project
+
+    model.requestStart()
     await model.stop()
     await model.refresh()
     XCTAssertEqual(model.phase, .stopped)
@@ -324,7 +284,7 @@ private actor TestConnectionProvider: ConnectionProvider {
     XCTAssertTrue(model.canStart)
   }
 
-  func testNativeStartDoesNotAutomaticallyEnableSavedRemoteAccess() async throws {
+  func testNativeStartWithoutTunnelCredentialKeepsRemoteUnavailable() async throws {
     let f = try Fixture()
     f.defaults.set("https://mcp.example.com", forKey: "publicBaseURL")
     f.defaults.set(
@@ -333,10 +293,10 @@ private actor TestConnectionProvider: ConnectionProvider {
     let model = AppModel(contextDataRoot: f.contextDataRoot, defaults: f.defaults)
     addTeardownBlock { await model.stop(); f.remove() }
     let project = ApprovedProject(url: f.root)
-    model.approvedProjects = [project]
-    model.activeProjectID = project.id
-    model.tokenSaved = true
-    model.startWithLocalConsent()
+    model.activeProject = project
+
+    model.tokenSaved = false
+    model.requestStart()
     for _ in 0..<200 {
       if model.phase == .running || model.phase == .failed { break }
       try await Task.sleep(for: .milliseconds(10))
@@ -345,21 +305,6 @@ private actor TestConnectionProvider: ConnectionProvider {
     XCTAssertNotNil(model.localEndpoint)
     XCTAssertTrue(model.connectionSnapshots.isEmpty)
     XCTAssertTrue(model.connectionBusyProviders.isEmpty)
-  }
-
-  func testStopDismissesUnansweredExecutionConsent() async throws {
-    let f = try Fixture(); defer { f.remove() }
-    let model = AppModel(contextDataRoot: f.contextDataRoot, defaults: f.defaults)
-    let project = ApprovedProject(url: f.root)
-    model.approvedProjects = [project]
-    model.activeProjectID = project.id
-    model.requestStart()
-    XCTAssertTrue(model.showConsent)
-    await model.stop()
-    XCTAssertFalse(model.showConsent)
-    XCTAssertEqual(model.phase, .stopped)
-    let copied = await model.copyLocalConfiguration()
-    XCTAssertFalse(copied)
   }
 
   func testDisconnectClosesOnlyIngressAndAllowsExplicitReconnect() async throws {
