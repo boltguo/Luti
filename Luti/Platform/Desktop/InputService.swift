@@ -286,22 +286,41 @@ import Carbon.HIToolbox
     override var canBecomeKey: Bool { false }
     override var canBecomeMain: Bool { false }
   }
+  private static let size = NSSize(width: 46, height: 38)
+  private static let hotspot = NSPoint(x: 5, y: 33)
   private final class CursorView: NSView {
     override func draw(_ dirtyRect: NSRect) {
+      let accent = NSColor.systemIndigo
       let arrow = NSBezierPath()
-      arrow.move(to: NSPoint(x: 4, y: 38))
-      arrow.line(to: NSPoint(x: 4, y: 14))
-      arrow.line(to: NSPoint(x: 10, y: 20))
-      arrow.line(to: NSPoint(x: 16, y: 9))
-      arrow.line(to: NSPoint(x: 21, y: 12))
-      arrow.line(to: NSPoint(x: 15, y: 23))
-      arrow.line(to: NSPoint(x: 24, y: 23))
+      arrow.move(to: hotspot)
+      arrow.curve(to: NSPoint(x: 4, y: 31.5), controlPoint1: NSPoint(x: 4, y: 34), controlPoint2: NSPoint(x: 4, y: 33))
+      arrow.line(to: NSPoint(x: 4, y: 17))
+      arrow.curve(to: NSPoint(x: 5.5, y: 16.5), controlPoint1: NSPoint(x: 4, y: 15.5), controlPoint2: NSPoint(x: 4.75, y: 15.5))
+      arrow.line(to: NSPoint(x: 9.5, y: 20.5))
+      arrow.line(to: NSPoint(x: 13, y: 13))
+      arrow.curve(to: NSPoint(x: 14.5, y: 12.5), controlPoint1: NSPoint(x: 13.25, y: 12.25), controlPoint2: NSPoint(x: 14, y: 12))
+      arrow.line(to: NSPoint(x: 16, y: 13.25))
+      arrow.curve(to: NSPoint(x: 16.5, y: 14.75), controlPoint1: NSPoint(x: 16.75, y: 13.5), controlPoint2: NSPoint(x: 17, y: 14))
+      arrow.line(to: NSPoint(x: 13, y: 22))
+      arrow.line(to: NSPoint(x: 18, y: 22))
+      arrow.curve(to: NSPoint(x: 18.5, y: 23.5), controlPoint1: NSPoint(x: 19.5, y: 22), controlPoint2: NSPoint(x: 19.5, y: 22.75))
       arrow.close()
-      NSColor.white.setStroke(); arrow.lineWidth = 3; arrow.stroke()
-      NSColor.systemIndigo.setFill(); arrow.fill()
-      ("Luti" as NSString).draw(at: NSPoint(x: 25, y: 9), withAttributes: [
-        .font: NSFont.systemFont(ofSize: 11, weight: .semibold), .foregroundColor: NSColor.systemIndigo,
-        .strokeColor: NSColor.white, .strokeWidth: -3])
+      NSGraphicsContext.saveGraphicsState()
+      let shadow = NSShadow()
+      shadow.shadowColor = NSColor.black.withAlphaComponent(0.18)
+      shadow.shadowBlurRadius = 2
+      shadow.shadowOffset = NSSize(width: 0, height: -0.5)
+      shadow.set()
+      accent.setFill()
+      arrow.fill()
+      NSGraphicsContext.restoreGraphicsState()
+      NSColor.white.withAlphaComponent(0.95).setStroke()
+      arrow.lineWidth = 1.25
+      arrow.lineJoinStyle = .round
+      arrow.stroke()
+      ("Luti" as NSString).draw(at: NSPoint(x: 21, y: 9), withAttributes: [
+        .font: NSFont.systemFont(ofSize: 9.5, weight: .medium),
+        .foregroundColor: accent])
     }
   }
   private static var panel: NSPanel?
@@ -309,7 +328,7 @@ import Carbon.HIToolbox
   static func show(at point: CGPoint) {
     hideTask?.cancel()
     if panel == nil {
-      let p = Panel(contentRect: NSRect(x: 0, y: 0, width: 56, height: 42),
+      let p = Panel(contentRect: NSRect(origin: .zero, size: size),
         styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
       p.isOpaque = false; p.backgroundColor = .clear; p.hasShadow = false
       p.ignoresMouseEvents = true; p.hidesOnDeactivate = false
@@ -318,7 +337,7 @@ import Carbon.HIToolbox
       panel = p
     }
     let height = CGDisplayBounds(CGMainDisplayID()).height
-    panel?.setFrameOrigin(NSPoint(x: point.x - 4, y: height - point.y - 38))
+    panel?.setFrameOrigin(NSPoint(x: point.x - hotspot.x, y: height - point.y - hotspot.y))
     panel?.orderFrontRegardless()
     hideTask = Task {
       do { try await Task.sleep(for: .milliseconds(1200)) } catch { return }

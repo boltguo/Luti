@@ -106,5 +106,47 @@
     "localAcceptanceServerStopped": true,
     "systemPermissionsChanged": false,
     "installedLiteReplaced": false
+  },
+  "pointerStyleFollowUp": {
+    "date": "2026-10-10",
+    "appearance": "Smaller rounded arrow with a plain 9.5 pt Luti label; no capsule; 46 x 38 pt panel.",
+    "sourceSHA256": "e95c781a4ed83748a8296744c64e752cdabc05c8a884dba0629f0872da51a557",
+    "automated": {
+      "passed": 47,
+      "failed": 0,
+      "skipped": 0,
+      "resultBundle": ".build/main-agent-pointer-compact-20261010.xcresult"
+    },
+    "manualMCP": {
+      "passed": 30,
+      "failed": 0,
+      "toolCalls": 28,
+      "newChecks": {
+        "agentPointerCannotBecomeKey": true,
+        "agentPointerCannotBecomeMain": true,
+        "agentPointerClickThrough": true,
+        "agentPointerCompactBounds": true,
+        "agentPointerExplicitHide": true,
+        "agentPointerHiddenInWindowServer": true,
+        "agentPointerHotspotAligned": true,
+        "agentPointerNewActionResetsHide": true
+      },
+      "productionSourceMatched": true,
+      "host": "Separate signed acceptance app using matching production services; disposable two-window native fixture placed behind the foreground app across Spaces.",
+      "record": ".build/AgentPointerStyle-20261010/mcp-desktop-result.json"
+    },
+    "preview": "agent-pointer-style-2026-10-10.png; native AppKit drawing enlarged 3x in light and dark appearance",
+    "earlierAttempts": [
+      "Immediate WindowServer list sampling after orderOut raced asynchronous updates; AppKit visibility and bounded WindowServer disappearance were then verified separately.",
+      "A fixture on another Space was absent from the window list; no input was sent. The disposable fixture was made visible across Spaces.",
+      "A changed fixture geometry was refused with stale_window. The fixture was then placed behind the foreground app before a fresh complete acceptance run."
+    ],
+    "cleanup": {
+      "disposableFixtureStopped": true,
+      "localAcceptanceServerStopped": true,
+      "systemPermissionsChanged": false,
+      "installedLiteReplaced": false
+    },
+    "scope": "Pointer rendering and native-window MCP regression; Chrome compatibility and installed full-app remote MCP acceptance remain separate."
   }
 }
