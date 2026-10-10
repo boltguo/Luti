@@ -1,0 +1,149 @@
+{
+  "date": "2026-10-09",
+  "feature": "window-directed background computer use",
+  "baseCommit": "356a72b42df91ae0561b2ca28cb3c5b1e96cbc83",
+  "status": "desktop acceptance stopped at user's request to lock screen and sleep; integration checks remain",
+  "implementation": [
+    "private per-batch Quartz source state",
+    "PID- and exact-window-directed pointer events",
+    "native AX-to-CG window identity with unambiguous fallback",
+    "kernel process start time for helper-launched Chrome and PID reuse protection",
+    "background AXMain/element focus with keyboard-window checks",
+    "confirmed AX selection before background text replacement, with focus recheck",
+    "independent nonactivating click-through Luti cursor",
+    "runtime compatibility checks; no automatic global HID fallback",
+    "existing 27 public tools retained"
+  ],
+  "automated": {
+    "fullSuite": {
+      "passed": 241,
+      "failed": 0,
+      "skipped": 0,
+      "resultBundle": ".build/lite-background-final-20261009.xcresult"
+    },
+    "finalIdentityCorrection": {
+      "result": "passed",
+      "scope": "4 focused route/process-identity checks after activation comparison switched to the same kernel date",
+      "resultBundle": ".build/lite-background-final-identity-20261009.xcresult",
+      "passed": 4,
+      "failed": 0,
+      "skipped": 0
+    },
+    "diffCheck": "passed"
+  },
+  "verified": {
+    "realMCP": {
+      "nativeClick": {
+        "pressCount": 1,
+        "sourcePID": 96757,
+        "frontmostAtDelivery": "com.openai.codex",
+        "physicalCursorAtDelivery": {
+          "x": 687.4609375,
+          "y": 919.43359375
+        },
+        "requestedPoint": {
+          "x": 220,
+          "y": 639
+        },
+        "targetActive": false
+      },
+      "twoWindowFocus": {
+        "secondText": "x",
+        "secondKeys": 2,
+        "primaryTextUnchanged": true,
+        "wrongWindowKeyRejected": "window_not_focused"
+      },
+      "helperChromeDiscovery": {
+        "launchServicesDate": null,
+        "kernelIdentityUsed": true,
+        "exactWindowID": "50927",
+        "pid": 98179
+      },
+      "chromePointer": {
+        "clicks": 3,
+        "doubleClicks": 1,
+        "rightClicks": 1,
+        "scrollTop": 120,
+        "dragX": 176,
+        "dragY": 33.0028076171875,
+        "lastTrusted": true,
+        "targetActive": false,
+        "targetInactiveCheckFrontmostPID": 21387
+      },
+      "chromePlainKeyboard": {
+        "key": "x",
+        "before": "browser initial text",
+        "after": "browser initixal text",
+        "keyCount": 2
+      },
+      "records": ".build/lite-background-live-checks-20261009.json"
+    },
+    "productionSourceDriver": {
+      "text": "后台共存中文✓🙂超过二十个UTF16单位继续输入完成✅",
+      "replaceConfirmed": true,
+      "includesMultipleUTF16Chunks": true,
+      "frontmostPreserved": true,
+      "cursorBeforeAndAfterEqual": true,
+      "overlayVisible": true,
+      "overlayAutoHidden": true,
+      "overlayExcludedFromLayerZeroWindowList": true,
+      "record": ".build/DesktopProbe/actual-input-driver-result.json",
+      "note": "Uses actual production Swift sources in a signed native probe. This does not substitute for final MCP type fallback integration."
+    }
+  },
+  "knownLimitations": [
+    "Background menu shortcuts may be received but not executed; initial Chrome Command+A did not select text.",
+    "AX select-all is implemented for exposed text responders and rejects replacement if full selection cannot be confirmed.",
+    "Generic Chrome shortcut compatibility remains unresolved; app-specific browser semantic tools are available.",
+    "Only onscreen windows on currently available Spaces are exposed; minimized/hidden windows can disappear from observations.",
+    "User and agent cannot independently edit the same field without racing its shared state.",
+    "Private macOS compatibility hooks are checked at runtime; cross-version and untested-app compatibility are not claimed."
+  ],
+  "pending": [
+    "Install the final signed candidate, normally restart Luti, and refresh real MCP binding.",
+    "Verify real MCP type keyboard fallback on the explicitly AX-value-read-only fixture, including repeated replacement and Chinese/emoji.",
+    "Verify real MCP semantic Command+A on a native exposed text field.",
+    "Diagnose Chrome background menu shortcuts with read-only checks first; AXManualAccessibility changes would require separate approval.",
+    "Recheck final candidate stale observations and two-window focus after restart."
+  ],
+  "blocker": "User requested lock screen and sleep. No further live desktop actions performed.",
+  "automaticApproval": {
+    "rejectedAction": "Enable AXManualAccessibility in isolated Chrome compatibility probe",
+    "executed": false,
+    "reason": "Changing a third-party application's accessibility state was deemed outside authorized input acceptance.",
+    "safeAlternative": "Setter removed; production sources do not enable AXManualAccessibility."
+  },
+  "cleanup": {
+    "ownedBrowserSessionClosed": true,
+    "localHTTPFixtureStopped": true,
+    "disposableNativeFixtureStopped": true,
+    "systemPermissionsChanged": false
+  },
+  "installedApp": {
+    "sha256": "083394c5ab4f0d82228fec0ed155032bab1f189a9f64779672754b1ba2125096",
+    "containsBackgroundPointerAndKernelChromeDiscovery": true,
+    "containsFinalSelectionFix": false
+  },
+  "candidateBuild": {
+    "result": "passed",
+    "signatureVerification": "passed",
+    "architectures": [
+      "x86_64",
+      "arm64"
+    ],
+    "sha256": "1ef9766ac92d3730a01af1ef2091ed128b35d379e172cd2b35e26a27571aed9e",
+    "log": ".build/lite-background-build-final-locked-20261009.log",
+    "path": ".build/DerivedData/Build/Products/Release/Luti.app",
+    "installed": false
+  },
+  "committed": false,
+  "pushed": false,
+  "packaged": false,
+  "git": {
+    "branch": "codex/luti-lite",
+    "head": "356a72b",
+    "aheadOfMain": 2
+  },
+  "snapshotPurpose": "Historical evidence at scope change; not a release acceptance. Main has not been live-tested.",
+  "decision": "Remove Computer Use from Lite; preserve experiments and continue only on a main-based branch."
+}

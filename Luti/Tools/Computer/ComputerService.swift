@@ -188,9 +188,12 @@ public actor ComputerService: ComputerBackend {
       id: UUID().uuidString.lowercased(), window: window, displayID: displayID, bounds: bounds,
       imageWidth: capture?.width, imageHeight: capture?.height,
       expires: .now.advanced(by: .seconds(60)))
+    if let window { try await WindowService.validate(window) }
     current = observation
     fields["observationId"] = .string(observation.id)
     fields["handleTTLSeconds"] = 60
+    fields["inputScope"] = .string(window == nil ? "foregroundDisplay" : "backgroundWindow")
+    fields["backgroundPointerAvailable"] = .bool(await BackgroundInput.available)
     return ToolOutput(.object(fields), content: content)
   }
 
@@ -423,7 +426,8 @@ public actor ComputerService: ComputerBackend {
       try await WindowService.activate(target)
       try check()
       try await accessibility.raiseWindow(target)
-      return posted(action, method: "NSWorkspace activate + AXRaise")
+      try await WindowService.waitUntilFrontmost(target)
+      return posted(action, method: "AppKit activate + AXRaise + frontmost confirmation")
     case "minimizeWindow":
       try requireWindow(observation)
       try await accessibility.minimizeWindow(observation.window!)
@@ -438,10 +442,8 @@ public actor ComputerService: ComputerBackend {
       return posted(action, method: "AXPress")
     case "focus":
       try requireWindow(observation)
-      try await WindowService.activate(observation.window!)
-      try check()
       try await accessibility.focus(args.string("elementId", max: 80))
-      return posted(action, method: "AX focus")
+      return posted(action, method: "AX focus without activation")
     case "type":
       try requireWindow(observation)
       let id = try args.string("elementId", max: 80)
@@ -450,26 +452,34 @@ public actor ComputerService: ComputerBackend {
         return posted(action, method: "AXSetValue")
       }
       try fallback(args)
-      try await WindowService.activate(observation.window!)
-      try check()
       try await accessibility.focus(id)
+      try await accessibility.requireKeyboardFocus(observation.window!, elementID: id)
       try check()
-      try await WindowService.validate(observation.window!, frontmost: true)
+      try await WindowService.validate(observation.window!)
       try check()
-      // type has replace semantics regardless of whether AXSetValue or keyboard
-      // fallback is used. Select the focused field content before typing.
-      try await InputService.key("a", modifiers: ["command"])
+      // Inactive AppKit apps may receive Command+A without dispatching its menu
+      // equivalent. Confirm AX selection before posting replacement text.
+      try await accessibility.selectAllText(id)
       try check()
-      try await InputService.text(text)
-      return posted(action, method: "Unicode keyboard replace fallback")
+      try await accessibility.requireKeyboardFocus(observation.window!, elementID: id)
+      if text.isEmpty {
+        try await InputService.key("backspace", modifiers: [], target: observation.window!)
+      } else {
+        try await InputService.text(text, target: observation.window!)
+      }
+      return posted(action, method: "PID-directed keyboard replace")
     case "key":
       try requireWindow(observation)
       let key = try args.string("key", max: 16)
       let modifiers = try args.strings("modifiers", maxCount: 4)
-      try await WindowService.validate(observation.window!, frontmost: true)
+      try await accessibility.requireKeyboardFocus(observation.window!)
       try check()
-      try await InputService.key(key, modifiers: modifiers)
-      return posted(action, method: "Quartz key pair")
+      if key == "a", modifiers == ["command"],
+        try await accessibility.selectAllFocusedText(observation.window!) {
+        return posted(action, method: "AX select-all text")
+      }
+      try await InputService.key(key, modifiers: modifiers, target: observation.window!)
+      return posted(action, method: "PID-directed key pair")
     case "scroll":
       let dy = try args.integer("deltaY", default: -400, range: -2000...2000)
       let dx = try args.integer("deltaX", default: 0, range: -2000...2000)
@@ -483,11 +493,11 @@ public actor ComputerService: ComputerBackend {
       try fallback(args)
       let (x, y) = try point(args, observation: observation)
       if let window = observation.window {
-        try await WindowService.validate(window, frontmost: true)
+        try await WindowService.validate(window)
       }
       try check()
-      try await InputService.scroll(x: x, y: y, dx: dx, dy: dy)
-      return posted(action, method: "Quartz coordinate scroll")
+      try await InputService.scroll(x: x, y: y, dx: dx, dy: dy, target: observation.window)
+      return posted(action, method: observation.window == nil ? "global HID display scroll" : "window-directed scroll")
     case "click", "movePointer":
       try fallback(args)
       let (x, y) = try point(args, observation: observation)
@@ -497,12 +507,12 @@ public actor ComputerService: ComputerBackend {
         throw Failure.invalid("Unknown mouse button.")
       }
       if let window = observation.window {
-        try await WindowService.validate(window, frontmost: true)
+        try await WindowService.validate(window)
       }
       try check()
       try await InputService.pointer(
-        x: x, y: y, button: action == "click" ? button : nil, count: count)
-      return posted(action, method: "Quartz coordinate fallback")
+        x: x, y: y, button: action == "click" ? button : nil, count: count, target: observation.window)
+      return posted(action, method: observation.window == nil ? "global HID display pointer" : "window-directed pointer")
     case "drag":
       try fallback(args)
       guard let fromX = args["fromX"].double, let fromY = args["fromY"].double,
@@ -514,12 +524,12 @@ public actor ComputerService: ComputerBackend {
       let end = try mappedPoint(
         x: toX, y: toY, space: space, observation: observation)
       if let window = observation.window {
-        try await WindowService.validate(window, frontmost: true)
+        try await WindowService.validate(window)
       }
       try check()
       try await InputService.drag(
-        fromX: start.0, fromY: start.1, toX: end.0, toY: end.1)
-      return posted(action, method: "Quartz left-drag fallback")
+        fromX: start.0, fromY: start.1, toX: end.0, toY: end.1, target: observation.window)
+      return posted(action, method: observation.window == nil ? "global HID display drag" : "window-directed drag")
     default: throw Failure.invalid("Unsupported action.")
     }
   }
@@ -581,5 +591,6 @@ public actor ComputerService: ComputerBackend {
     open = false
     current = nil
     await accessibility.clear()
+    await AgentPointer.hide()
   }
 }

@@ -259,7 +259,7 @@ public enum ToolCatalog {
         ], required: ["condition"], readOnly: true, openWorld: true),
       tool(
         "computer_action",
-        "Use AX semantics first: press/focus/type plus window activate/minimize/close. type replaces the target field value; keyboard fallback selects existing content first. Target-bound actions consume observationId, so re-observe after every action or error. Coordinates require fallbackReason.",
+        "Use AX semantics first: press/focus/type plus window activate/minimize/close. Window-targeted pointer and keyboard input is delivered in the background without moving the system cursor. Keyboard requires the target app's focused window; focus the intended element first. Display coordinates use the shared foreground pointer. activateWindow explicitly brings a window forward and waits for confirmation. type replaces the target field value; keyboard fallback selects existing content first. Target-bound actions consume observationId, so re-observe after every action or error. Coordinates require fallbackReason.",
         action, required: ["action"], readOnly: false, openWorld: true),
     ]
     return (base + additions + [memoryDefinition]).map { ActionContracts.present($0) }

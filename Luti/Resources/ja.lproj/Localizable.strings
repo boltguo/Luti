@@ -374,6 +374,8 @@
 "settings.accessibility" = "アクセシビリティ";
 "settings.activity" = "アクティビティ";
 "settings.allow" = "許可";
+"settings.allowWhenNeeded" = "必要な場合に許可";
+"settings.appManagement" = "アプリ管理";
 "settings.allowLutiSystemSettingsLoginItems" = "「システム設定」>「一般」>「ログイン項目」でLutiを許可してください。";
 "settings.awaitingApproval" = "システムの許可を待っています";
 "settings.captureObserveScreen" = "画面の取り込みと観察に使用";
@@ -387,7 +389,10 @@
 "settings.automaticUpdateChecks" = "アップデートを自動確認";
 "settings.japanese" = "日本語";
 "settings.launchLogin" = "ログイン時にLutiを開く";
+"settings.manageOtherApps" = "Lutiでほかのアプリを更新・削除する場合に許可";
 "settings.notRegistered" = "未登録";
+"settings.permissionInstructions" = "「システム設定」>「プライバシーとセキュリティ」で、通知に表示されたアプリを許可してください。再起動を求められたら、そのアプリを終了して開き直します。Lutiを開き直したら「開始」をクリックしてください。";
+"settings.privacySecurityPath" = "システム設定 > プライバシーとセキュリティ";
 "settings.screenRecording" = "画面収録";
 "settings.simplifiedChinese" = "簡体字中国語";
 "settings.system" = "システムに合わせる";

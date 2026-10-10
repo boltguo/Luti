@@ -1,6 +1,7 @@
 import AppKit
 import CoreGraphics
 import Foundation
+import Darwin
 @preconcurrency import ScreenCaptureKit
 
 struct WindowTarget: Sendable, Equatable {
@@ -29,7 +30,7 @@ struct WindowTarget: Sendable, Equatable {
         let id = (row[kCGWindowNumber as String] as? NSNumber)?.uint32Value,
         let pid = (row[kCGWindowOwnerPID as String] as? NSNumber)?.int32Value,
         let nativeApp = NSRunningApplication(processIdentifier: pid),
-        let started = nativeApp.launchDate,
+        let started = processLaunchDate(pid, fallback: nativeApp.launchDate),
         let dictionary = row[kCGWindowBounds as String] as? NSDictionary,
         let rect = CGRect(dictionaryRepresentation: dictionary as CFDictionary), rect.width > 1,
         rect.height > 1
@@ -42,6 +43,19 @@ struct WindowTarget: Sendable, Equatable {
         bounds: ScreenBounds(
           x: rect.origin.x, y: rect.origin.y, width: rect.width, height: rect.height))
     }.prefix(64).map { $0 }
+  }
+  /// Apps spawned by an automation helper may have no Launch Services date.
+  /// The kernel start time still identifies the exact process across PID reuse.
+  static func processLaunchDate(_ pid: Int32, fallback: Date? = nil) -> Date? {
+    guard pid > 0 else { return nil }
+    var info = kinfo_proc()
+    var size = MemoryLayout<kinfo_proc>.size
+    var mib: [Int32] = [CTL_KERN, KERN_PROC, KERN_PROC_PID, pid]
+    let result = sysctl(&mib, UInt32(mib.count), &info, &size, nil, 0)
+    guard result == 0, size == MemoryLayout<kinfo_proc>.size else { return fallback }
+    let started = info.kp_proc.p_un.__p_starttime
+    guard started.tv_sec > 0 else { return fallback }
+    return Date(timeIntervalSince1970: Double(started.tv_sec) + Double(started.tv_usec) / 1_000_000)
   }
   static func applications() -> [JSONValue] {
     NSWorkspace.shared.runningApplications.filter { $0.activationPolicy == .regular }.prefix(64).map
@@ -74,29 +88,72 @@ struct WindowTarget: Sendable, Equatable {
       "Use computer_observe with window='list' to select a current exact window ID.")
   }
   static func validate(_ expected: WindowTarget, frontmost: Bool = false) throws {
-    guard let current = windows().first(where: { $0.id == expected.id }), current == expected else {
+    let snapshot = windows()
+    guard let current = snapshot.first(where: { $0.id == expected.id }), current == expected else {
       throw Failure(
         "stale_window", "The window identity, title or geometry changed.",
         "Observe it again before acting; do not reuse old screenshot coordinates.")
     }
     if frontmost {
       guard NSWorkspace.shared.frontmostApplication?.processIdentifier == expected.pid,
-        windows().first?.id == expected.id
+        snapshot.first?.id == expected.id
       else {
         throw Failure(
-          "window_not_frontmost", "Another window is in front of the observed target.",
-          "Focus the target semantically, then observe again before sending pointer or keyboard input."
+          "window_not_frontmost", "Observed window \(expected.id) is not frontmost; the front window is \(snapshot.first.map { String($0.id) } ?? "unavailable").",
+          "Call computer_action with action='activateWindow', then computer_observe again before sending pointer or keyboard input."
         )
       }
     }
   }
-  static func activate(_ target: WindowTarget) throws {
+  static func waitUntilFrontmost(_ target: WindowTarget) async throws {
+    do {
+      try await waitForFrontmost { try validate(target, frontmost: true) }
+    } catch let error as Failure {
+      throw Failure(
+        "outcome_unknown", "Window activation was submitted, but frontmost state was not confirmed. \(error.message)",
+        "Call computer_observe again before any input. Do not replay the prior action automatically.",
+        effect: "possible")
+    }
+  }
+  /// Activation is asynchronous. Yield the main run loop while waiting, and
+  /// stop immediately if the observed window changes or the task is cancelled.
+  static func waitForFrontmost(
+    timeout: Duration = .seconds(1), check: () throws -> Void
+  ) async throws {
+    let deadline = ContinuousClock.now.advanced(by: timeout)
+    while true {
+      try Task.checkCancellation()
+      do {
+        try check()
+        return
+      } catch let error as Failure where error.code == "window_not_frontmost" {
+        guard ContinuousClock.now < deadline else { throw error }
+      }
+      try await Task.sleep(for: .milliseconds(50))
+    }
+  }
+  static func activate(_ target: WindowTarget) async throws {
     try validate(target)
-    guard let app = NSRunningApplication(processIdentifier: target.pid), app.activate(options: [])
-    else {
+    guard let app = NSRunningApplication(processIdentifier: target.pid) else {
       throw Failure(
         "activation_failed", "The target application could not be activated.",
         "Bring the target application forward and observe again.")
+    }
+    if app.activate(options: []) { return }
+    guard let url = app.bundleURL else {
+      throw Failure(
+        "activation_failed", "The target application has no bundle URL for activation.",
+        "Bring the target application forward and observe again.")
+    }
+    // A background app's activation request can be denied. NSWorkspace handles
+    // cooperative activation; reuse the existing process, then check identity.
+    try Task.checkCancellation()
+    let activated = try await openApplication(at: url)
+    guard activated.processIdentifier == target.pid,
+      processLaunchDate(activated.processIdentifier, fallback: activated.launchDate) == target.launchDate else {
+      throw Failure(
+        "outcome_unknown", "Activation returned a different application instance.",
+        "Observe again before any input; do not reuse the prior window.", effect: "possible")
     }
   }
   static func launch(_ bundleID: String) async throws -> JSONValue {
@@ -108,12 +165,17 @@ struct WindowTarget: Sendable, Equatable {
         "application_not_found", "The installed application bundle ID was not found.",
         "Use the exact bundleId from computer_observe's applications list.")
     }
+    let app = try await openApplication(at: url)
+    return ["bundleId": .string(bundleID), "pid": .int(Int(app.processIdentifier)), "launched": true]
+  }
+  private static func openApplication(at url: URL) async throws -> NSRunningApplication {
     let config = NSWorkspace.OpenConfiguration()
     config.activates = true
-    let result: Int32 = try await withCheckedThrowingContinuation { continuation in
+    config.createsNewApplicationInstance = false
+    return try await withCheckedThrowingContinuation { continuation in
       NSWorkspace.shared.openApplication(at: url, configuration: config) { app, error in
         if let app {
-          continuation.resume(returning: app.processIdentifier)
+          continuation.resume(returning: app)
         } else {
           continuation.resume(
             throwing: Failure(
@@ -122,7 +184,6 @@ struct WindowTarget: Sendable, Equatable {
         }
       }
     }
-    return ["bundleId": .string(bundleID), "pid": .int(Int(result)), "launched": true]
   }
 }
 

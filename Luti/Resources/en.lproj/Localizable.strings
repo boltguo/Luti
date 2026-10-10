@@ -374,6 +374,8 @@
 "settings.accessibility" = "Accessibility";
 "settings.activity" = "Activity";
 "settings.allow" = "Allow";
+"settings.allowWhenNeeded" = "As needed";
+"settings.appManagement" = "App Management";
 "settings.allowLutiSystemSettingsLoginItems" = "Allow Luti in System Settings > General > Login Items.";
 "settings.awaitingApproval" = "Waiting for system permission";
 "settings.captureObserveScreen" = "Capture and observe your screen";
@@ -387,7 +389,10 @@
 "settings.automaticUpdateChecks" = "Automatically check for updates";
 "settings.japanese" = "Japanese";
 "settings.launchLogin" = "Open Luti at Login";
+"settings.manageOtherApps" = "Allow when using Luti to update or delete other apps";
 "settings.notRegistered" = "Not registered";
+"settings.permissionInstructions" = "In System Settings > Privacy & Security, allow the app named in the prompt. If macOS requires a restart, quit and reopen that app. After restarting Luti, click Start.";
+"settings.privacySecurityPath" = "System Settings > Privacy & Security";
 "settings.screenRecording" = "Screen Recording";
 "settings.simplifiedChinese" = "Simplified Chinese";
 "settings.system" = "System";

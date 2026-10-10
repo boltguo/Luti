@@ -25,8 +25,7 @@ import Security
         at: url, configuration: NSWorkspace.OpenConfiguration(), completionHandler: nil)
     }
   }
-  public static let instructions =
-    "System Settings → Privacy & Security → Screen Recording / Accessibility. Enable Luti at its final installation path. macOS may require restarting the app."
+  public static var instructions: String { L10n.text("settings.permissionInstructions") }
 }
 public enum KeychainService {
   /// One account per secret. The Tunnel Token is the default because it is the

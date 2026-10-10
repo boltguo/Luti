@@ -82,6 +82,8 @@ Luti exposes **30 public MCP tools** across eight domains.
 | Computer | `computer_observe`, `computer_action`, `computer_wait` | macOS observation, input, state waiting |
 | Skills & Artifacts | `skills`, `export_artifact`, `import_artifact` | Project skills, immutable exports and controlled imports |
 
+Window observations route pointer and keyboard input to that application in the background; the system cursor stays independent. Keyboard input requires the target app's focused window. Some apps do not handle background menu shortcuts. When AXSetValue is unavailable, text replacement requires confirmed selection before typing. Display observations use the shared foreground pointer. Background pointer delivery checks a macOS compatibility hook at runtime and refuses to switch to global input automatically; always re-observe to verify effects.
+
 Project-specific behavior comes from the project's own manifest, instructions, tasks, and skills rather than an expanding public tool set.
 
 Start with `memory(action=recent)` for a bounded resume summary and `projectToken`. Project writes, command execution, browser mutations, project switching and Job input require this token. It changes after switching projects or restarting the Runtime; re-observe the intended project after a mismatch. Stopping an owned Job remains available without a current token. Connections without project-read permission can use `projects(action=current)` to obtain only the minimal binding.

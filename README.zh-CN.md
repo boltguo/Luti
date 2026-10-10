@@ -82,6 +82,8 @@ Luti 对外固定暴露 **30 个 MCP Tool**，分为 8 个领域。
 | Computer | `computer_observe`, `computer_action`, `computer_wait` | macOS 观察、输入和状态等待 |
 | Skills & Artifacts | `skills`, `export_artifact`, `import_artifact` | 项目 Skill、不可变导出与受控导入 |
 
+窗口观察默认使用后台定向输入，系统鼠标保持独立；键盘输入要求目标应用内部的焦点位于该窗口。部分应用不会执行后台菜单快捷键；无法直接设置文本时，须确认全选范围后才会发送替换文字。显示器观察使用共享的前台鼠标。后台指针依赖运行时检查的 macOS 兼容接口，接口不可用时返回错误，不自动切换为全局输入；操作后须重新观察确认效果。
+
 项目专属能力由项目自己的 manifest、instructions、tasks 和 skills 提供，无需不断增加 Public Tool。
 
 先调用 `memory(action=recent)`，一次取得有界接续摘要与 `projectToken`。项目写入、命令执行、浏览器修改、项目切换和 Job 输入需携带该标识；切换项目或重启 Runtime 后会失效。遇到失配应重新观察并确认目标项目。停止仍归 Runtime 管理的 Job 不受旧标识阻碍。未获项目读取权限的连接可通过 `projects(action=current)` 取得最小绑定信息。

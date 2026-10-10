@@ -336,12 +336,23 @@ private struct PermissionsSettingsBlock: View {
           tone: .pink,
           action: PermissionManager.requestAccessibility)
         MDNavigationRow(
+          title: L10n.text("settings.appManagement"),
+          symbol: "app.badge",
+          subtitle: L10n.text("settings.manageOtherApps"),
+          detail: L10n.text("settings.allowWhenNeeded"),
+          position: .middle,
+          iconTone: .purple,
+          action: PermissionManager.openSettings)
+          .accessibilityIdentifier("app-management-permission")
+        MDNavigationRow(
           title: L10n.text("settings.systemPermissionSettings"),
           symbol: "gearshape",
+          subtitle: L10n.text("settings.privacySecurityPath"),
           position: .last,
           iconTone: .gray,
           action: PermissionManager.openSettings)
       }
+      InlineNotice(text: PermissionManager.instructions)
     }
   }
 
