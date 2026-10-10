@@ -1,0 +1,110 @@
+{
+  "date": "2026-10-10",
+  "baseCommit": "751ed454b3b4069c77ce85854621e3de2f7bcd31",
+  "sourceBranch": "codex/computer-use-investigation",
+  "sourceCommit": "88e4cb6117ebd2326a5a98c59c451576feb0be17",
+  "branch": "codex/main-computer-use-fix",
+  "status": "main migration verified on native fixture; application compatibility and installed candidate acceptance remain",
+  "automated": {
+    "passed": 326,
+    "failed": 0,
+    "skipped": 0,
+    "resultBundle": ".build/main-computer-use-final-20261010.xcresult"
+  },
+  "release": {
+    "build": "passed",
+    "architectures": [
+      "arm64",
+      "x86_64"
+    ],
+    "signatureVerification": "codesign --verify --deep --strict passed",
+    "hardenedRuntime": true,
+    "sha256": {
+      "Luti": "ba786501c39ab063519e5eeb2ee215d4f053a33082ae1c3f85f7e1d9039d48fa",
+      "LutiProcessHost": "d7943bb25a56fc3ded0a3d7397f4483e6b895306412643c70d20497f0dd3a8ea"
+    },
+    "installed": false,
+    "packaged": false
+  },
+  "manualMCP": {
+    "transport": "authenticated loopback HTTP MCP using production MCPServer, MCPDispatcher, ToolRouter and ComputerService",
+    "host": "separate Developer ID signed native acceptance app; not the installed Lite app or its Cloudflare session",
+    "target": "disposable native two-window app with AXValue-settable and keyboard-only fields",
+    "checks": {
+      "AXValueReplacement": true,
+      "accessibilityTrusted": true,
+      "agentPointerAutoHidden": true,
+      "agentPointerExcludedFromWindowList": true,
+      "agentPointerVisible": true,
+      "backgroundClickDelivered": true,
+      "backgroundDragDelivered": true,
+      "backgroundScrollDelivered": true,
+      "bothFixtureWindowsDiscovered": true,
+      "emptyReplacementClearsField": true,
+      "fallbackUsesPIDKeyboard": true,
+      "mainHas30Tools": true,
+      "nativeCommandAThenDelete": true,
+      "nativeWindowScreenshot": true,
+      "otherWindowFocusRefused": true,
+      "pointerDidNotActivateFixture": true,
+      "refusedKeyNotDelivered": true,
+      "repeatedReplacementDoesNotAppend": true,
+      "restartRejectsOldObservation": true,
+      "secondWindowTargeted": true,
+      "systemPointerIndependentAtDelivery": true,
+      "unicodeMultiChunkReplacement": true
+    },
+    "toolCalls": 28,
+    "expectedRefusals": [
+      "window_not_focused",
+      "stale_observation"
+    ],
+    "record": ".build/MainComputerUsePort-20261010/mcp-desktop-result.json",
+    "sourceMatches": [
+      {
+        "path": "Luti/Tools/Computer/ComputerService.swift",
+        "sha256": "3020f0eebdd30c93002a6b9794a4a5a7171c84ef89a599224fb51b7424d0bbe0"
+      },
+      {
+        "path": "Luti/Platform/Desktop/AccessibilityService.swift",
+        "sha256": "4d58b1016f26f02c8896a7ed35c68e6fafe517fe6f916e936c7720fec47ec008"
+      },
+      {
+        "path": "Luti/Platform/Desktop/InputService.swift",
+        "sha256": "911114fd0fb7598e7e3e843acabb127a221d167ba88345b6579369c58ecac396"
+      },
+      {
+        "path": "Luti/Platform/Desktop/WindowAndCapture.swift",
+        "sha256": "23438d8830f79bd26f207f5280592313c286424534a892bae3573a72289fcf23"
+      },
+      {
+        "path": "Luti/Transport/MCPServer.swift",
+        "sha256": "d3afb5017b3cf0aa3495b831062dfa640131dd12864e4928b0b80da8e2f62ab5"
+      },
+      {
+        "path": "Luti/Transport/MCPDispatcher.swift",
+        "sha256": "d50f155c61a36e73a269094660da19e420477f994a5600c6eb11def616b3d1ef"
+      },
+      {
+        "path": "Luti/Tools/ToolRouter.swift",
+        "sha256": "0a777f8b64d26738074d48a9f4d46edb993872ebd20d28682d8b785e2f625671"
+      }
+    ]
+  },
+  "earlierAttempts": [
+    "Hosted XCTest manual probe could not use Accessibility permission; stopped before fixture input. Existing permissions were not changed.",
+    "Initial fixture startup changed window identity; stale_window refused the action. Final run waited for fixture readiness and passed."
+  ],
+  "remaining": [
+    "Chrome and other apps may not execute background menu shortcuts; compatibility is not universal.",
+    "Private AX-to-window and window-local event hooks are checked at runtime; unsupported versions fail closed.",
+    "Installed full app and remote MCP acceptance not performed; current Lite installation remains active.",
+    "Specific App Management file operation behind the historical notification remains unidentified."
+  ],
+  "cleanup": {
+    "disposableFixtureStopped": true,
+    "localAcceptanceServerStopped": true,
+    "systemPermissionsChanged": false,
+    "installedLiteReplaced": false
+  }
+}

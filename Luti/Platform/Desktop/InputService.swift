@@ -10,14 +10,14 @@ import Carbon.HIToolbox
     try Task.checkCancellation()
   }
   private static func source() throws -> CGEventSource {
-    guard let source = CGEventSource(stateID: .hidSystemState) else {
+    guard let source = CGEventSource(stateID: .privateState) else {
       throw Failure(
         "input_unavailable", "Quartz could not create an input source.",
         "Check the active user session and Accessibility permission.")
     }
     return source
   }
-  static func pointer(x: Double, y: Double, button: String?, count: Int = 1) throws {
+  static func pointer(x: Double, y: Double, button: String?, count: Int = 1, target: WindowTarget?) throws {
     try permission()
     let source = try source()
     let point = CGPoint(x: x, y: y)
@@ -28,7 +28,7 @@ import Carbon.HIToolbox
         mouseButton: nativeButton)
     else { throw Failure.invalid("Cannot create mouse event.") }
     if button == nil {
-      move.post(tap: .cghidEventTap)
+      try postPointer([move], source: source, target: target)
       return
     }
     guard (1...2).contains(count), ["left", "right"].contains(button!) else {
@@ -50,9 +50,9 @@ import Carbon.HIToolbox
       up.setIntegerValueField(.mouseEventClickState, value: Int64(index))
       events.append(contentsOf: [down, up])
     }
-    for event in events { event.post(tap: .cghidEventTap) }
+    try postPointer(events, source: source, target: target)
   }
-  static func drag(fromX: Double, fromY: Double, toX: Double, toY: Double) throws {
+  static func drag(fromX: Double, fromY: Double, toX: Double, toY: Double, target: WindowTarget?) throws {
     try permission()
     let source = try source()
     let start = CGPoint(x: fromX, y: fromY)
@@ -83,10 +83,10 @@ import Carbon.HIToolbox
       events.append(dragged)
     }
     events.append(up)
-    for event in events { event.post(tap: .cghidEventTap) }
+    try postPointer(events, source: source, target: target)
   }
 
-  static func scroll(x: Double, y: Double, dx: Int, dy: Int) throws {
+  static func scroll(x: Double, y: Double, dx: Int, dy: Int, target: WindowTarget?) throws {
     try permission()
     let source = try source()
     guard
@@ -95,9 +95,19 @@ import Carbon.HIToolbox
         wheel2: Int32(dx), wheel3: 0)
     else { throw Failure.invalid("Cannot create scroll event.") }
     event.location = CGPoint(x: x, y: y)
-    event.post(tap: .cghidEventTap)
+    event.flags = []
+    if let target {
+      let moved = try BackgroundInput.mouse(.mouseMoved, at: event.location, target: target, source: source)
+      try BackgroundInput.tag(event, target: target)
+      try WindowService.validate(target)
+      moved.postToPid(target.pid)
+      event.postToPid(target.pid)
+      AgentPointer.show(at: event.location)
+    } else {
+      event.post(tap: .cghidEventTap)
+    }
   }
-  static func key(_ name: String, modifiers: [String]) throws {
+  static func key(_ name: String, modifiers: [String], target: WindowTarget) throws {
     try permission()
     let codes: [String: Int] = [
       "enter": kVK_Return, "tab": kVK_Tab, "space": kVK_Space, "escape": kVK_Escape,
@@ -129,10 +139,11 @@ import Carbon.HIToolbox
     else { throw Failure.invalid("Cannot create keyboard event.") }
     down.flags = flags
     up.flags = flags
-    down.post(tap: .cghidEventTap)
-    up.post(tap: .cghidEventTap)
+    try WindowService.validate(target)
+    down.postToPid(target.pid)
+    up.postToPid(target.pid)
   }
-  static func text(_ text: String) throws {
+  static func text(_ text: String, target: WindowTarget) throws {
     try permission()
     guard text.utf8.count <= 16_384, !text.contains("\0") else {
       throw Failure.invalid("Keyboard text must be at most 16 KiB UTF-8 without NUL.")
@@ -162,7 +173,27 @@ import Carbon.HIToolbox
       }
       events.append(contentsOf: [down, up])
     }
-    for event in events { event.post(tap: .cghidEventTap) }
+    try WindowService.validate(target)
+    for event in events {
+      event.flags = []
+      event.postToPid(target.pid)
+    }
+  }
+  private static func postPointer(_ events: [CGEvent], source: CGEventSource, target: WindowTarget?) throws {
+    if let target {
+      // Construct and validate the complete batch before its first effect.
+      let routed = try events.map { event in
+        let native = try BackgroundInput.mouse(event.type, at: event.location, target: target,
+          source: source, count: Int(event.getIntegerValueField(.mouseEventClickState)),
+          button: CGMouseButton(rawValue: UInt32(event.getIntegerValueField(.mouseEventButtonNumber))) ?? .left)
+        return native
+      }
+      try WindowService.validate(target)
+      for event in routed { event.postToPid(target.pid) }
+      if let last = events.last { AgentPointer.show(at: last.location) }
+    } else {
+      for event in events { event.flags = []; event.post(tap: .cghidEventTap) }
+    }
   }
   static func clipboardRead() -> JSONValue {
     let text = NSPasteboard.general.string(forType: .string) ?? ""
@@ -181,5 +212,121 @@ import Carbon.HIToolbox
         "outcome_unknown", "The clipboard was cleared but its new value was not confirmed.",
         "Check the clipboard before trying another write.")
     }
+  }
+}
+
+/// Window-local coordinates are absent from public CGEvent mouse constructors.
+/// Resolve the OS compatibility hook once; never silently switch to global HID
+/// input if it is unavailable. All delivery still requires Accessibility trust.
+@MainActor enum BackgroundInput {
+  private typealias SetWindowLocation = @convention(c) (CGEvent, CGPoint) -> Void
+  private static let setWindowLocation: SetWindowLocation? = {
+    guard let symbol = dlsym(UnsafeMutableRawPointer(bitPattern: -2), "CGEventSetWindowLocation") else { return nil }
+    return unsafeBitCast(symbol, to: SetWindowLocation.self)
+  }()
+  static var available: Bool { setWindowLocation != nil }
+  static func localPoint(_ point: CGPoint, bounds: ScreenBounds) throws -> CGPoint {
+    guard bounds.contains(x: point.x, y: point.y) else {
+      throw Failure.invalid("Coordinates lie outside the observed window.")
+    }
+    return CGPoint(x: point.x - bounds.x, y: point.y - bounds.y)
+  }
+  static func tag(_ event: CGEvent, target: WindowTarget) throws {
+    guard let setWindowLocation else {
+      throw Failure("background_input_unavailable", "This macOS version lacks window-directed pointer input.",
+        "Use AX semantics for this window. No global pointer input was posted.")
+    }
+    let local = try localPoint(event.location, bounds: target.bounds)
+    let originalType = event.type
+    if originalType == .scrollWheel {
+      // Quartz wheel constructors omit NSEvent.windowNumber. Field 51 is the
+      // current AppKit bridge's window field; check the round trip below before
+      // any delivery, so an OS layout change fails without posting input.
+      event.setIntegerValueField(CGEventField(rawValue: 51)!, value: Int64(target.id))
+    }
+    event.setIntegerValueField(.mouseEventWindowUnderMousePointer, value: Int64(target.id))
+    event.setIntegerValueField(.mouseEventWindowUnderMousePointerThatCanHandleThisEvent, value: Int64(target.id))
+    event.setIntegerValueField(.eventTargetUnixProcessID, value: Int64(target.pid))
+    setWindowLocation(event, local)
+    guard event.type == originalType, NSEvent(cgEvent: event)?.windowNumber == Int(target.id) else {
+      throw Failure("background_input_unavailable", "macOS could not preserve the target window in this event.",
+        "Use AX semantics and re-observe. No pointer event was posted.")
+    }
+  }
+  static func mouse(_ type: CGEventType, at point: CGPoint, target: WindowTarget,
+    source: CGEventSource, count: Int = 0, button: CGMouseButton = .left) throws -> CGEvent {
+    let nativeType: NSEvent.EventType
+    switch type {
+    case .mouseMoved: nativeType = .mouseMoved
+    case .leftMouseDown: nativeType = .leftMouseDown
+    case .leftMouseUp: nativeType = .leftMouseUp
+    case .rightMouseDown: nativeType = .rightMouseDown
+    case .rightMouseUp: nativeType = .rightMouseUp
+    case .leftMouseDragged: nativeType = .leftMouseDragged
+    default: throw Failure.invalid("Unsupported window pointer event.")
+    }
+    guard let native = NSEvent.mouseEvent(with: nativeType, location: point,
+      modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
+      windowNumber: Int(target.id), context: nil, eventNumber: 0, clickCount: count, pressure: 1),
+      let event = native.cgEvent else { throw Failure.invalid("Cannot create window pointer event.") }
+    event.setSource(source)
+    event.location = point
+    event.flags = []
+    event.setIntegerValueField(.mouseEventSubtype, value: 3)
+    event.setIntegerValueField(.mouseEventButtonNumber, value: Int64(button.rawValue))
+    try tag(event, target: target)
+    return event
+  }
+}
+
+/// A click-through software cursor. It never becomes key, activates Luti,
+/// changes the system pointer, or appears in layer-zero window observations.
+@MainActor enum AgentPointer {
+  private final class Panel: NSPanel {
+    override var canBecomeKey: Bool { false }
+    override var canBecomeMain: Bool { false }
+  }
+  private final class CursorView: NSView {
+    override func draw(_ dirtyRect: NSRect) {
+      let arrow = NSBezierPath()
+      arrow.move(to: NSPoint(x: 4, y: 38))
+      arrow.line(to: NSPoint(x: 4, y: 14))
+      arrow.line(to: NSPoint(x: 10, y: 20))
+      arrow.line(to: NSPoint(x: 16, y: 9))
+      arrow.line(to: NSPoint(x: 21, y: 12))
+      arrow.line(to: NSPoint(x: 15, y: 23))
+      arrow.line(to: NSPoint(x: 24, y: 23))
+      arrow.close()
+      NSColor.white.setStroke(); arrow.lineWidth = 3; arrow.stroke()
+      NSColor.systemIndigo.setFill(); arrow.fill()
+      ("Luti" as NSString).draw(at: NSPoint(x: 25, y: 9), withAttributes: [
+        .font: NSFont.systemFont(ofSize: 11, weight: .semibold), .foregroundColor: NSColor.systemIndigo,
+        .strokeColor: NSColor.white, .strokeWidth: -3])
+    }
+  }
+  private static var panel: NSPanel?
+  private static var hideTask: Task<Void, Never>?
+  static func show(at point: CGPoint) {
+    hideTask?.cancel()
+    if panel == nil {
+      let p = Panel(contentRect: NSRect(x: 0, y: 0, width: 56, height: 42),
+        styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
+      p.isOpaque = false; p.backgroundColor = .clear; p.hasShadow = false
+      p.ignoresMouseEvents = true; p.hidesOnDeactivate = false
+      p.level = .floating; p.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+      p.contentView = CursorView(frame: p.contentView!.bounds)
+      panel = p
+    }
+    let height = CGDisplayBounds(CGMainDisplayID()).height
+    panel?.setFrameOrigin(NSPoint(x: point.x - 4, y: height - point.y - 38))
+    panel?.orderFrontRegardless()
+    hideTask = Task {
+      do { try await Task.sleep(for: .milliseconds(1200)) } catch { return }
+      hide()
+    }
+  }
+  static func hide() {
+    hideTask?.cancel(); hideTask = nil
+    panel?.orderOut(nil)
   }
 }

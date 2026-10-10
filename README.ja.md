@@ -82,6 +82,8 @@ Lutiは8領域・**30個のPublic MCP Tool**を公開します。
 | Computer | `computer_observe`, `computer_action`, `computer_wait` | macOSの観察、入力、状態待ち |
 | Skills & Artifacts | `skills`, `export_artifact`, `import_artifact` | Project Skill、不変のエクスポート、制御されたインポート |
 
+ウィンドウの観察では、システムカーソルを動かさず、対象アプリへバックグラウンド入力を送ります。キーボード入力には対象ウィンドウ内のフォーカスが必要です。バックグラウンドでメニューのショートカットを処理しないアプリもあります。値を直接設定できない場合、テキストを置換する前に全選択を確認します。ディスプレイの観察は共有の前面カーソルを使用します。バックグラウンドのポインター入力はmacOS互換APIを実行時に確認し、利用できない場合は全体入力へ自動切替せずエラーを返します。操作後は再観察で結果を確認してください。
+
 プロジェクト固有の動作は、そのプロジェクトのmanifest、instructions、tasks、skillsで定義します。Public Toolを増やす必要はありません。
 
 最初に `memory(action=recent)` を呼び出すと、サイズを制限した再開概要と `projectToken` を取得できます。Projectへの書き込み、コマンド実行、Browserの変更、Project切り替え、Job入力にはこの値が必要です。Project切り替えやRuntime再起動で失効するため、不一致の場合は対象Projectを再確認してください。所有するJobの停止は古い値によって妨げられません。Project読み取り権限がない接続は、`projects(action=current)` で最小限のバインディングだけを取得できます。

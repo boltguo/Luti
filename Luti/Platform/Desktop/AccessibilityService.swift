@@ -24,14 +24,18 @@ actor AccessibilityService {
     let remaining = ContinuousClock.now.duration(to: deadline).components
     let seconds = Double(remaining.seconds) + Double(remaining.attoseconds) / 1e18
     let result = AXUIElementSetMessagingTimeout(element, Float(min(0.2, max(0.01, seconds))))
-    guard result == .success else { throw failure(result, attempted: false) }
+    guard result == .success else {
+      throw Self.failure(result, operation: "AXUIElementSetMessagingTimeout", attempted: false)
+    }
   }
   private func value(_ element: AXUIElement, _ attribute: String) throws -> CFTypeRef? {
     try prepare(element)
     var result: CFTypeRef?
     let status = AXUIElementCopyAttributeValue(element, attribute as CFString, &result)
     if status == .attributeUnsupported || status == .noValue { return nil }
-    guard status == .success else { throw failure(status, attempted: false) }
+    guard status == .success else {
+      throw Self.failure(status, operation: "AXUIElementCopyAttributeValue(\(attribute))", attempted: false)
+    }
     return result
   }
   private func text(_ element: AXUIElement, _ attribute: String) throws -> String {
@@ -65,30 +69,81 @@ actor AccessibilityService {
   private func children(_ element: AXUIElement, attribute: String, limit: Int) throws
     -> [AXUIElement]
   {
+    try Self.readElements(limit: limit, count: {
+      try prepare(element)
+      var count = 0
+      let status = AXUIElementGetAttributeValueCount(element, attribute as CFString, &count)
+      if status == .attributeUnsupported || status == .noValue { return 0 }
+      guard status == .success else {
+        throw Self.failure(status, operation: "AXUIElementGetAttributeValueCount(\(attribute))", attempted: false)
+      }
+      return count
+    }, copy: { count in
+      try prepare(element)
+      var array: CFArray?
+      let status = AXUIElementCopyAttributeValues(element, attribute as CFString, 0, count, &array)
+      if status == .attributeUnsupported || status == .noValue { return [] }
+      guard status == .success else {
+        throw Self.failure(status, operation: "AXUIElementCopyAttributeValues(\(attribute))", attempted: false)
+      }
+      return (array as? [AXUIElement]) ?? []
+    })
+  }
+  /// Never request index zero from an empty AX array. A live array may also
+  /// become empty between the count and copy calls; only that race is benign.
+  static func readElements(
+    limit: Int, count: () throws -> Int, copy: (Int) throws -> [AXUIElement]
+  ) throws -> [AXUIElement] {
     guard limit > 0 else { return [] }
-    try prepare(element)
-    var array: CFArray?
-    let status = AXUIElementCopyAttributeValues(element, attribute as CFString, 0, limit, &array)
-    if status == .attributeUnsupported || status == .noValue { return [] }
-    guard status == .success else { throw failure(status, attempted: false) }
-    return (array as? [AXUIElement]) ?? []
+    let available = try count()
+    guard available > 0 else { return [] }
+    do { return try copy(min(limit, available)) }
+    catch let error as Failure where error.code == "accessibility_invalid_argument" {
+      if try count() == 0 { return [] }
+      throw error
+    }
   }
   private func windowNumber(_ element: AXUIElement) throws -> UInt32? {
+    // Chromium does not advertise AXWindowNumber, and several windows can have
+    // identical frames. The native AX-to-CG bridge supplies their actual IDs.
+    if let getWindow = Self.getWindow {
+      try prepare(element)
+      var id: UInt32 = 0
+      let status = getWindow(element, &id)
+      if status == .success, id != 0 { return id }
+      if status == .cannotComplete || status == .invalidUIElement {
+        throw Self.failure(status, operation: "AX window identity", attempted: false)
+      }
+    }
+    // AXWindowNumber is optional and not a standard AX window attribute.
+    // Some applications reject an unadvertised attribute as illegalArgument.
+    try prepare(element)
+    var names: CFArray?
+    let status = AXUIElementCopyAttributeNames(element, &names)
+    if status == .attributeUnsupported || status == .noValue { return nil }
+    guard status == .success else {
+      throw Self.failure(status, operation: "AXUIElementCopyAttributeNames", attempted: false)
+    }
+    guard let names = names as? [String], names.contains("AXWindowNumber") else { return nil }
     guard let raw = try value(element, "AXWindowNumber"), let number = raw as? NSNumber
     else { return nil }
     return number.uint32Value
   }
+  private typealias GetWindow = @convention(c) (AXUIElement, UnsafeMutablePointer<UInt32>) -> AXError
+  private static let getWindow: GetWindow? = {
+    guard let symbol = dlsym(UnsafeMutableRawPointer(bitPattern: -2), "_AXUIElementGetWindow") else { return nil }
+    return unsafeBitCast(symbol, to: GetWindow.self)
+  }()
 
   private func findWindow(_ target: WindowTarget) throws -> AXUIElement {
     let application = AXUIElementCreateApplication(target.pid)
     let windows = try children(application, attribute: kAXWindowsAttribute, limit: 64)
 
-    // Prefer the native CGWindowID when the app exposes AXWindowNumber. This is
+    // Prefer the native AX-to-CG bridge or advertised AXWindowNumber. This is
     // substantially more reliable than title/frame matching for duplicate,
     // untitled and tabbed windows.
-    for window in windows where try windowNumber(window) == target.id {
-      return window
-    }
+    let identified = try windows.map { ($0, try windowNumber($0)) }
+    if let exact = identified.first(where: { $0.1 == target.id }) { return exact.0 }
 
     struct Candidate {
       let element: AXUIElement
@@ -96,7 +151,8 @@ actor AccessibilityService {
       let titleExact: Bool
     }
     var candidates: [Candidate] = []
-    for window in windows {
+    // Never match a window whose native ID is known to belong elsewhere.
+    for (window, _) in identified.filter({ $0.1 == nil }) {
       guard let b = try frame(window) else { continue }
       let dx = abs(b.x - target.bounds.x)
       let dy = abs(b.y - target.bounds.y)
@@ -114,14 +170,6 @@ actor AccessibilityService {
     if exactTitles.count == 1 { return exactTitles[0].element }
     if candidates.count == 1 { return candidates[0].element }
 
-    // When several AX windows share the same geometry/title, prefer the app's
-    // focused window only if it is one of the geometric candidates.
-    if let focused = reference(try value(application, kAXFocusedWindowAttribute)),
-      let match = candidates.first(where: { CFEqual($0.element, focused) })
-    {
-      return match.element
-    }
-
     // A clearly closer geometric match is safe even when titles are absent.
     let sorted = candidates.sorted { $0.delta < $1.delta }
     if sorted.count >= 2, sorted[0].delta + 0.5 < sorted[1].delta {
@@ -130,7 +178,7 @@ actor AccessibilityService {
 
     throw Failure(
       "window_ambiguous", "Could not uniquely match the screenshot window to its AX window.",
-      "Bring the target window forward, then observe again. Luti matched by window ID first and geometry/focus as fallbacks."
+      "Observe the exact window ID again. The app must expose a native window ID or unique title/frame match."
     )
   }
   func observe(_ target: WindowTarget, depth: Int, nodes: Int) throws -> JSONValue {
@@ -213,7 +261,9 @@ actor AccessibilityService {
     let root = try resolvedWindow(requested)
     try prepare(root)
     let status = AXUIElementPerformAction(root, kAXRaiseAction as CFString)
-    guard status == .success else { throw failure(status, attempted: true) }
+    guard status == .success else {
+      throw Self.failure(status, operation: "AXUIElementPerformAction(AXRaise)", attempted: true)
+    }
   }
 
   func minimizeWindow(_ requested: WindowTarget) throws {
@@ -229,7 +279,9 @@ actor AccessibilityService {
     try prepare(root)
     let status = AXUIElementSetAttributeValue(
       root, kAXMinimizedAttribute as CFString, kCFBooleanTrue)
-    guard status == .success else { throw failure(status, attempted: true) }
+    guard status == .success else {
+      throw Self.failure(status, operation: "AXUIElementSetAttributeValue(AXMinimized)", attempted: true)
+    }
   }
 
   func closeWindow(_ requested: WindowTarget) throws {
@@ -241,7 +293,9 @@ actor AccessibilityService {
     }
     try prepare(button)
     let status = AXUIElementPerformAction(button, kAXPressAction as CFString)
-    guard status == .success else { throw failure(status, attempted: true) }
+    guard status == .success else {
+      throw Self.failure(status, operation: "AXUIElementPerformAction(AXPress)", attempted: true)
+    }
   }
 
   private func checked(_ id: String) throws -> AXUIElement {
@@ -274,23 +328,72 @@ actor AccessibilityService {
     let element = try checked(id)
     try prepare(element)
     let status = AXUIElementPerformAction(element, kAXPressAction as CFString)
-    guard status == .success else { throw failure(status, attempted: true) }
+    guard status == .success else {
+      throw Self.failure(status, operation: "AXUIElementPerformAction(AXPress)", attempted: true)
+    }
   }
   func focus(_ id: String) throws {
     let element = try checked(id)
-    if let window {
-      try prepare(window)
-      let raised = AXUIElementPerformAction(window, kAXRaiseAction as CFString)
-      guard raised == .success else { throw failure(raised, attempted: true) }
+    if let target, let window {
+      let app = AXUIElementCreateApplication(target.pid)
+      let focused = reference(try value(app, kAXFocusedWindowAttribute))
+      if focused == nil || !CFEqual(focused!, window) {
+        // AXMain selects the app's internal keyboard window without AXRaise or
+        // application activation. Setting only AXFocused would leave keys in
+        // a previously focused document of the same process.
+        var settable = DarwinBoolean(false)
+        try prepare(window)
+        let available = AXUIElementIsAttributeSettable(window, kAXMainAttribute as CFString, &settable)
+        guard available == .success, settable.boolValue else {
+          throw Failure("window_focus_unavailable", "This window does not expose background keyboard focus.",
+            "Observe and explicitly click the intended input with fallbackReason before sending keys.")
+        }
+        let selected = AXUIElementSetAttributeValue(window, kAXMainAttribute as CFString, kCFBooleanTrue)
+        guard selected == .success else {
+          throw Self.failure(selected, operation: "AXUIElementSetAttributeValue(AXMain)", attempted: true)
+        }
+      }
     }
     try prepare(element)
     let status = AXUIElementSetAttributeValue(
       element, kAXFocusedAttribute as CFString, kCFBooleanTrue)
     guard status == .success else {
       throw Failure(
-        "outcome_unknown", "The window was raised but element focus was not confirmed.",
+        "outcome_unknown", "Element focus was submitted but not confirmed.",
         "Observe again before any keyboard input; do not repeat the prior action automatically.")
     }
+  }
+  /// PID-directed keyboard events still use the app's first responder. Refuse
+  /// an ambiguous/different window instead of sending keys to another document.
+  func requireKeyboardFocus(_ requested: WindowTarget, elementID: String? = nil) throws {
+    let expectedElement = try elementID.map { try checked($0) }
+    let root = try resolvedWindow(requested)
+    let app = AXUIElementCreateApplication(requested.pid)
+    let focusedWindow = reference(try value(app, kAXFocusedWindowAttribute))
+    guard let focusedWindow, CFEqual(focusedWindow, root) else {
+      throw Failure("window_not_focused", "The target application's keyboard focus belongs to another window or is unavailable.",
+        "Observe this exact window and focus its input element before sending keys. No keyboard event was posted.")
+    }
+    if let expectedElement,
+      (try value(expectedElement, kAXFocusedAttribute) as? NSNumber)?.boolValue != true {
+      throw Failure("window_not_focused", "The intended input element did not acquire keyboard focus.",
+        "Observe the target element again before typing. No keyboard event was posted.")
+    }
+    var current = reference(try value(app, kAXFocusedUIElementAttribute))
+    // Some apps expose a keyboard window without an AX first responder; app
+    // shortcuts remain possible. An exposed responder must belong to this root.
+    if current == nil { return }
+    for _ in 0..<16 {
+      guard let element = current else { break }
+      if try text(element, kAXSubroleAttribute) == kAXSecureTextFieldSubrole {
+        throw Failure("protected_element", "The focused element belongs to protected input.",
+          "Do not read or automate secrets.")
+      }
+      if CFEqual(element, root) { return }
+      current = reference(try value(element, kAXParentAttribute))
+    }
+    throw Failure("window_not_focused", "The focused element could not be matched to the observed window.",
+      "Observe and focus the intended input before sending keys.")
   }
   /// false means no set action was attempted: the caller may explicitly choose
   /// a keyboard fallback. A native action failure throws and must not be replayed.
@@ -306,11 +409,58 @@ actor AccessibilityService {
     if status == .attributeUnsupported || (status == .success && !settable.boolValue) {
       return false
     }
-    guard status == .success else { throw failure(status, attempted: false) }
+    guard status == .success else {
+      throw Self.failure(status, operation: "AXUIElementIsAttributeSettable(AXValue)", attempted: false)
+    }
     try prepare(element)
     let applied = AXUIElementSetAttributeValue(
       element, kAXValueAttribute as CFString, text as CFString)
-    guard applied == .success else { throw failure(applied, attempted: true) }
+    guard applied == .success else {
+      throw Self.failure(applied, operation: "AXUIElementSetAttributeValue(AXValue)", attempted: true)
+    }
+    return true
+  }
+  func selectAllText(_ id: String) throws {
+    guard try selectAll(checked(id)) else {
+      throw Failure("text_replacement_unavailable", "The field cannot confirm selection for background replacement.",
+        "Use the app's semantic tools or browser tools to replace text. No text was posted.")
+    }
+  }
+  func selectAllFocusedText(_ requested: WindowTarget) throws -> Bool {
+    try requireKeyboardFocus(requested)
+    let app = AXUIElementCreateApplication(requested.pid)
+    guard let element = reference(try value(app, kAXFocusedUIElementAttribute)) else { return false }
+    return try selectAll(element)
+  }
+  private func selectAll(_ element: AXUIElement) throws -> Bool {
+    let role = try text(element, kAXRoleAttribute)
+    guard [kAXTextFieldRole, kAXTextAreaRole, kAXComboBoxRole].contains(role) else { return false }
+    guard try text(element, kAXSubroleAttribute) != kAXSecureTextFieldSubrole else {
+      throw Failure("protected_element", "The focused element belongs to protected input.", "Do not automate secrets.")
+    }
+    var settable = DarwinBoolean(false)
+    try prepare(element)
+    let status = AXUIElementIsAttributeSettable(element, kAXSelectedTextRangeAttribute as CFString, &settable)
+    if status == .attributeUnsupported || (status == .success && !settable.boolValue) { return false }
+    guard status == .success else {
+      throw Self.failure(status, operation: "AX selected text range capability", attempted: false)
+    }
+    guard let content = try value(element, kAXValueAttribute) as? String, content.utf16.count <= 65_536 else { return false }
+    var range = CFRange(location: 0, length: content.utf16.count)
+    guard let nativeRange = AXValueCreate(.cfRange, &range) else { throw Failure.invalid("Cannot create text selection.") }
+    try prepare(element)
+    let applied = AXUIElementSetAttributeValue(element, kAXSelectedTextRangeAttribute as CFString, nativeRange)
+    guard applied == .success else {
+      throw Self.failure(applied, operation: "AXUIElementSetAttributeValue(AXSelectedTextRange)", attempted: true)
+    }
+    guard let selected = try value(element, kAXSelectedTextRangeAttribute), CFGetTypeID(selected) == AXValueGetTypeID() else {
+      throw Failure("outcome_unknown", "Text selection was submitted but could not be confirmed.", "Re-observe before typing; no text was posted.", effect: "possible")
+    }
+    var confirmed = CFRange()
+    guard AXValueGetValue(selected as! AXValue, .cfRange, &confirmed),
+      confirmed.location == range.location, confirmed.length == range.length else {
+      throw Failure("outcome_unknown", "The field did not confirm full text selection.", "Re-observe before typing; no text was posted.", effect: "possible")
+    }
     return true
   }
   func scroll(_ id: String, dy: Int) throws -> Bool {
@@ -318,14 +468,18 @@ actor AccessibilityService {
     try prepare(element)
     var names: CFArray?
     let status = AXUIElementCopyActionNames(element, &names)
-    guard status == .success else { throw failure(status, attempted: false) }
+    guard status == .success else {
+      throw Self.failure(status, operation: "AXUIElementCopyActionNames", attempted: false)
+    }
     // These are selected only when explicitly advertised by this live object,
     // not assumed to be a universally supported accessibility API.
     let desired = dy < 0 ? "AXScrollDown" : "AXScrollUp"
     guard let names = names as? [String], names.contains(desired) else { return false }
     try prepare(element)
     let result = AXUIElementPerformAction(element, desired as CFString)
-    guard result == .success else { throw failure(result, attempted: true) }
+    guard result == .success else {
+      throw Self.failure(result, operation: "AXUIElementPerformAction(\(desired))", attempted: true)
+    }
     return true
   }
   func clear() {
@@ -344,20 +498,28 @@ actor AccessibilityService {
       "accessibility_permission_missing", "Accessibility permission is required.",
       "Grant Accessibility in Luti Settings, then restart when macOS requests it.")
   }
-  private func failure(_ status: AXError, attempted: Bool) -> Failure {
+  static func failure(_ status: AXError, operation: String, attempted: Bool) -> Failure {
     if status == .apiDisabled { return Self.permissionMissing() }
-    if status == .invalidUIElement { return stale() }
+    if status == .invalidUIElement {
+      return Failure("stale_element", "\(operation) used an expired accessibility element.",
+        "Call computer_observe again and use a newly issued handle.")
+    }
     if attempted
       && ![AXError.actionUnsupported, .attributeUnsupported, .illegalArgument, .notImplemented]
         .contains(status)
     {
       return Failure(
-        "outcome_unknown", "macOS did not confirm the attempted action (AX \(status.rawValue)).",
+        "outcome_unknown", "macOS did not confirm \(operation) (AX \(status.rawValue)).",
         "Observe the UI before doing anything else. Do not automatically retry or add a coordinate click."
       )
     }
+    if status == .illegalArgument {
+      return Failure(
+        "accessibility_invalid_argument", "\(operation) received an invalid argument or attribute value (AX \(status.rawValue)).",
+        "Re-observe the target. Check this AX operation and attribute; this error does not indicate missing Accessibility permission.")
+    }
     return Failure(
-      "accessibility_failed", "Accessibility rejected the operation (AX \(status.rawValue)).",
+      "accessibility_failed", "\(operation) failed (AX \(status.rawValue)).",
       "Observe again. Use explicit coordinate fallback only when semantic actions are unavailable.")
   }
 }

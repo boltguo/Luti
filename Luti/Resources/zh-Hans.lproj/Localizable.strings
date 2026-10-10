@@ -374,6 +374,8 @@
 "settings.accessibility" = "辅助功能";
 "settings.activity" = "活动记录";
 "settings.allow" = "授权";
+"settings.allowWhenNeeded" = "按需授权";
+"settings.appManagement" = "App 管理";
 "settings.allowLutiSystemSettingsLoginItems" = "请在“系统设置”>“通用”>“登录项”中允许 Luti。";
 "settings.awaitingApproval" = "等待系统允许";
 "settings.captureObserveScreen" = "用于截图和观察屏幕";
@@ -387,7 +389,10 @@
 "settings.automaticUpdateChecks" = "自动检查更新";
 "settings.japanese" = "日语";
 "settings.launchLogin" = "登录时打开 Luti";
+"settings.manageOtherApps" = "通过 Luti 更新或删除其他 App 时授权";
 "settings.notRegistered" = "未注册";
+"settings.permissionInstructions" = "在“系统设置”>“隐私与安全性”中为提示的 App 授权。系统要求重启时，退出并重新打开该 App；重启 Luti 后点击“启动”。";
+"settings.privacySecurityPath" = "系统设置 > 隐私与安全性";
 "settings.screenRecording" = "屏幕录制";
 "settings.simplifiedChinese" = "简体中文";
 "settings.system" = "跟随系统";
