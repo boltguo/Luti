@@ -25,7 +25,6 @@ import Security
         at: url, configuration: NSWorkspace.OpenConfiguration(), completionHandler: nil)
     }
   }
-  public static var instructions: String { L10n.text("settings.permissionInstructions") }
 }
 public enum KeychainService {
   /// One account per secret. The Tunnel Token is the default because it is the

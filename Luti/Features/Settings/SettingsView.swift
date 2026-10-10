@@ -352,7 +352,6 @@ private struct PermissionsSettingsBlock: View {
           iconTone: .gray,
           action: PermissionManager.openSettings)
       }
-      InlineNotice(text: PermissionManager.instructions)
     }
   }
 

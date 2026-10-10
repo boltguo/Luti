@@ -391,7 +391,6 @@
 "settings.launchLogin" = "登录时打开 Luti";
 "settings.manageOtherApps" = "通过 Luti 更新或删除其他 App 时授权";
 "settings.notRegistered" = "未注册";
-"settings.permissionInstructions" = "在“系统设置”>“隐私与安全性”中为提示的 App 授权。系统要求重启时，退出并重新打开该 App；重启 Luti 后点击“启动”。";
 "settings.privacySecurityPath" = "系统设置 > 隐私与安全性";
 "settings.screenRecording" = "屏幕录制";
 "settings.simplifiedChinese" = "简体中文";

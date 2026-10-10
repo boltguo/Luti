@@ -391,7 +391,6 @@
 "settings.launchLogin" = "ログイン時にLutiを開く";
 "settings.manageOtherApps" = "Lutiでほかのアプリを更新・削除する場合に許可";
 "settings.notRegistered" = "未登録";
-"settings.permissionInstructions" = "「システム設定」>「プライバシーとセキュリティ」で、通知に表示されたアプリを許可してください。再起動を求められたら、そのアプリを終了して開き直します。Lutiを開き直したら「開始」をクリックしてください。";
 "settings.privacySecurityPath" = "システム設定 > プライバシーとセキュリティ";
 "settings.screenRecording" = "画面収録";
 "settings.simplifiedChinese" = "簡体字中国語";

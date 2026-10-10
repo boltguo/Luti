@@ -391,7 +391,6 @@
 "settings.launchLogin" = "Open Luti at Login";
 "settings.manageOtherApps" = "Allow when using Luti to update or delete other apps";
 "settings.notRegistered" = "Not registered";
-"settings.permissionInstructions" = "In System Settings > Privacy & Security, allow the app named in the prompt. If macOS requires a restart, quit and reopen that app. After restarting Luti, click Start.";
 "settings.privacySecurityPath" = "System Settings > Privacy & Security";
 "settings.screenRecording" = "Screen Recording";
 "settings.simplifiedChinese" = "Simplified Chinese";
