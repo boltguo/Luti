@@ -77,8 +77,8 @@ private struct TestEnforcedSandboxBackend: ProjectSandboxBackend {
   ) throws -> (ToolRouter, JobManager) {
     let jobs = JobManager(helper: Fixture.helper)
     let router = try ToolRouter(
-      workspace: fixture.files, jobs: jobs, images: ImageStore(),
-      computer: NoComputerBackend(), activity: ActivityStore(),
+      workspace: fixture.files, jobs: jobs,
+      activity: ActivityStore(),
       executionPolicy: policy, sandboxBackend: backend,
       contextDataRoot: fixture.contextDataRoot)
     addTeardownBlock { await router.stop() }
@@ -119,17 +119,13 @@ private struct TestEnforcedSandboxBackend: ProjectSandboxBackend {
       "browser_session", arguments: ["action": "open", "url": "https://example.com"])
     XCTAssertTrue(browser.isError)
     XCTAssertEqual(browser.data["error"], "execution_policy_denied")
-
-    let desktop = await router.callInCurrentProject("computer_observe", arguments: [:])
-    XCTAssertTrue(desktop.isError)
-    XCTAssertEqual(desktop.data["error"], "execution_policy_denied")
   }
 
   func testFullLocalPolicyStillRequiresNativeApproval() async throws {
     let f = try Fixture(); defer { f.remove() }
     let router = try ToolRouter(
-      workspace: f.files, jobs: JobManager(helper: Fixture.helper), images: ImageStore(),
-      computer: NoComputerBackend(), activity: ActivityStore(),
+      workspace: f.files, jobs: JobManager(helper: Fixture.helper),
+      activity: ActivityStore(),
       executionPolicy: .fullLocal(localApproval: false), contextDataRoot: f.contextDataRoot)
     addTeardownBlock { await router.stop() }
 
@@ -171,8 +167,8 @@ private struct TestEnforcedSandboxBackend: ProjectSandboxBackend {
     let policy = try ProjectExecutionPolicy.workspace(
       localApproval: true, network: .allowlist(["registry.npmjs.org"]))
     let router = try ToolRouter(
-      workspace: f.files, jobs: JobManager(helper: Fixture.helper), images: ImageStore(),
-      computer: NoComputerBackend(), activity: ActivityStore(), executionPolicy: policy,
+      workspace: f.files, jobs: JobManager(helper: Fixture.helper),
+      activity: ActivityStore(), executionPolicy: policy,
       contextDataRoot: f.contextDataRoot)
     addTeardownBlock { await router.stop() }
 
@@ -217,8 +213,6 @@ private struct TestEnforcedSandboxBackend: ProjectSandboxBackend {
     let router = try ToolRouter(
       workspace: f.files,
       jobs: jobs,
-      images: ImageStore(),
-      computer: NoComputerBackend(),
       activity: ActivityStore(),
       executionPolicy: policy,
       sandboxBackend: backend,
@@ -384,7 +378,7 @@ private struct TestEnforcedSandboxBackend: ProjectSandboxBackend {
             XCTAssertEqual((error as? Failure)?.code, "execution_backend_unavailable")
           }
         }
-        for capability: ExecutionCapability in [.rawShell, .browserAutomation, .desktopControl] {
+        for capability: ExecutionCapability in [.rawShell, .browserAutomation] {
           XCTAssertThrowsError(try policy.authorize(capability, sandboxStatus: status)) { error in
             XCTAssertEqual((error as? Failure)?.code, "execution_policy_denied")
           }
@@ -649,10 +643,9 @@ private struct TestEnforcedSandboxBackend: ProjectSandboxBackend {
     XCTAssertTrue(pending.isEmpty)
   }
 
-  func testBrowserAndComputerRemainIndependentOfProjectPermissionMode() throws {
+  func testBrowserRemainsIndependentOfProjectPermissionMode() throws {
     let policy = ProjectExecutionPolicy.fullLocal(localApproval: true)
     XCTAssertNoThrow(try policy.authorize(.browserAutomation))
-    XCTAssertNoThrow(try policy.authorize(.desktopControl))
   }
 
   func testDiscoveredNodeTaskRespectsScopeAndPermissionMode() async throws {
@@ -664,8 +657,8 @@ private struct TestEnforcedSandboxBackend: ProjectSandboxBackend {
       let project = ApprovedProject(url: outsideFixture.root, permissionMode: mode)
       let router = try ToolRouter(
         workspace: try WorkspaceFiles(root: outsideFixture.root),
-        jobs: JobManager(helper: Fixture.helper), images: ImageStore(),
-        computer: NoComputerBackend(), activity: ActivityStore(),
+        jobs: JobManager(helper: Fixture.helper),
+        activity: ActivityStore(),
         executionPolicy: .fullLocal(localApproval: true),
         operationApprovals: approvals,
         approvedProjects: [project], activeProjectID: project.id,
@@ -725,8 +718,6 @@ private struct TestEnforcedSandboxBackend: ProjectSandboxBackend {
     let router = try ToolRouter(
       workspace: askFixture.files,
       jobs: JobManager(helper: Fixture.helper),
-      images: ImageStore(),
-      computer: NoComputerBackend(),
       activity: ActivityStore(),
       executionPolicy: .fullLocal(localApproval: true),
       operationApprovals: approvals,
@@ -851,8 +842,8 @@ private struct TestEnforcedSandboxBackend: ProjectSandboxBackend {
       taskAllowlist: ["task:test"],
       rawShellAllowed: false)
     let router = try ToolRouter(
-      workspace: f.files, jobs: JobManager(helper: Fixture.helper), images: ImageStore(),
-      computer: NoComputerBackend(), activity: ActivityStore(),
+      workspace: f.files, jobs: JobManager(helper: Fixture.helper),
+      activity: ActivityStore(),
       executionPolicy: policy, contextDataRoot: f.contextDataRoot)
     addTeardownBlock { await router.stop() }
 

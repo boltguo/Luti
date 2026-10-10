@@ -382,30 +382,24 @@ extension ToolRouter {
 
   func resources(grant: ToolGrant = .local) async -> JSONValue {
     if switching {
-      let screens = await images.list(grant: grant)["resources"].array ?? []
-      return ["resources": .array(screens)]
+      return ["resources": []]
     }
     projectCallsInFlight += 1
     defer { projectCallsInFlight -= 1 }
     let store = artifacts
-    let screens = await images.list(grant: grant)["resources"].array ?? []
     let files = await store.list(grant: grant).map { $0.removing(["type"]) }
-    return ["resources": .array(screens + files)]
+    return ["resources": .array(files)]
   }
 
   func readResource(_ uri: String, grant: ToolGrant = .local) async throws -> JSONValue {
-    if uri.hasPrefix("luti://artifact/") {
-      guard !switching else {
-        throw Failure(
-          "project_switch_in_progress", "The active project is being switched.",
-          "Wait for the switch result, then request the resource again if it still exists.")
-      }
-      projectCallsInFlight += 1
-      defer { projectCallsInFlight -= 1 }
-      let store = artifacts
-      return try await store.read(uri, grant: grant)
+    guard !switching else {
+      throw Failure(
+        "project_switch_in_progress", "The active project is being switched.",
+        "Wait for the switch result, then request the resource again if it still exists.")
     }
-    return try await images.read(uri, grant: grant)
+    projectCallsInFlight += 1
+    defer { projectCallsInFlight -= 1 }
+    return try await artifacts.read(uri, grant: grant)
   }
 }
 

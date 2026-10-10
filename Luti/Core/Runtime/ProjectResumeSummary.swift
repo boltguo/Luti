@@ -178,7 +178,7 @@ enum ProjectResumeSummary {
       }
       guard call.finishedAt != nil else { return false }
       if call.tool == "memory" { return call.action == "remember" || call.action == "forget" }
-      return ["edit_files", "path_action", "run_process", "run_shell", "browser_action", "browser_transfer", "computer_action"].contains(call.tool)
+      return ["edit_files", "path_action", "run_process", "run_shell", "browser_action", "browser_transfer"].contains(call.tool)
     }
   }
 

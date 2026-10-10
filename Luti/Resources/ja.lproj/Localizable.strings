@@ -107,9 +107,6 @@
 "capability.browserAutomation" = "ブラウザ操作";
 "capability.chromeRequired" = "Chromeが必要";
 "capability.commandExecution" = "コマンド実行";
-"capability.desktopControl" = "デスクトップ操作";
-"capability.notAllowed" = "許可されていません";
-"capability.partiallyAllowed" = "一部のみ許可";
 "capability.preparesFirstUse" = "初回利用時に準備";
 "capability.projectFiles" = "プロジェクトファイル";
 "capability.retryNeeded" = "再試行が必要";
@@ -319,11 +316,9 @@
 
 /* oauth */
 "oauth.changeProject" = "プロジェクトの変更";
-"oauth.controlDesktop" = "デスクトップの操作";
 "oauth.readProject" = "プロジェクトの読み取り";
 "oauth.runCommands" = "コマンドの実行";
 "oauth.useBrowser" = "ブラウザの利用";
-"oauth.viewScreen" = "画面の表示";
 
 /* recovery */
 "recovery.title" = "ファイルの復元";
@@ -371,16 +366,10 @@
 
 /* settings */
 "settings.about" = "情報";
-"settings.accessibility" = "アクセシビリティ";
 "settings.activity" = "アクティビティ";
-"settings.allow" = "許可";
-"settings.allowWhenNeeded" = "必要な場合に許可";
-"settings.appManagement" = "アプリ管理";
 "settings.allowLutiSystemSettingsLoginItems" = "「システム設定」>「一般」>「ログイン項目」でLutiを許可してください。";
 "settings.awaitingApproval" = "システムの許可を待っています";
-"settings.captureObserveScreen" = "画面の取り込みと観察に使用";
 "settings.components" = "コンポーネント";
-"settings.controlWindowsKeyboardMouse" = "ウインドウ、キーボード、マウスの操作に使用";
 "settings.defaultFullProjectAccess" = "新規プロジェクトはフルアクセス";
 "settings.defaultFullProjectAccessDescription" = "新しく追加するプロジェクトのみに適用されます。";
 "settings.displayLanguage" = "表示言語";
@@ -389,15 +378,10 @@
 "settings.automaticUpdateChecks" = "アップデートを自動確認";
 "settings.japanese" = "日本語";
 "settings.launchLogin" = "ログイン時にLutiを開く";
-"settings.manageOtherApps" = "Lutiでほかのアプリを更新・削除する場合に許可";
 "settings.notRegistered" = "未登録";
-"settings.privacySecurityPath" = "システム設定 > プライバシーとセキュリティ";
-"settings.screenRecording" = "画面収録";
 "settings.simplifiedChinese" = "簡体字中国語";
 "settings.system" = "システムに合わせる";
 "settings.systemLoginItems" = "ログイン項目の設定";
-"settings.systemPermissionSettings" = "システムのアクセス許可設定";
-"settings.systemPermissions" = "システムのアクセス許可";
 "settings.viewStatus" = "状態を表示";
 
 /* ui */
@@ -488,7 +472,7 @@
 "settings.diagnostics" = "診断";
 "settings.activityDescription" = "最近のツール呼び出しと実行履歴を確認します。";
 "settings.capabilityDiagnostics" = "機能の診断";
-"settings.capabilityDiagnosticsDescription" = "プロジェクト、ブラウザ、デスクトップの権限を確認します。";
+"settings.capabilityDiagnosticsDescription" = "プロジェクトとブラウザの機能を確認します。";
 "settings.helpAndSupport" = "ヘルプとサポート";
 "settings.sourceCode" = "ソースコード";
 "settings.supportLuti" = "開発を支援";

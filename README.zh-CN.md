@@ -32,7 +32,7 @@ flowchart TB
     loopback["Loopback MCP"]
     luti["这台 Mac 上的 Luti"]
     context["项目上下文<br/>Memory · Sessions · Activity"]
-    tools["本地能力<br/>Files · Git · Process · Browser · Computer · Skills"]
+    tools["本地能力<br/>Files · Git · Process · Browser · Skills"]
     project["一个已授权项目"]
 
     remote --> tunnel --> luti
@@ -41,7 +41,7 @@ flowchart TB
     luti --> tools --> project
 ```
 
-它可以读写文件、运行构建和测试、查看 Git、操作浏览器与桌面、导出产物，并让不同 AI 客户端共享项目知识。这些操作都在你的 Mac 上完成。
+它可以读写文件、运行构建和测试、查看 Git、操作浏览器、导出产物，并让不同 AI 客户端共享项目知识。这些操作都在你的 Mac 上完成。
 
 ## 快速开始
 
@@ -69,7 +69,7 @@ Cloudflare 和 ngrok 配置完成后会显示完整的 `/mcp` 地址，可直接
 
 ## 能力
 
-Luti 对外固定暴露 **30 个 MCP Tool**，分为 8 个领域。
+Luti 对外固定暴露 **27 个 MCP Tool**，分为 7 个领域。
 
 | 领域 | Public Tools | 范围 |
 |---|---|---|
@@ -79,16 +79,15 @@ Luti 对外固定暴露 **30 个 MCP Tool**，分为 8 个领域。
 | Process & Jobs | `run_process`, `run_shell`, `job_query`, `job_action` | 构建、测试、长任务、日志、PTY 输入、停止 |
 | Git | `git_query` | Status、Diff、Log、Show、Blame；只读 |
 | Browser | `browser_session`, `browser_observe`, `browser_action`, `browser_transfer`, `browser_inspect`, `browser_dialog`, `browser_evaluate` | 导航、操作、截图、传输、Console、Network、Dialog |
-| Computer | `computer_observe`, `computer_action`, `computer_wait` | macOS 观察、输入和状态等待 |
 | Skills & Artifacts | `skills`, `export_artifact`, `import_artifact` | 项目 Skill、不可变导出与受控导入 |
 
-窗口观察默认使用后台定向输入，系统鼠标保持独立；键盘输入要求目标应用内部的焦点位于该窗口。部分应用不会执行后台菜单快捷键；无法直接设置文本时，须确认全选范围后才会发送替换文字。显示器观察使用共享的前台鼠标。后台指针依赖运行时检查的 macOS 兼容接口，接口不可用时返回错误，不自动切换为全局输入；操作后须重新观察确认效果。
+桌面控制已移除。
 
 项目专属能力由项目自己的 manifest、instructions、tasks 和 skills 提供，无需不断增加 Public Tool。
 
 先调用 `memory(action=recent)`，一次取得有界接续摘要与 `projectToken`。项目写入、命令执行、浏览器修改、项目切换和 Job 输入需携带该标识；切换项目或重启 Runtime 后会失效。遇到失配应重新观察并确认目标项目。停止仍归 Runtime 管理的 Job 不受旧标识阻碍。未获项目读取权限的连接可通过 `projects(action=current)` 取得最小绑定信息。
 
-资源列举、读取和导入会检查来源对应的权限：项目文件、进程日志、浏览器产物或桌面截图。浏览器上传还需要项目读取权限。`code_query` 会启动已安装的语言服务，因此需要项目读取、进程执行权限及当前 `projectToken`；语言服务可能产生副作用。
+资源列举、读取和导入会检查来源对应的权限：项目文件、进程日志、浏览器产物。浏览器上传还需要项目读取权限。`code_query` 会启动已安装的语言服务，因此需要项目读取、进程执行权限及当前 `projectToken`；语言服务可能产生副作用。
 
 Job 结果区分进程完成与识别到的测试结果，并记录有限范围的输入文件观察。`reportPath` 可指定命令生成的 JUnit XML 报告。旧报告、截断输出与无法证明的输入一致性保持 unknown，输入变化标为 stale；这些观察不能证明完整工程正确。
 
@@ -115,7 +114,7 @@ Job 结果区分进程完成与识别到的测试结果，并记录有限范围�
 | **凭据** | Runtime 凭据存入 macOS Keychain；敏感值在持久化前脱敏 |
 | **OAuth** | Public Client 绑定 Origin，并且需要这台 Mac 批准 |
 | **Git** | 对外 Git 能力只读 |
-| **Browser 与 Computer Use** | Luti 只操作自己拥有的 Browser Session；屏幕录制和辅助功能仍是独立的 macOS 权限 |
+| **Browser** | Luti 只操作自己拥有的 Browser Session |
 | **进程执行** | `fullLocal` 使用当前用户权限执行，不是 OS Sandbox |
 | **Sandbox Profile** | 没有可用的 OS-enforced Backend 时，`workspace` 和 `isolated` 会 fail closed |
 

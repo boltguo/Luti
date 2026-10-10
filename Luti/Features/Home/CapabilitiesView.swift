@@ -29,16 +29,8 @@ struct CapabilitiesView: View {
           symbol: "globe",
           value: browserStatus,
           ready: BrowserInstallation.installed && BrowserInstallation.chromeAvailable,
-          position: .middle,
-          tone: .blue)
-
-        row(
-          L10n.text("capability.desktopControl"),
-          symbol: "rectangle.and.hand.point.up.left",
-          value: desktopStatus,
-          ready: model.permissions.screen && model.permissions.accessibility,
           position: .last,
-          tone: .pink)
+          tone: .blue)
       }
     }
   }
@@ -71,16 +63,6 @@ struct CapabilitiesView: View {
     return BrowserInstallation.installed
       ? L10n.text("common.ready")
       : L10n.text("capability.preparesFirstUse")
-  }
-
-  private var desktopStatus: String {
-    if model.permissions.screen && model.permissions.accessibility {
-      return L10n.text("common.granted")
-    }
-    if model.permissions.screen || model.permissions.accessibility {
-      return L10n.text("capability.partiallyAllowed")
-    }
-    return L10n.text("capability.notAllowed")
   }
 
   private func row(

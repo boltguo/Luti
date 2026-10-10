@@ -36,11 +36,10 @@ public actor RuntimeCore {
         .appendingPathComponent(LutiPaths.projectKey(for: root)).appendingPathComponent("activity"))
     self.activity = activity
     runID = activity.runID
-    let images = ImageStore()
     let operationApprovals = OperationApprovalBroker()
     router = try ToolRouter(
       workspace: WorkspaceFiles(root: root), jobs: JobManager(helper: helper, redactor: redactor),
-      images: images, computer: ComputerService(images: images), activity: activity,
+      activity: activity,
       executionPolicy: executionPolicy, operationApprovals: operationApprovals,
       redactor: redactor, approvedProjects: approvedProjects,
       activeProjectID: activeProjectID, helper: helper, contextDataRoot: contextDataRoot)

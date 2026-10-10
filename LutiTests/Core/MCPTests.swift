@@ -45,7 +45,7 @@ import XCTest
     XCTAssertEqual(initResult.json["result"]["protocolVersion"], "2025-11-25")
     let list = await endpoint.handle(try request("tools/list"))
     let tools = try XCTUnwrap(list.json["result"]["tools"].array)
-    XCTAssertEqual(tools.count, 30)
+    XCTAssertEqual(tools.count, 27)
     XCTAssertNotNil(tools.first { $0["name"] == "projects" })
     let readFiles = try XCTUnwrap(tools.first { $0["name"] == "read_files" })
     XCTAssertEqual(readFiles["inputSchema"]["properties"]["endLine"]["default"], .null)
@@ -72,14 +72,46 @@ import XCTest
     XCTAssertNotNil(tools.first { $0["name"] == "browser_observe" })
     XCTAssertNotNil(tools.first { $0["name"] == "browser_inspect" })
 
-    let computerObserve = try XCTUnwrap(tools.first { $0["name"] == "computer_observe" })
-    XCTAssertEqual(computerObserve["inputSchema"]["properties"]["displayId"]["default"], .null)
-    XCTAssertEqual(computerObserve["inputSchema"]["properties"]["includeAccessibility"]["default"], .null)
     let notification = await endpoint.handle(try request("notifications/initialized", id: nil))
     XCTAssertEqual(notification.status, 202)
     XCTAssertTrue(notification.body.isEmpty)
     await router.stop()
   }
+  func testDesktopToolsAreAbsentAndCannotBeCalled() async throws {
+    let f = try Fixture(); defer { f.remove() }
+    let router = try f.router(execution: true)
+    addTeardownBlock { await router.stop() }
+    let retired = ["computer_observe", "computer_action", "computer_wait"]
+    let delegated = MCPAuthentication.delegated(
+      bearer: token, context: delegatedContext(Set(OAuthScope.allCases)))
+    for authentication in [MCPAuthentication.local(bearer: token), delegated] {
+      let endpoint = MCPDispatcher(authentication: authentication,
+        port: TunnelContract.defaultPort, router: router)
+      for modern in [false, true] {
+        let list = await endpoint.handle(try request("tools/list", modern: modern))
+        let tools = try XCTUnwrap(list.json["result"]["tools"].array)
+        XCTAssertEqual(tools.count, 27)
+        XCTAssertFalse(tools.contains { retired.contains($0["name"].string ?? "") })
+        for name in retired {
+          let response = await endpoint.handle(try request("tools/call",
+            params: ["name": .string(name), "arguments": [:]], modern: modern))
+          XCTAssertEqual(response.status, 400, name)
+          XCTAssertEqual(response.json["error"]["code"], -32602, name)
+        }
+      }
+    }
+    let status = await router.callInCurrentProject("runtime_status", arguments: [:])
+    XCTAssertFalse(status.isError)
+    XCTAssertEqual(status.data["permissions"], .null)
+    XCTAssertEqual(status.data["executionPolicy"]["desktopControl"], .null)
+    do {
+      _ = try await router.readResource("luti://image/retired")
+      XCTFail("Retired desktop screenshots must not resolve")
+    } catch let error as Failure {
+      XCTAssertEqual(error.code, "resource_not_found")
+    }
+  }
+
   func testModernDiscovery() async throws {
     let f = try Fixture()
     defer { f.remove() }
@@ -226,9 +258,9 @@ import XCTest
     XCTAssertNil(MCPDispatcher.decodeHeader("=?base64?invalid?="))
   }
   func testResourceCannotReadDisk() async throws {
-    let images = ImageStore()
+    let artifacts = ArtifactStore()
     do {
-      _ = try await images.read("file:///etc/passwd")
+      _ = try await artifacts.read("file:///etc/passwd")
       XCTFail()
     } catch let e as Failure { XCTAssertEqual(e.code, "resource_not_found") }
   }
@@ -250,21 +282,6 @@ import XCTest
     let denied = await endpoint.handle(try request("resources/read", params: ["uri": .string(uri)], extra: ["Authorization": ["Bearer wrong"]]))
     XCTAssertEqual(denied.status, 401)
     await router.stop()
-  }
-  func testImageContentAndStopExpiry() async throws {
-    let images = ImageStore()
-    let image = try await images.insert(
-      bytes: Data([1, 2, 3]), mimeType: "image/png", width: 100, height: 50,
-      bounds: ScreenBounds(x: -200, y: 0, width: 200, height: 100))
-    XCTAssertEqual(image.imageContent["type"], "image")
-    XCTAssertEqual(image.imageContent["data"], "AQID")
-    let read = try await images.read(image.uri)
-    XCTAssertEqual(read["contents"].array?.first?["blob"], "AQID")
-    await images.stop()
-    do {
-      _ = try await images.read(image.uri)
-      XCTFail()
-    } catch {}
   }
 
   private func delegatedContext(_ scopes: Set<OAuthScope>) -> RequestContext {
@@ -288,15 +305,13 @@ import XCTest
     let artifacts = await router.artifacts
     let screenshot = try await artifacts.insert(Data([1, 2]), name: "browser.png", source: .browser)
     let download = try await artifacts.insert(Data([3, 4]), name: "download.bin", source: .browser)
-    let image = try await router.images.insert(bytes: Data([5, 6]), mimeType: "image/png",
-      width: 1, height: 1, bounds: ScreenBounds(x: 0, y: 0, width: 1, height: 1))
     let resources: [(scope: OAuthScope, uri: String)] = [
       (.projectRead, projectURI), (.processRun, logURI), (.browserUse, screenshot.uri),
-      (.browserUse, download.uri), (.computerRead, image.uri),
+      (.browserUse, download.uri),
     ]
     for scopes: Set<OAuthScope> in [
-      [.projectRead], [.processRun], [.browserUse], [.computerRead], [.projectWrite],
-      [.computerControl], [], Set(OAuthScope.allCases),
+      [.projectRead], [.processRun], [.browserUse], [.projectWrite],
+      [], Set(OAuthScope.allCases),
     ] {
       let endpoint = MCPDispatcher(authentication: .delegated(bearer: token, context: delegatedContext(scopes)),
         port: TunnelContract.defaultPort, router: router)
@@ -368,7 +383,7 @@ import XCTest
     }
   }
   func testActionSchemasShareBoundariesAndNeverInjectForeignDefaults() throws {
-    XCTAssertEqual(ToolCatalog.names.count, 30)
+    XCTAssertEqual(ToolCatalog.names.count, 27)
     for (name, contracts) in ActionContracts.rules {
       let definition = try XCTUnwrap(ToolCatalog.definitions.first { $0["name"].string == name })
       let schema = definition["inputSchema"]
@@ -526,13 +541,5 @@ import XCTest
     XCTAssertFalse(ToolCatalog.names.contains("resume_project"))
   }
 
-  func testRetinaAndNegativeDisplayCoordinateMapping() throws {
-    let bounds = ScreenBounds(x: -1000, y: -200, width: 1000, height: 500)
-    let point = try bounds.globalPoint(
-      pixelX: 500, pixelY: 250, imageWidth: 2000, imageHeight: 1000)
-    XCTAssertEqual(point.0, -750)
-    XCTAssertEqual(point.1, -75)
-    XCTAssertThrowsError(
-      try bounds.globalPoint(pixelX: 2000, pixelY: 0, imageWidth: 2000, imageHeight: 1000))
-  }
+
 }

@@ -121,7 +121,7 @@ import XCTest
     await original.stop()
 
     let restarted = try ToolRouter(workspace: WorkspaceFiles(root: f.root), jobs: JobManager(helper: Fixture.helper),
-      images: ImageStore(), computer: NoComputerBackend(), activity: ActivityStore(),
+      activity: ActivityStore(),
       executionPolicy: .fullLocal(localApproval: true), contextDataRoot: f.contextDataRoot)
     addTeardownBlock { await restarted.stop() }
     let rejected = await restarted.call("edit_files", arguments: [

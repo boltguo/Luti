@@ -141,8 +141,6 @@ struct ApprovalView: View {
     case .projectWrite: .purple
     case .processRun: .orange
     case .browserUse: .green
-    case .computerRead: .yellow
-    case .computerControl: .pink
     }
   }
 }

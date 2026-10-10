@@ -2,60 +2,10 @@ import XCTest
 import ImageIO
 import UniformTypeIdentifiers
 import AppKit
-import ApplicationServices
 import SwiftUI
 @testable import Luti
 
 @MainActor final class ExtendedToolTests: XCTestCase {
-  func testHelperLaunchedProcessIdentityDoesNotRequireLaunchServicesDate() throws {
-    let pid = ProcessInfo.processInfo.processIdentifier
-    let started = try XCTUnwrap(WindowService.processLaunchDate(pid))
-    XCTAssertLessThan(started, Date())
-    XCTAssertEqual(WindowService.processLaunchDate(pid, fallback: .distantPast), started)
-    XCTAssertNil(WindowService.processLaunchDate(-1))
-    XCTAssertNil(WindowService.processLaunchDate(Int32.max))
-  }
-  func testBackgroundCoordinatesCoverDisplaysAboveAndLeftOfPrimary() throws {
-    let bounds = ScreenBounds(x: -599, y: -1440, width: 640, height: 432)
-    let local = try BackgroundInput.localPoint(CGPoint(x: -479, y: -1240), bounds: bounds)
-    XCTAssertEqual(local, CGPoint(x: 120, y: 200))
-    XCTAssertThrowsError(try BackgroundInput.localPoint(CGPoint(x: 41, y: -1240), bounds: bounds))
-    XCTAssertThrowsError(try BackgroundInput.localPoint(CGPoint(x: Double.nan, y: -1240), bounds: bounds))
-  }
-  func testBackgroundMouseCarriesExactWindowAndIndependentModifiers() throws {
-    let target = WindowTarget(id: 123, pid: 456, launchDate: Date(), app: "Test", bundleID: "test.app",
-      title: "Test", bounds: ScreenBounds(x: 100, y: 200, width: 640, height: 400))
-    let source = try XCTUnwrap(CGEventSource(stateID: .privateState))
-    let event = try BackgroundInput.mouse(.rightMouseDown, at: CGPoint(x: 200, y: 300),
-      target: target, source: source, count: 2, button: .right)
-    XCTAssertEqual(event.type, .rightMouseDown)
-    XCTAssertEqual(event.location, CGPoint(x: 200, y: 300))
-    XCTAssertEqual(event.flags.rawValue, 0)
-    XCTAssertEqual(event.getIntegerValueField(.eventSourceStateID), Int64(source.sourceStateID.rawValue))
-    XCTAssertNotEqual(source.sourceStateID, .hidSystemState)
-    XCTAssertNotEqual(source.sourceStateID, .combinedSessionState)
-    let otherSource = try XCTUnwrap(CGEventSource(stateID: .privateState))
-    XCTAssertNotEqual(source.sourceStateID, otherSource.sourceStateID)
-    XCTAssertEqual(event.getIntegerValueField(.mouseEventWindowUnderMousePointer), 123)
-    XCTAssertEqual(event.getIntegerValueField(.mouseEventWindowUnderMousePointerThatCanHandleThisEvent), 123)
-    XCTAssertEqual(event.getIntegerValueField(.eventTargetUnixProcessID), 456)
-    XCTAssertEqual(event.getIntegerValueField(.mouseEventButtonNumber), 1)
-    XCTAssertEqual(event.getIntegerValueField(.mouseEventClickState), 2)
-    XCTAssertEqual(NSEvent(cgEvent: event)?.windowNumber, 123)
-  }
-  func testBackgroundWheelPreservesEventTypeAndRoutesToExactWindow() throws {
-    let target = WindowTarget(id: 123, pid: 456, launchDate: Date(), app: "Test", bundleID: "test.app",
-      title: "Test", bounds: ScreenBounds(x: 100, y: 200, width: 640, height: 400))
-    let source = try XCTUnwrap(CGEventSource(stateID: .privateState))
-    let event = try XCTUnwrap(CGEvent(scrollWheelEvent2Source: source, units: .pixel,
-      wheelCount: 2, wheel1: -100, wheel2: 0, wheel3: 0))
-    event.location = CGPoint(x: 200, y: 300)
-    try BackgroundInput.tag(event, target: target)
-    XCTAssertEqual(event.type, .scrollWheel)
-    XCTAssertEqual(NSEvent(cgEvent: event)?.windowNumber, 123)
-    XCTAssertLessThan(try XCTUnwrap(NSEvent(cgEvent: event)).scrollingDeltaY, 0)
-    XCTAssertEqual(event.getIntegerValueField(.eventSourceStateID), Int64(source.sourceStateID.rawValue))
-  }
   func testProjectFirstNavigationKeepsFourDestinations() {
     XCTAssertEqual(AppTab.allCases.map(\.rawValue), ["home", "configuration", "projects", "settings"])
     XCTAssertEqual(
@@ -71,7 +21,7 @@ import SwiftUI
     let a = ApprovedProject(id: "a", name: "A", url: first.root)
     let b = ApprovedProject(id: "b", name: "B", url: second.root)
     let router = try ToolRouter(workspace: first.files, jobs: JobManager(helper: Fixture.helper),
-      images: ImageStore(), computer: NoComputerBackend(), activity: ActivityStore(),
+      activity: ActivityStore(),
       executionPolicy: .readOnly, approvedProjects: [a, b], activeProjectID: a.id, helper: Fixture.helper, contextDataRoot: first.contextDataRoot)
     let snapshot = try await ProjectSkillLibrary.scan(project: b)
     XCTAssertEqual(snapshot.skills.map(\.name), ["beta"])
@@ -143,7 +93,6 @@ import SwiftUI
     fixture.defaults.set("https://preview.example.com", forKey: "publicBaseURL")
     model.tokenSaved = true
     model.enabledConnectionProviders = [.cloudflare]
-    model.permissions = PermissionState(screen: true, accessibility: false)
     let updater = AppUpdater(startingUpdater: false)
     let repo = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
     let output = repo.appendingPathComponent("build/ui-review-previews", isDirectory: true)
@@ -190,7 +139,6 @@ import SwiftUI
     model.approvedProjects = [project]
     model.activeProjectID = project.id
     model.phase = .stopped
-    model.permissions = PermissionState(screen: false, accessibility: true)
     let contextStore = try ProjectContextStore(project: project, dataRoot: f.contextDataRoot)
     let runID = UUID()
     _ = try contextStore.remember(kind: .goal, content: "Finish the project import flow", tags: [],
@@ -351,8 +299,8 @@ import SwiftUI
       ApprovedProject(id: "project-b", name: "Project B", url: second.root),
     ]
     let router = try ToolRouter(
-      workspace: first.files, jobs: JobManager(helper: Fixture.helper), images: ImageStore(),
-      computer: NoComputerBackend(), activity: ActivityStore(), executionPolicy: .readOnly,
+      workspace: first.files, jobs: JobManager(helper: Fixture.helper),
+      activity: ActivityStore(), executionPolicy: .readOnly,
       approvedProjects: projects, activeProjectID: "project-a", helper: Fixture.helper, contextDataRoot: first.contextDataRoot)
 
     let list = await router.callInCurrentProject("projects", arguments: ["action": "list"])
@@ -421,8 +369,8 @@ import SwiftUI
       ApprovedProject(id: "project-b", name: "Project B", url: second.root),
     ]
     let router = try ToolRouter(
-      workspace: first.files, jobs: JobManager(helper: Fixture.helper), images: ImageStore(),
-      computer: NoComputerBackend(), activity: ActivityStore(),
+      workspace: first.files, jobs: JobManager(helper: Fixture.helper),
+      activity: ActivityStore(),
       executionPolicy: .fullLocal(localApproval: true),
       approvedProjects: projects, activeProjectID: "project-a", helper: Fixture.helper, contextDataRoot: first.contextDataRoot)
 
@@ -971,139 +919,6 @@ import SwiftUI
       "run_process", arguments: ["taskId": "task:missing"])
     XCTAssertTrue(missing.isError)
     XCTAssertEqual(missing.data["error"], "task_not_found")
-  }
-
-  func testEmptyAXArrayDoesNotRequestInvalidIndexZero() throws {
-    let result = try AccessibilityService.readElements(limit: 16, count: { 0 }, copy: { _ in
-      XCTFail("An empty AX array has no valid index zero")
-      return []
-    })
-    XCTAssertTrue(result.isEmpty)
-  }
-
-  func testAXArrayCanBecomeEmptyBetweenCountAndCopy() throws {
-    var counts = 0
-    var copies = 0
-    let result = try AccessibilityService.readElements(limit: 16, count: {
-      counts += 1
-      return counts == 1 ? 1 : 0
-    }, copy: { _ in
-      copies += 1
-      throw AccessibilityService.failure(.illegalArgument,
-        operation: "AXUIElementCopyAttributeValues(AXChildren)", attempted: false)
-    })
-    XCTAssertTrue(result.isEmpty)
-    XCTAssertEqual(counts, 2)
-    XCTAssertEqual(copies, 1)
-  }
-
-  func testAXArrayDoesNotHideAnIllegalArgumentForNonemptyChildren() {
-    let failure = AccessibilityService.failure(.illegalArgument,
-      operation: "AXUIElementCopyAttributeValues(AXChildren)", attempted: false)
-    XCTAssertThrowsError(try AccessibilityService.readElements(limit: 16,
-      count: { 1 }, copy: { _ in throw failure })) { error in
-      XCTAssertEqual(error as? Failure, failure)
-    }
-  }
-
-  func testAXArrayHonorsBudgetAndDoesNotRetryMessagingFailures() throws {
-    _ = try AccessibilityService.readElements(limit: 0, count: {
-      XCTFail("An exhausted node budget must not call AX")
-      return 1
-    }, copy: { _ in XCTFail("An exhausted node budget must not call AX"); return [] })
-    let element = AXUIElementCreateApplication(1)
-    let result = try AccessibilityService.readElements(limit: 1, count: { 8 }, copy: { requested in
-      XCTAssertEqual(requested, 1)
-      return [element]
-    })
-    XCTAssertEqual(result.count, 1)
-    var counts = 0
-    let failure = AccessibilityService.failure(.cannotComplete,
-      operation: "AXUIElementCopyAttributeValues(AXChildren)", attempted: false)
-    XCTAssertThrowsError(try AccessibilityService.readElements(limit: 16, count: {
-      counts += 1
-      return 1
-    }, copy: { _ in throw failure })) { error in
-      XCTAssertEqual(error as? Failure, failure)
-    }
-    XCTAssertEqual(counts, 1)
-  }
-
-  func testAXFailuresDistinguishArgumentsPermissionsAndUnconfirmedActions() {
-    let operation = "AXUIElementCopyAttributeValue(AXWindowNumber)"
-    let invalid = AccessibilityService.failure(.illegalArgument, operation: operation, attempted: false)
-    XCTAssertEqual(invalid.code, "accessibility_invalid_argument")
-    XCTAssertTrue(invalid.message.contains(operation))
-    XCTAssertTrue(invalid.message.contains("-25201"))
-    XCTAssertEqual(AccessibilityService.failure(.apiDisabled, operation: operation,
-      attempted: false).code, "accessibility_permission_missing")
-    XCTAssertEqual(AccessibilityService.failure(.cannotComplete, operation: operation,
-      attempted: false).code, "accessibility_failed")
-    XCTAssertEqual(AccessibilityService.failure(.cannotComplete,
-      operation: "AXUIElementPerformAction(AXPress)", attempted: true).code, "outcome_unknown")
-  }
-
-  func testWindowActivationWaitsForActualFrontmostState() async throws {
-    var checks = 0
-    try await WindowService.waitForFrontmost {
-      checks += 1
-      if checks == 1 {
-        throw Failure("window_not_frontmost", "Activation is pending", "Wait")
-      }
-    }
-    XCTAssertEqual(checks, 2)
-  }
-
-  func testWindowActivationDoesNotRetryChangedWindowsOrBypassTimeout() async {
-    var checks = 0
-    do {
-      try await WindowService.waitForFrontmost {
-        checks += 1
-        throw Failure("stale_window", "The window changed", "Observe again")
-      }
-      XCTFail("A changed window must stop activation confirmation")
-    } catch {
-      XCTAssertEqual((error as? Failure)?.code, "stale_window")
-    }
-    XCTAssertEqual(checks, 1)
-    do {
-      try await WindowService.waitForFrontmost(timeout: .zero) {
-        throw Failure("window_not_frontmost", "Another window is in front", "Observe again")
-      }
-      XCTFail("Timeout must not be reported as confirmed activation")
-    } catch {
-      XCTAssertEqual((error as? Failure)?.code, "window_not_frontmost")
-    }
-  }
-
-  func testWindowActivationWaitRespectsCancellation() async {
-    let task = Task { @MainActor in
-      try await WindowService.waitForFrontmost {
-        XCTFail("A cancelled activation must not proceed")
-      }
-    }
-    task.cancel()
-    do {
-      try await task.value
-      XCTFail("Cancellation must propagate")
-    } catch {
-      XCTAssertTrue(error is CancellationError)
-    }
-  }
-
-  func testComputerWaitCanObserveWindowAbsenceWithoutSideEffects() async throws {
-    let images = ImageStore()
-    let service = ComputerService(images: images)
-    let result = try await service.wait([
-      "condition": "windowDisappears",
-      "window": "4294967295",
-      "timeoutMs": 250,
-      "pollMs": 50,
-    ])
-    XCTAssertEqual(result.data["matched"], true)
-    XCTAssertEqual(result.data["condition"], "windowDisappears")
-    await service.stop()
-    await images.stop()
   }
 
   func testBrowserConsentAndArguments() async throws {

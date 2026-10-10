@@ -34,7 +34,6 @@ enum NativeApprovalPresentation: Identifiable {
   var doctorReports: [ConnectionProviderID: ConnectionDoctorReport] = [:]
   var doctorBusy: ConnectionProviderID?
   @ObservationIgnored private var authorizationStores: [ConnectionProviderID: OAuthStore] = [:]
-  var permissions = PermissionState(screen: false, accessibility: false)
   var defaultFullProjectAccess = false
   var executionPolicy = ProjectExecutionPolicy.readOnly
   var activity: [ActivityEvent] = []
@@ -141,7 +140,6 @@ enum NativeApprovalPresentation: Identifiable {
     }
     defaults.removeObject(forKey: Self.legacyActiveConnectionProviderKey)
 
-    permissions = PermissionManager.state()
     persistProjects()
     persistConnectionSelection()
     reloadStoredActivity()
@@ -927,7 +925,7 @@ enum NativeApprovalPresentation: Identifiable {
     announcedApprovals = []
     announcedOperationApprovals = []
     remoteClients = authorizationStores.values.reduce(0) { $0 + $1.approvedClients.count }
-    detail = "Stopped. Project access and desktop handles are revoked."
+    detail = "Stopped. Project access is revoked."
     LocalLogStore.runtime("info", "Runtime stopped; local handles revoked.")
   }
   /// Answers one request and drops it from the queue immediately, so the sheet
@@ -950,7 +948,6 @@ enum NativeApprovalPresentation: Identifiable {
   }
 
   func refresh() async {
-    permissions = PermissionManager.state()
     guard let owned = session else { return }
     let token = revision
     let connectionTokens = connectionRevisions

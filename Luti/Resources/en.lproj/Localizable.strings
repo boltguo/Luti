@@ -107,9 +107,6 @@
 "capability.browserAutomation" = "Browser automation";
 "capability.chromeRequired" = "Chrome required";
 "capability.commandExecution" = "Command execution";
-"capability.desktopControl" = "Desktop control";
-"capability.notAllowed" = "Not allowed";
-"capability.partiallyAllowed" = "Partially allowed";
 "capability.preparesFirstUse" = "Prepares on first use";
 "capability.projectFiles" = "Project files";
 "capability.retryNeeded" = "Retry needed";
@@ -319,11 +316,9 @@
 
 /* oauth */
 "oauth.changeProject" = "Change project";
-"oauth.controlDesktop" = "Control desktop";
 "oauth.readProject" = "Read project";
 "oauth.runCommands" = "Run commands";
 "oauth.useBrowser" = "Use browser";
-"oauth.viewScreen" = "View screen";
 
 /* recovery */
 "recovery.title" = "File Recovery";
@@ -371,16 +366,10 @@
 
 /* settings */
 "settings.about" = "About";
-"settings.accessibility" = "Accessibility";
 "settings.activity" = "Activity";
-"settings.allow" = "Allow";
-"settings.allowWhenNeeded" = "As needed";
-"settings.appManagement" = "App Management";
 "settings.allowLutiSystemSettingsLoginItems" = "Allow Luti in System Settings > General > Login Items.";
 "settings.awaitingApproval" = "Waiting for system permission";
-"settings.captureObserveScreen" = "Capture and observe your screen";
 "settings.components" = "Components";
-"settings.controlWindowsKeyboardMouse" = "Control windows, keyboard and mouse";
 "settings.defaultFullProjectAccess" = "Full Project Access by Default";
 "settings.defaultFullProjectAccessDescription" = "Affects only newly added projects.";
 "settings.displayLanguage" = "Display language";
@@ -389,15 +378,10 @@
 "settings.automaticUpdateChecks" = "Automatically check for updates";
 "settings.japanese" = "Japanese";
 "settings.launchLogin" = "Open Luti at Login";
-"settings.manageOtherApps" = "Allow when using Luti to update or delete other apps";
 "settings.notRegistered" = "Not registered";
-"settings.privacySecurityPath" = "System Settings > Privacy & Security";
-"settings.screenRecording" = "Screen Recording";
 "settings.simplifiedChinese" = "Simplified Chinese";
 "settings.system" = "System";
 "settings.systemLoginItems" = "Login Item Settings";
-"settings.systemPermissionSettings" = "System permission settings";
-"settings.systemPermissions" = "System permissions";
 "settings.viewStatus" = "View status";
 
 /* ui */
@@ -488,7 +472,7 @@
 "settings.diagnostics" = "Diagnostics";
 "settings.activityDescription" = "View recent tool calls and activity.";
 "settings.capabilityDiagnostics" = "Capability Diagnostics";
-"settings.capabilityDiagnosticsDescription" = "Check project, browser, and desktop permissions.";
+"settings.capabilityDiagnosticsDescription" = "Check project and browser capabilities.";
 "settings.helpAndSupport" = "Help & Support";
 "settings.sourceCode" = "Source Code";
 "settings.supportLuti" = "Support Development";

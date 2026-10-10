@@ -68,8 +68,26 @@ public final class OAuthStore: @unchecked Sendable {
       url.flatMap { try? PrivateFiles.read($0, max: Self.maxBytes) }.flatMap { data in
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
-        return try? decoder.decode(OAuthState.self, from: data)
+        return try? decoder.decode(OAuthState.self, from: Self.removingRetiredScopes(data))
       } ?? OAuthState()
+  }
+
+  /// Retire desktop scopes without losing unrelated clients or grants.
+  private static func removingRetiredScopes(_ data: Data) throws -> Data {
+    guard var document = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+          var tokens = document["tokens"] as? [[String: Any]] else { return data }
+    let retired: Set<String> = ["computer:read", "computer:control"]
+    for index in tokens.indices {
+      guard let scopes = tokens[index]["scopes"] as? [String],
+            scopes.contains(where: retired.contains) else { continue }
+      let remaining = scopes.filter { !retired.contains($0) }
+      tokens[index]["scopes"] = remaining
+      if remaining.isEmpty, tokens[index]["revokedAt"] == nil {
+        tokens[index]["revokedAt"] = ISO8601DateFormatter().string(from: Date())
+      }
+    }
+    document["tokens"] = tokens
+    return try JSONSerialization.data(withJSONObject: document)
   }
 
   /// Each provider has its own store; each store is pinned to one canonical

@@ -315,8 +315,8 @@ import XCTest
     let a = try Fixture(), b = try Fixture(); defer { a.remove(); b.remove() }
     let pa = ApprovedProject(id: "a", url: a.root), pb = ApprovedProject(id: "b", url: b.root)
     let activity = ActivityStore()
-    let router = try ToolRouter(workspace: a.files, jobs: JobManager(helper: Fixture.helper), images: ImageStore(),
-      computer: NoComputerBackend(), activity: activity, executionPolicy: .readOnly,
+    let router = try ToolRouter(workspace: a.files, jobs: JobManager(helper: Fixture.helper),
+      activity: activity, executionPolicy: .readOnly,
       approvedProjects: [pa, pb], activeProjectID: "a", helper: Fixture.helper, contextDataRoot: a.contextDataRoot)
     let first = await router.callInCurrentProject("memory", arguments: ["action": "remember", "kind": "goal", "content": "Only in project A"])
     XCTAssertFalse(first.isError)

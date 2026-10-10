@@ -32,7 +32,7 @@ flowchart TB
     loopback["Loopback MCP"]
     luti["このMac上のLuti"]
     context["プロジェクトコンテキスト<br/>Memory · Sessions · Activity"]
-    tools["ローカル機能<br/>Files · Git · Process · Browser · Computer · Skills"]
+    tools["ローカル機能<br/>Files · Git · Process · Browser · Skills"]
     project["承認済みの1プロジェクト"]
 
     remote --> tunnel --> luti
@@ -41,7 +41,7 @@ flowchart TB
     luti --> tools --> project
 ```
 
-ファイルの読み書き、ビルドやテスト、Gitの確認、ブラウザやデスクトップの操作、成果物の書き出しに対応します。プロジェクトの知識は、異なるAIクライアント間でも共有できます。これらの操作はすべてMac上で実行されます。
+ファイルの読み書き、ビルドやテスト、Gitの確認、ブラウザの操作、成果物の書き出しに対応します。プロジェクトの知識は、異なるAIクライアント間でも共有できます。これらの操作はすべてMac上で実行されます。
 
 ## クイックスタート
 
@@ -69,7 +69,7 @@ Cloudflareとngrokでは、設定後に完全な`/mcp` URLが表示され、そ�
 
 ## 機能
 
-Lutiは8領域・**30個のPublic MCP Tool**を公開します。
+Lutiは7領域・**27個のPublic MCP Tool**を公開します。
 
 | Domain | Public Tools | 範囲 |
 |---|---|---|
@@ -79,16 +79,15 @@ Lutiは8領域・**30個のPublic MCP Tool**を公開します。
 | Process & Jobs | `run_process`, `run_shell`, `job_query`, `job_action` | Build、Test、長時間Job、Log、PTY入力、停止 |
 | Git | `git_query` | Status、Diff、Log、Show、Blame。読み取り専用 |
 | Browser | `browser_session`, `browser_observe`, `browser_action`, `browser_transfer`, `browser_inspect`, `browser_dialog`, `browser_evaluate` | Navigation、Action、Screenshot、Transfer、Console、Network、Dialog |
-| Computer | `computer_observe`, `computer_action`, `computer_wait` | macOSの観察、入力、状態待ち |
 | Skills & Artifacts | `skills`, `export_artifact`, `import_artifact` | Project Skill、不変のエクスポート、制御されたインポート |
 
-ウィンドウの観察では、システムカーソルを動かさず、対象アプリへバックグラウンド入力を送ります。キーボード入力には対象ウィンドウ内のフォーカスが必要です。バックグラウンドでメニューのショートカットを処理しないアプリもあります。値を直接設定できない場合、テキストを置換する前に全選択を確認します。ディスプレイの観察は共有の前面カーソルを使用します。バックグラウンドのポインター入力はmacOS互換APIを実行時に確認し、利用できない場合は全体入力へ自動切替せずエラーを返します。操作後は再観察で結果を確認してください。
+デスクトップ操作は削除されました。
 
 プロジェクト固有の動作は、そのプロジェクトのmanifest、instructions、tasks、skillsで定義します。Public Toolを増やす必要はありません。
 
 最初に `memory(action=recent)` を呼び出すと、サイズを制限した再開概要と `projectToken` を取得できます。Projectへの書き込み、コマンド実行、Browserの変更、Project切り替え、Job入力にはこの値が必要です。Project切り替えやRuntime再起動で失効するため、不一致の場合は対象Projectを再確認してください。所有するJobの停止は古い値によって妨げられません。Project読み取り権限がない接続は、`projects(action=current)` で最小限のバインディングだけを取得できます。
 
-リソースの一覧、読み取り、インポートでは、Projectファイル、プロセスログ、ブラウザ成果物、画面キャプチャそれぞれの権限を確認します。ブラウザへのアップロードにはProject読み取り権限も必要です。`code_query` はインストール済みの言語サーバーを起動するため、Project読み取り・プロセス実行権限と現在の `projectToken` が必要です。言語サーバーは副作用を伴う場合があります。
+リソースの一覧、読み取り、インポートでは、Projectファイル、プロセスログ、ブラウザ成果物それぞれの権限を確認します。ブラウザへのアップロードにはProject読み取り権限も必要です。`code_query` はインストール済みの言語サーバーを起動するため、Project読み取り・プロセス実行権限と現在の `projectToken` が必要です。言語サーバーは副作用を伴う場合があります。
 
 Jobの結果はプロセス終了と認識したテスト結果を分け、限定した入力ファイルの状態を記録します。`reportPath` でコマンドが生成するJUnit XMLを指定できます。変更のない既存レポート、不完全な出力、証明できない入力の一貫性はunknown、入力の変更はstaleとして扱います。Project全体の正しさを保証するものではありません。
 
@@ -115,7 +114,7 @@ Jobの結果はプロセス終了と認識したテスト結果を分け、限�
 | **Credential** | Runtime CredentialをmacOS Keychainに保存し、機密値を永続化前にRedact |
 | **OAuth** | Public ClientはOriginに結びつき、このMac上の承認が必要 |
 | **Git** | 公開Git Capabilityは読み取り専用 |
-| **Browser / Computer Use** | Lutiが所有するBrowser Sessionだけを操作し、画面収録とAccessibilityは独立したmacOS権限として扱う |
+| **Browser** | Lutiが所有するBrowser Sessionだけを操作する |
 | **Process Execution** | `fullLocal`はユーザー権限で実行され、OS Sandboxではない |
 | **Sandbox Profile** | OS-enforced Backendがなければ`workspace`と`isolated`はfail closed |
 

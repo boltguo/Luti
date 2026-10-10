@@ -43,7 +43,6 @@ public enum ExecutionCapability: String, Sendable {
   case rawShell
   case codeIntelligence
   case browserAutomation
-  case desktopControl
 }
 
 public struct PendingOperationApproval: Sendable, Identifiable, Equatable {
@@ -312,10 +311,6 @@ public struct ProjectExecutionPolicy: Sendable, Equatable {
     localApproval && profile == .fullLocal
   }
 
-  public var desktopControlAvailable: Bool {
-    localApproval && profile == .fullLocal
-  }
-
   public func authorize(
     _ capability: ExecutionCapability,
     sandboxStatus: SandboxBackendStatus = .unavailable
@@ -351,7 +346,7 @@ public struct ProjectExecutionPolicy: Sendable, Equatable {
       try requireLocalApproval()
       guard rawShellAllowed else { throw denied(capability) }
 
-    case .browserAutomation, .desktopControl:
+    case .browserAutomation:
       guard profile == .fullLocal else { throw denied(capability) }
       try requireLocalApproval()
     }
@@ -446,7 +441,6 @@ public struct ProjectExecutionPolicy: Sendable, Equatable {
       "rawShell": .bool(
         rawShellAllowed && profile == .fullLocal && localApproval),
       "browserAutomation": .bool(browserAutomationAvailable),
-      "desktopControl": .bool(desktopControlAvailable),
       "sandboxRequired": .bool(profile.requiresSandboxBackend),
       "sandboxEnforced": .bool(
         profile.requiresSandboxBackend

@@ -11,7 +11,7 @@ import XCTest
     defer { try? FileManager.default.removeItem(at: root) }
     let router = try ToolRouter(
       workspace: try WorkspaceFiles(root: root), jobs: JobManager(helper: JobManager.defaultHelper),
-      images: ImageStore(), computer: NoComputerBackend(), activity: ActivityStore(),
+      activity: ActivityStore(),
       executionPolicy: .readOnly, contextDataRoot: root.appendingPathComponent("test-private-data"))
     let server = MCPServer()
     let token = Budget.token()
@@ -26,7 +26,7 @@ import XCTest
     let (data, response) = try await URLSession.shared.data(for: request)
     XCTAssertEqual((response as? HTTPURLResponse)?.statusCode, 200)
     let tools = try JSONValue.decode(data)["result"]["tools"].array ?? []
-    XCTAssertEqual(tools.count, 30)
+    XCTAssertEqual(tools.count, 27)
     XCTAssertNotNil(tools.first { $0["name"] == "projects" })
     request.setValue("https://evil.example", forHTTPHeaderField: "Origin")
     let (_, denied) = try await URLSession.shared.data(for: request)

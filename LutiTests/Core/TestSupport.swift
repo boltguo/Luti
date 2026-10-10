@@ -45,8 +45,8 @@ struct Fixture {
   ) throws -> ToolRouter {
     let project = ApprovedProject(url: root, permissionMode: permissionMode)
     return try ToolRouter(
-      workspace: files, jobs: JobManager(helper: Self.helper), images: ImageStore(),
-      computer: NoComputerBackend(), activity: ActivityStore(),
+      workspace: files, jobs: JobManager(helper: Self.helper),
+      activity: ActivityStore(),
       executionPolicy: execution ? .fullLocal(localApproval: true) : .readOnly,
       operationApprovals: operationApprovals,
       approvedProjects: [project], activeProjectID: project.id,

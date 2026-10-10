@@ -122,7 +122,7 @@ public enum ProcessPolicy {
     guard let projectRoot = request.projectRoot else { return }
     let base = URL(fileURLWithPath: request.program).lastPathComponent.lowercased()
     if ["osascript", "open"].contains(base) {
-      throw scopeDenied("Use Browser or Computer Use for actions outside the active project.")
+      throw scopeDenied("Use Browser for actions outside the active project.")
     }
     if explicitExecutableRequiresApproval(request.program, projectRoot: projectRoot) {
       throw scopeDenied("The executable is outside the active project and outside standard developer-tool locations.")
@@ -188,7 +188,7 @@ public enum ProcessPolicy {
     try validateShell(script)
     let externalActionPattern = #"(?i)(?:^|[\s;&|])(osascript|open)(?:\s|$)"#
     if script.range(of: externalActionPattern, options: .regularExpression) != nil {
-      throw scopeDenied("Use Browser or Computer Use for actions outside the active project.")
+      throw scopeDenied("Use Browser for actions outside the active project.")
     }
 
     let outsideCandidate = script.replacingOccurrences(of: projectRoot.path, with: ".")

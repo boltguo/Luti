@@ -27,7 +27,7 @@ actor BrowserProvider {
       if name == "browser_tabs" { return ToolOutput(["tabs": []]) }
       guard name == "browser_open" else { throw Failure.invalid("Call browser_session with action=open first.") }
       guard BrowserInstallation.chromeAvailable else {
-        throw Failure("browser_missing", "Google Chrome is not installed in Applications.", "Install Google Chrome, then call browser_session(action=open) again. No desktop permissions are required.")
+        throw Failure("browser_missing", "Google Chrome is not installed in Applications.", "Install Google Chrome, then call browser_session(action=open) again.")
       }
       let node = try await BrowserInstallation.shared.prepare()
       guard accepting else { throw Failure.stopped }

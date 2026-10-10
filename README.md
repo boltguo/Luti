@@ -32,7 +32,7 @@ flowchart TB
     loopback["Loopback MCP"]
     luti["Luti on your Mac"]
     context["Project context<br/>Memory · Sessions · Activity"]
-    tools["Local capabilities<br/>Files · Git · Process · Browser · Computer · Skills"]
+    tools["Local capabilities<br/>Files · Git · Process · Browser · Skills"]
     project["One approved project"]
 
     remote --> tunnel --> luti
@@ -41,7 +41,7 @@ flowchart TB
     luti --> tools --> project
 ```
 
-It can read and edit files, run builds and tests, inspect Git, drive a browser, interact with the desktop, export artifacts, and retain project knowledge across AI clients. All of these operations run on your Mac.
+It can read and edit files, run builds and tests, inspect Git, drive a browser, export artifacts, and retain project knowledge across AI clients. All of these operations run on your Mac.
 
 ## Get started
 
@@ -69,7 +69,7 @@ Providers use separate listeners, so a failure in one does not stop the other co
 
 ## Capabilities
 
-Luti exposes **30 public MCP tools** across eight domains.
+Luti exposes **27 public MCP tools** across seven domains.
 
 | Domain | Public tools | Scope |
 |---|---|---|
@@ -79,16 +79,15 @@ Luti exposes **30 public MCP tools** across eight domains.
 | Process & Jobs | `run_process`, `run_shell`, `job_query`, `job_action` | Builds, tests, long jobs, logs, PTY input, stop |
 | Git | `git_query` | Status, diff, log, show, blame; read-only |
 | Browser | `browser_session`, `browser_observe`, `browser_action`, `browser_transfer`, `browser_inspect`, `browser_dialog`, `browser_evaluate` | Navigation, actions, screenshots, transfers, console, network, dialogs |
-| Computer | `computer_observe`, `computer_action`, `computer_wait` | macOS observation, input, state waiting |
 | Skills & Artifacts | `skills`, `export_artifact`, `import_artifact` | Project skills, immutable exports and controlled imports |
 
-Window observations route pointer and keyboard input to that application in the background; the system cursor stays independent. Keyboard input requires the target app's focused window. Some apps do not handle background menu shortcuts. When AXSetValue is unavailable, text replacement requires confirmed selection before typing. Display observations use the shared foreground pointer. Background pointer delivery checks a macOS compatibility hook at runtime and refuses to switch to global input automatically; always re-observe to verify effects.
+Desktop control has been removed.
 
 Project-specific behavior comes from the project's own manifest, instructions, tasks, and skills rather than an expanding public tool set.
 
 Start with `memory(action=recent)` for a bounded resume summary and `projectToken`. Project writes, command execution, browser mutations, project switching and Job input require this token. It changes after switching projects or restarting the Runtime; re-observe the intended project after a mismatch. Stopping an owned Job remains available without a current token. Connections without project-read permission can use `projects(action=current)` to obtain only the minimal binding.
 
-Resource listing, reads and imports check the permission for the source: project files, process logs, browser artifacts or desktop screenshots. Browser uploads also require project-read permission. `code_query` starts an installed language server, so it requires project-read and process-run permissions plus the current `projectToken`; the server may have side effects.
+Resource listing, reads and imports check the permission for the source: project files, process logs, browser artifacts. Browser uploads also require project-read permission. `code_query` starts an installed language server, so it requires project-read and process-run permissions plus the current `projectToken`; the server may have side effects.
 
 Job results separate process completion from recognized test results and record a bounded set of observed input files. `reportPath` can name a JUnit XML report produced by the command. Unchanged reports, incomplete output and unproven input consistency remain unknown; changed inputs are marked stale. These observations do not prove the entire project is correct.
 
@@ -115,7 +114,7 @@ Before editing a file or changing a path, Luti creates a bounded private checkpo
 | **Secrets** | Runtime credentials use macOS Keychain; sensitive values are redacted before persistence |
 | **OAuth** | Public clients are origin-bound and require approval on this Mac |
 | **Git** | Public Git capability is read-only |
-| **Browser & Computer Use** | Luti owns its browser sessions; Screen Recording and Accessibility remain separate macOS permissions |
+| **Browser** | Luti operates only browser sessions it owns |
 | **Process execution** | `fullLocal` runs with your user privileges and is not an OS sandbox |
 | **Sandbox profiles** | `workspace` and `isolated` fail closed when an OS-enforced backend is unavailable |
 

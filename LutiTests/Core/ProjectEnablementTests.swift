@@ -85,7 +85,7 @@ import XCTest
     let c = ApprovedProject(id: "c", url: third.root, enabled: false)
     let router = try ToolRouter(
       workspace: first.files, jobs: JobManager(helper: Fixture.helper),
-      images: ImageStore(), computer: NoComputerBackend(), activity: ActivityStore(),
+      activity: ActivityStore(),
       executionPolicy: .readOnly, approvedProjects: [a, b, c], activeProjectID: a.id,
       contextDataRoot: first.contextDataRoot)
     addTeardownBlock { await router.stop() }
@@ -112,7 +112,7 @@ import XCTest
     let disabled = ApprovedProject(id: "disabled", url: f.root, enabled: false)
     XCTAssertThrowsError(try ToolRouter(
       workspace: f.files, jobs: JobManager(helper: Fixture.helper),
-      images: ImageStore(), computer: NoComputerBackend(), activity: ActivityStore(),
+      activity: ActivityStore(),
       approvedProjects: [disabled], activeProjectID: disabled.id, contextDataRoot: f.contextDataRoot
     )) { error in
       XCTAssertEqual((error as? Failure)?.code, "project_not_enabled")
