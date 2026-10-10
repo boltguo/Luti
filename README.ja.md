@@ -27,21 +27,18 @@ Lutiは、AIクライアントを承認済みのひとつのプロジェクト�
 ```mermaid
 flowchart TB
     remote["リモートAI Host<br/>ChatGPT · Claude · Grok · …"]
-    local["ローカルMCPクライアント<br/>Codex · Claude Code · …"]
     tunnel["Tunnel + OAuth<br/>Mac上で承認"]
-    loopback["Loopback MCP"]
     luti["このMac上のLuti"]
     context["ローカル記録<br/>Activity"]
-    tools["ローカル機能<br/>Files · Git · Process · Browser · Computer"]
+    tools["ローカル機能<br/>Files · Git · Process · Browser"]
     project["承認済みの1プロジェクト"]
 
     remote --> tunnel --> luti
-    local --> loopback --> luti
     luti --> context --> project
     luti --> tools --> project
 ```
 
-ファイルの読み書き、ビルドやテスト、Gitの確認、ブラウザやデスクトップの操作、成果物の書き出しに対応します。これらの操作はすべてMac上で実行されます。
+ファイルの読み書き、ビルドやテスト、Gitの確認、ブラウザの操作、成果物の書き出しに対応します。これらの操作はすべてMac上で実行されます。
 
 ## クイックスタート
 
@@ -62,13 +59,13 @@ Runtimeを起動する前に、ローカルでフォルダを選択します。�
 
 Cloudflareでは、設定後に完全な`/mcp` URLが表示され、そのままコピーできます。Public Originを変更すると、古いOriginに結びついた認可は無効になります。
 
-Local MCPとCloudflareは独立したListenerで動作します。Cloudflareに問題が起きても、ローカルRuntimeと実行中のJobは停止しません。
+LiteのMCP接続はCloudflareのみです。Tunnelに必要なLoopback Listenerは接続マネージャーが所有し、独立したLocal MCP接続口は提供しません。接続障害が起きてもProject Runtimeと実行中のJobは停止しません。
 
 接続ページにはCloudflareの設定だけを表示し、ホームには接続状態を常に表示します。AIアプリの一覧はCloudflareの設定下に表示します。
 
 ## 機能
 
-このLiteブランチは7領域・**27個のPublic MCP Tool**を公開します。MCPはローカルで選択したフォルダを使用し、`projects`、`memory`、`skills`のToolは公開しません。
+このLiteブランチは6領域・**24個のPublic MCP Tool**を公開します。MCPはローカルで選択したフォルダを使用し、`projects`、`memory`、`skills`のToolは公開しません。
 
 | Domain | Public Tools | 範囲 |
 |---|---|---|
@@ -77,14 +74,13 @@ Local MCPとCloudflareは独立したListenerで動作します。Cloudflareに�
 | Process & Jobs | `run_process`, `run_shell`, `job_query`, `job_action` | Build、Test、長時間Job、Log、PTY入力、停止 |
 | Git | `git_query` | Status、Diff、Log、Show、Blame。読み取り専用 |
 | Browser | `browser_session`, `browser_observe`, `browser_action`, `browser_transfer`, `browser_inspect`, `browser_dialog`, `browser_evaluate` | Navigation、Action、Screenshot、Transfer、Console、Network、Dialog |
-| Computer | `computer_observe`, `computer_action`, `computer_wait` | macOSの観察、入力、状態待ち |
 | Artifacts | `export_artifact`, `import_artifact` | 不変のエクスポート、制御されたインポート |
 
 プロジェクト固有の動作は、そのプロジェクトのmanifest、instructions、tasksで定義します。Public Toolを増やす必要はありません。
 
 最初に `project_info` を呼び出して、現在のWorkspaceと `projectToken` を取得します。Projectへの書き込み、コマンド実行、Browserの変更、Job入力にはこの値が必要です。ローカルで別のフォルダを選択するかRuntimeを再起動すると失効するため、不一致の場合は対象Workspaceを再確認してください。所有するJobの停止は古い値によって妨げられません。Project書き込み、プロセス実行、Browser利用のいずれかの権限があり、Project読み取り権限がない接続には、`projectId`、`generation`、`projectToken`だけを返します。
 
-リソースの一覧、読み取り、インポートでは、Projectファイル、プロセスログ、ブラウザ成果物、画面キャプチャそれぞれの権限を確認します。ブラウザへのアップロードにはProject読み取り権限も必要です。`code_query` はインストール済みの言語サーバーを起動するため、Project読み取り・プロセス実行権限と現在の `projectToken` が必要です。言語サーバーは副作用を伴う場合があります。
+リソースの一覧、読み取り、インポートでは、Projectファイル、プロセスログ、ブラウザ成果物それぞれの権限を確認します。ブラウザへのアップロードにはProject読み取り権限も必要です。`code_query` はインストール済みの言語サーバーを起動するため、Project読み取り・プロセス実行権限と現在の `projectToken` が必要です。言語サーバーは副作用を伴う場合があります。
 
 Jobの結果はプロセス終了と認識したテスト結果を分け、限定した入力ファイルの状態を記録します。`reportPath` でコマンドが生成するJUnit XMLを指定できます。変更のない既存レポート、不完全な出力、証明できない入力の一貫性はunknown、入力の変更はstaleとして扱います。Project全体の正しさを保証するものではありません。
 
@@ -105,7 +101,7 @@ Liteは容量を制限した実行履歴だけを`~/.luti/`に保存します。
 | **Credential** | Runtime CredentialをmacOS Keychainに保存し、機密値を永続化前にRedact |
 | **OAuth** | Public ClientはOriginに結びつき、このMac上の承認が必要 |
 | **Git** | 公開Git Capabilityは読み取り専用 |
-| **Browser / Computer Use** | Lutiが所有するBrowser Sessionだけを操作し、画面収録とAccessibilityは独立したmacOS権限として扱う |
+| **ブラウザ自動化** | Lutiが所有するBrowser Sessionのみを操作。Liteではデスクトップ撮影やマウス・キーボード操作は提供しません |
 | **Process Execution** | `fullLocal`はユーザー権限で実行され、OS Sandboxではない |
 
 AIアプリのアクセスをオフにすると、既存のOAuth Grantは一時停止します。再度オンにすれば、期限内のGrantをそのまま再開できます。**取り消す**と**クライアントを削除**は、アクセスを完全に無効化します。

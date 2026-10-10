@@ -21,7 +21,6 @@ import SwiftUI
     model.phase = .running
     model.connectionSnapshots[.cloudflare] = ConnectionSnapshot(
       state: .ready, providerID: .cloudflare)
-    model.localEndpoint = URL(string: "http://127.0.0.1:49199/mcp")
     model.publicBaseURL = "https://preview.example.com"
     fixture.defaults.set("https://preview.example.com", forKey: "publicBaseURL")
     model.tokenSaved = true
@@ -30,7 +29,6 @@ import SwiftUI
       id: OAuthContract.newClientID(), name: "Grok", redirectURIs: [], authMethod: .none, host: .grok)
     try store.persistRegisteredClient(client, secret: nil)
     store.markClientUsed(client.id)
-    model.permissions = PermissionState(screen: true, accessibility: false)
     let repo = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
     let output = repo.appendingPathComponent("build/ui-review-previews", isDirectory: true)
     try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
@@ -83,7 +81,6 @@ import SwiftUI
     model.activeProject = project
 
     model.phase = .stopped
-    model.permissions = PermissionState(screen: false, accessibility: true)
     let repo = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
     let output = repo.appendingPathComponent("build/ui-review-previews", isDirectory: true)
     try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
@@ -145,7 +142,6 @@ import SwiftUI
           model.activeProject = ["empty", "project-empty"].contains(state) ? nil : project
 
           model.phase = ["empty", "project-empty", "project-details", "cloudflare-setup"].contains(state) ? .stopped : .running
-          model.localEndpoint = model.phase == .running ? URL(string: "http://127.0.0.1:49199/mcp") : nil
           model.publicBaseURL = state == "cloudflare-failed" ? "https://mcp.example.com" : ""
           model.tokenSaved = state == "cloudflare-failed"
           model.connectionSnapshots = state == "cloudflare-failed"
@@ -684,21 +680,6 @@ import SwiftUI
       "run_process", arguments: ["taskId": "task:missing"])
     XCTAssertTrue(missing.isError)
     XCTAssertEqual(missing.data["error"], "task_not_found")
-  }
-
-  func testComputerWaitCanObserveWindowAbsenceWithoutSideEffects() async throws {
-    let images = ImageStore()
-    let service = ComputerService(images: images)
-    let result = try await service.wait([
-      "condition": "windowDisappears",
-      "window": "4294967295",
-      "timeoutMs": 250,
-      "pollMs": 50,
-    ])
-    XCTAssertEqual(result.data["matched"], true)
-    XCTAssertEqual(result.data["condition"], "windowDisappears")
-    await service.stop()
-    await images.stop()
   }
 
   func testBrowserConsentAndArguments() async throws {

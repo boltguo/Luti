@@ -13,11 +13,9 @@ import Observation
   var doctorReports: [ConnectionProviderID: ConnectionDoctorReport] = [:]
   var doctorBusy: ConnectionProviderID?
   @ObservationIgnored private var authorizationStores: [ConnectionProviderID: OAuthStore] = [:]
-  var permissions = PermissionState(screen: false, accessibility: false)
   var activity: [ActivityEvent] = []
   var currentRunID: UUID?
   var connectionSnapshots: [ConnectionProviderID: ConnectionSnapshot] = [:]
-  var localEndpoint: URL?
   var connectionBusyProviders: Set<ConnectionProviderID> = []
   var connectionErrors: [ConnectionProviderID: String] = [:]
   var detail = "Choose a project to get started."
@@ -85,7 +83,6 @@ import Observation
     defaults.removeObject(forKey: "enabledConnectionProviders")
     defaults.removeObject(forKey: Self.legacyActiveConnectionProviderKey)
 
-    permissions = PermissionManager.state()
     persistSelectedFolder()
     reloadStoredActivity()
     LocalLogStore.runtime("info", "Luti app initialized.")
@@ -334,7 +331,6 @@ import Observation
     connectionErrors = [:]
     connectionSnapshots = [:]
     connectionBusyProviders = []
-    localEndpoint = nil
     activityFeed?.cancel()
     activityFeed = nil
     currentRunID = nil
@@ -358,12 +354,11 @@ import Observation
         self.session = runtime
         self.bindActivity(runtime, token: token)
         self.phase = .starting
-        let endpoint = try await runtime.start()
+        try await runtime.start()
         try Task.checkCancellation()
         guard self.revision == token else { throw CancellationError() }
-        self.localEndpoint = endpoint
         self.phase = .running
-        self.detail = "Local MCP is running."
+        self.detail = "Project runtime is running."
         LocalLogStore.runtime(
           "info", "Local folder runtime started.")
         // Every enabled provider is part of the Home launch context. Each owns
@@ -468,7 +463,6 @@ import Observation
     connections = [:]
     let owned = session
     session = nil
-    localEndpoint = nil
     activityFeed?.cancel()
     activityFeed = nil
     phase = .stopping
@@ -497,7 +491,7 @@ import Observation
     pendingApprovals = []
     announcedApprovals = []
     remoteClients = authorizationStores.values.reduce(0) { $0 + $1.approvedClients.count }
-    detail = "Stopped. Project access and desktop handles are revoked."
+    detail = "Stopped. Project access is revoked."
     LocalLogStore.runtime("info", "Runtime stopped; local handles revoked.")
   }
   /// Answers one request and drops it from the queue immediately, so the sheet
@@ -514,7 +508,6 @@ import Observation
   }
 
   func refresh() async {
-    permissions = PermissionManager.state()
     guard let owned = session else { return }
     let token = revision
     let connectionTokens = connectionRevisions
@@ -531,7 +524,6 @@ import Observation
     if activityFeed == nil {
       activity = Array(snapshot.activity.prefix(200))
     }
-    localEndpoint = snapshot.localEndpoint
     for id in currentConnections.keys
     where connectionTokens[id] == connectionRevisions[id] {
       let remote = remoteSnapshots[id] ?? .stopped

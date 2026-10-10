@@ -11,7 +11,7 @@ extension WorkspaceFiles {
       "filePolicy":
         "Project-relative UTF-8 files; secrets, symlinks and hard-linked aliases excluded.",
       "executionPolicy":
-        "Commands and desktop control have macOS user permissions, not an OS sandbox.",
+        "Commands use current user privileges, not an OS sandbox.",
     ]
   }
   public func readFiles(

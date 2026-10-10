@@ -2,21 +2,17 @@ import Foundation
 
 public struct RuntimeSnapshot: Sendable {
   public let activity: [ActivityEvent]
-  public let localEndpoint: URL?
   public let lastCall: Date?
   public let activeJobs: Int
   public let runID: UUID
 }
 
-/// One explicit Start owns one local runtime. No account, tunnel configuration,
-/// installer or remote connection is needed to construct or start this object.
+/// One explicit Start owns the project tools and jobs. Cloudflare connections
+/// own their ingress listeners; the project runtime opens no separate MCP endpoint.
 public actor RuntimeCore {
-  private let server = MCPServer()
   nonisolated let router: ToolRouter
   nonisolated let activity: ActivityStore
   public nonisolated let runID: UUID
-  private let bearer: String
-  private var endpoint: URL?
   private var started = false
   private var closing: Task<Void, Never>?
 
@@ -25,53 +21,30 @@ public actor RuntimeCore {
     project: ApprovedProject? = nil,
     contextDataRoot: URL? = nil
   ) throws {
-    bearer = Budget.token()
-    let redactor = Redactor(known: [bearer])
+    let redactor = Redactor()
     let activity = ActivityStore(
       redactor: redactor,
       persistenceDirectory: LocalLogStore.activityDirectory(for: root, dataRoot: contextDataRoot ?? LutiPaths.root))
     self.activity = activity
     runID = activity.runID
-    let images = ImageStore()
     router = try ToolRouter(
       workspace: WorkspaceFiles(root: root), jobs: JobManager(helper: helper, redactor: redactor),
-      images: images, computer: ComputerService(images: images), activity: activity,
+      activity: activity,
       executionPolicy: executionPolicy,
       redactor: redactor, project: project, helper: helper, contextDataRoot: contextDataRoot)
   }
 
-  @discardableResult
-  public func start() async throws -> URL {
+  public func start() throws {
     guard !started, closing == nil else { throw Failure.stopped }
+    try Task.checkCancellation()
     started = true
-    do {
-      let url = try await server.start(router: router, authentication: .local(bearer: bearer))
-      try Task.checkCancellation()
-      guard closing == nil else { throw Failure.stopped }
-      endpoint = url
-      return url
-    } catch {
-      await stop()
-      throw error
-    }
-  }
-
-  /// Only the native Copy action uses this in-process API. It is deliberately not
-  /// part of RuntimeSnapshot, Activity, or the public MCP tool surface.
-  func localConnectionConfiguration() throws -> String {
-    guard closing == nil, let endpoint else { throw Failure.stopped }
-    let setup: JSONValue = [
-      "url": .string(endpoint.absoluteString),
-      "headers": ["Authorization": .string("Bearer " + bearer)],
-    ]
-    return String(decoding: try setup.data(), as: UTF8.self)
   }
 
   public func snapshot() async -> RuntimeSnapshot {
     let jobs = await router.jobList(refreshValidationInputs: false)
     await activity.reconcileJobs(jobs)
     return RuntimeSnapshot(
-      activity: await activity.snapshot(), localEndpoint: endpoint,
+      activity: await activity.snapshot(),
       lastCall: await router.lastSuccessfulCall(),
       activeJobs: jobs.filter { $0["terminal"] != true }.count,
       runID: runID)
@@ -81,12 +54,7 @@ public actor RuntimeCore {
 
   public func stop() async {
     if let closing { await closing.value; return }
-    endpoint = nil
-    let task = Task { [server, router] in
-      async let listener: Void = server.stop()
-      async let tools: Void = router.stop()
-      _ = await (listener, tools)
-    }
+    let task = Task { [router] in await router.stop() }
     closing = task
     await task.value
   }

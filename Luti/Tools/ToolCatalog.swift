@@ -8,7 +8,7 @@ enum ProjectBindingContract {
   ]
 
   static func acceptsToken(_ name: String) -> Bool {
-    name != "runtime_status" && !name.hasPrefix("computer_")
+    name != "runtime_status"
   }
 
   static func requiresToken(_ name: String, arguments: JSONValue) -> Bool {
@@ -79,54 +79,12 @@ public enum ToolCatalog {
       "terminalMode": [
         "type": "string", "enum": .array(["pipe", "pty"].map(JSONValue.string)),
         "default": "pipe",
-        "description": "pipe uses ordinary stdin/stdout pipes. pty allocates a real macOS pseudo-terminal for the child and requires interactive=true.",
+        "description": "pipe uses ordinary stdin/stdout pipes. pty allocates a pseudo-terminal for the child and requires interactive=true.",
       ],
       "idempotencyKey": string(
         "Optional retry key, retained with this instance's last 64 jobs. Same key/input returns the same job.",
         max: 128),
       "reportPath": string("Optional project-relative JUnit XML report written by this command. Luti does not change the command or configure a reporter. An unchanged pre-existing report is not proof of this run."),
-    ]
-    let observe: [String: JSONValue] = [
-      "window": string(
-        "Window ID from a prior observation; 'frontmost' by default. 'list' returns windows without a capture."
-      ),
-      "displayId": integer(1, 4_294_967_295),
-      "includeScreenshot": flag(true), "includeAccessibility": flag(),
-      "maxDimension": integer(320, 2560, 2560), "format": enumeration(["auto", "jpeg", "png"]),
-      "maxDepth": integer(1, 6, 5), "maxNodes": integer(1, 128, 96),
-      "filterRole": string("Optional exact AX role filter, e.g. AXButton", max: 128),
-      "filterTitleContains": string("Optional case-insensitive AX title substring", max: 512),
-      "filterIdentifier": string("Optional exact AX identifier", max: 512),
-      "filterValueContains": string("Optional case-insensitive AX value substring; secure values are never read", max: 1024),
-      "filterMaxResults": integer(1, 64, 20),
-    ]
-    let action: [String: JSONValue] = [
-      "action": enumeration([
-        "press", "focus", "type", "key", "scroll", "click", "movePointer", "drag",
-        "activateWindow", "minimizeWindow", "closeWindow", "launchApp",
-        "clipboardRead", "clipboardWrite",
-      ]),
-      "observationId": string(
-        "Required for target-bound operations. Valid for 60 seconds; replaced by the next observe."),
-      "elementId": string(
-        "Semantic AX handle from the same observation; required for press/focus/type."),
-      "text": string("Text for type/clipboardWrite. Never enter secrets.", max: 16_384),
-      "key": string(
-        "Key name: enter, tab, escape, space, backspace, delete, arrows, home, end, pageUp/pageDown or a-z/0-9.",
-        max: 16),
-      "modifiers": strings("Unique modifier names: command, option, control, shift", max: 4),
-      "x": ["type": "number"], "y": ["type": "number"],
-      "fromX": ["type": "number"], "fromY": ["type": "number"],
-      "toX": ["type": "number"], "toY": ["type": "number"],
-      "coordinateSpace": enumeration(["image", "screen"]),
-      "button": enumeration(["left", "right"]), "clickCount": integer(1, 2, 1),
-      "deltaY": integer(-2000, 2000, -400), "deltaX": integer(-2000, 2000, 0),
-      "fallbackReason": string(
-        "Required for coordinate input, drag and nonsemantic scroll; explain why an AX action cannot be used.",
-        max: 256),
-      "bundleId": string(
-        "Exact application bundle ID; launchApp accepts no executable, shell or URL arguments.",
-        max: 256),
     ]
     let base: [JSONValue] = [
       tool(
@@ -175,7 +133,7 @@ public enum ToolCatalog {
         ], required: ["action"], readOnly: false),
       tool(
         "run_process",
-        "Run one discovered project task by taskId, or one explicit program + argv, under the active Project Execution Policy. Use task IDs from inspect_project when available; task program/args/cwd cannot be overridden. Full local execution uses macOS user privileges and is NOT an OS sandbox.",
+        "Run one discovered project task by taskId, or one explicit program + argv, under the active Project Execution Policy. Use task IDs from inspect_project when available; task program/args/cwd cannot be overridden. Full local execution uses the current user's privileges and is NOT an OS sandbox.",
         process.merging(
           [
             "taskId": string("Exact stable task id from inspect_project taskRegistry; mutually exclusive with program/args/cwd/environment", max: 128),
@@ -224,33 +182,7 @@ public enum ToolCatalog {
           "startLine": integer(1, 1_000_000, 1),
           "endLine": integer(1, 1_000_000),
         ], required: ["action"]),
-      tool(
-        "computer_observe",
-        "Semantic-first observation: exact window metadata, bounded AX tree and real MCP image/resource. Window capture can return a screenshot even when AX is unavailable, with accessibilityFailure/partial. 'window:list' returns current windows/apps/displays. Display capture uses displayId and defaults includeAccessibility=false.",
-        observe, readOnly: true, openWorld: true),
-      tool(
-        "computer_wait",
-        "Wait up to 20 seconds for one desktop condition without clicking or typing. Supports window appear/disappear, frontmost app, and AX element exists/gone. Returns matched=false on timeout; re-observe before any action.",
-        [
-          "condition": enumeration([
-            "windowAppears", "windowDisappears", "frontmostApp", "elementExists", "elementGone",
-          ]),
-          "window": string("Optional exact window ID or frontmost selector", max: 80),
-          "bundleId": string("Exact application bundle ID", max: 256),
-          "windowTitleContains": string("Case-insensitive window title substring", max: 512),
-          "role": string("Exact AX role such as AXButton", max: 128),
-          "elementTitleContains": string("Case-insensitive AX element title substring", max: 512),
-          "identifier": string("Exact AX identifier", max: 512),
-          "valueContains": string("Case-insensitive AX value substring; secure fields are never read", max: 1024),
-          "timeoutMs": integer(100, 20_000, 10_000),
-          "pollMs": integer(50, 1_000, 150),
-          "maxDepth": integer(1, 6, 4),
-          "maxNodes": integer(1, 128, 64),
-        ], required: ["condition"], readOnly: true, openWorld: true),
-      tool(
-        "computer_action",
-        "Use AX semantics first: press/focus/type plus window activate/minimize/close. type replaces the target field value; keyboard fallback selects existing content first. Target-bound actions consume observationId, so re-observe after every action or error. Coordinates require fallbackReason.",
-        action, required: ["action"], readOnly: false, openWorld: true),
+
     ]
     return (base + additions).map { ActionContracts.present($0) }
       .sorted { $0["name"].string! < $1["name"].string! }

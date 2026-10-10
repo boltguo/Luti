@@ -13,7 +13,6 @@ public enum TunnelContract {
   public static let teamIdentifier = "68WVV388M8"
 
   /// Fixed Cloudflare ingress port, matching its dashboard service rule.
-  /// Local MCP uses a separate ephemeral port and does not depend on this one.
   public static let defaultPort = 39393
   /// cloudflared's own metrics listener, used only for its /ready probe.
   public static let metricsPort = 39394

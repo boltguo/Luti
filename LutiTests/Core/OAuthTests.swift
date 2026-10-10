@@ -29,6 +29,48 @@ final class OAuthTests: XCTestCase {
     return (OAuthStore(url: url), directory)
   }
 
+  func testLiteDoesNotIssueDesktopScopes() {
+    XCTAssertEqual(OAuthScope.catalog, ["project:read", "project:write", "process:run", "browser:use"])
+    for scope in ["computer:read", "computer:control", "project:read computer:read"] {
+      XCTAssertNil(OAuthScope.parse(scope))
+    }
+    for tool in ["computer_observe", "computer_action", "computer_wait"] {
+      XCTAssertNil(OAuthScope.required(tool: tool, arguments: [:]))
+    }
+  }
+
+  func testLiteLoadsExistingGrantsWithoutRetiredScopesOrLosingClients() throws {
+    let client = OAuthClientRecord(id: OAuthContract.newClientID(), name: "Existing Host")
+    let (_, directory) = try temporaryStore(client: client)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let now = Date(timeIntervalSince1970: Date().timeIntervalSince1970.rounded(.down))
+    let token = StoredToken(hash: Budget.sha256(Data("existing-token".utf8)), kind: .access,
+      clientID: client.id, authorizationID: UUID(), resource: issuer.absoluteString + "/mcp",
+      scopes: [.projectRead, .browserUse], createdAt: now, expiresAt: now.addingTimeInterval(3600))
+    let encoder = JSONEncoder(); encoder.dateEncodingStrategy = .iso8601
+    let data = try encoder.encode(OAuthSeedState(schemaVersion: 1, clients: [client], tokens: [token]))
+    var document = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+    var tokens = try XCTUnwrap(document["tokens"] as? [[String: Any]])
+    tokens[0]["scopes"] = ["project:read", "computer:read", "browser:use", "computer:control"]
+    document["tokens"] = tokens
+    let url = directory.appendingPathComponent("oauth.json")
+    try JSONSerialization.data(withJSONObject: document).write(to: url, options: .atomic)
+    let loaded = OAuthStore(url: url)
+    XCTAssertEqual(loaded.client(client.id)?.name, client.name)
+    let recovered = try XCTUnwrap(loaded.token(hash: token.hash))
+    XCTAssertEqual(recovered, token)
+    XCTAssertTrue(recovered.isUsable(at: now))
+    try loaded.insert([])
+    let persisted = try String(contentsOf: url, encoding: .utf8)
+    XCTAssertFalse(persisted.contains("computer:read"))
+    XCTAssertFalse(persisted.contains("computer:control"))
+    // Unknown scopes still fail closed; they are not treated as retired scopes.
+    tokens[0]["scopes"] = ["project:read", "unexpected:scope"]
+    document["tokens"] = tokens
+    try JSONSerialization.data(withJSONObject: document).write(to: url, options: .atomic)
+    XCTAssertNil(OAuthStore(url: url).token(hash: token.hash))
+  }
+
   private func request(
     _ method: String, _ path: String, body: String = "", host: String = "mcp.example.com",
     contentType: String = "application/x-www-form-urlencoded", authorization: String? = nil,

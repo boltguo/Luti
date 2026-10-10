@@ -172,7 +172,6 @@
 "home.connectionWasInterruptedAttemptingReconnect" = "接続が中断されました。再接続しています。";
 "home.disconnected" = "接続を解除";
 "home.inactive" = "停止中";
-"home.localService" = "ローカルサービス";
 "home.noWorkingProjectSelected" = "使用中のプロジェクトが未選択";
 "home.notConnect" = "接続できませんでした";
 "home.notRunning" = "実行していません";
@@ -217,11 +216,9 @@
 
 /* oauth */
 "oauth.changeProject" = "プロジェクトの変更";
-"oauth.controlDesktop" = "デスクトップの操作";
 "oauth.readProject" = "プロジェクトの読み取り";
 "oauth.runCommands" = "コマンドの実行";
 "oauth.useBrowser" = "ブラウザの利用";
-"oauth.viewScreen" = "画面の表示";
 
 
 /* projects */
@@ -241,25 +238,19 @@
 
 /* settings */
 "settings.about" = "情報";
-"settings.accessibility" = "アクセシビリティ";
 "settings.activity" = "アクティビティ";
 "settings.allow" = "許可";
 "settings.allowLutiSystemSettingsLoginItems" = "「システム設定」>「一般」>「ログイン項目」でLutiを許可してください。";
 "settings.awaitingApproval" = "システムの許可を待っています";
-"settings.captureObserveScreen" = "画面の取り込みと観察に使用";
 "settings.components" = "コンポーネント";
-"settings.controlWindowsKeyboardMouse" = "ウインドウ、キーボード、マウスの操作に使用";
 "settings.displayLanguage" = "表示言語";
 "settings.general" = "一般";
 "settings.japanese" = "日本語";
 "settings.launchLogin" = "ログイン時にLutiを開く";
 "settings.notRegistered" = "未登録";
-"settings.screenRecording" = "画面収録";
 "settings.simplifiedChinese" = "簡体字中国語";
 "settings.system" = "システムに合わせる";
 "settings.systemLoginItems" = "ログイン項目の設定";
-"settings.systemPermissionSettings" = "システムのアクセス許可設定";
-"settings.systemPermissions" = "システムのアクセス許可";
 "settings.viewStatus" = "状態を表示";
 
 /* ui */

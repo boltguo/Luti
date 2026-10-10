@@ -40,8 +40,8 @@ struct Fixture {
   }
   func router(execution: Bool = false) throws -> ToolRouter {
     try ToolRouter(
-      workspace: files, jobs: JobManager(helper: Self.helper), images: ImageStore(),
-      computer: NoComputerBackend(), activity: ActivityStore(),
+      workspace: files, jobs: JobManager(helper: Self.helper),
+      activity: ActivityStore(),
       executionPolicy: execution ? .fullLocal(localApproval: true) : .readOnly,
       project: ApprovedProject(url: root), helper: Self.helper, contextDataRoot: contextDataRoot)
   }

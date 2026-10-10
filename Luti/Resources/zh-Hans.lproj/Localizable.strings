@@ -172,7 +172,6 @@
 "home.connectionWasInterruptedAttemptingReconnect" = "连接暂时中断，正在尝试恢复。";
 "home.disconnected" = "未连接";
 "home.inactive" = "未运行";
-"home.localService" = "本地服务";
 "home.noWorkingProjectSelected" = "尚未选择工作项目";
 "home.notConnect" = "连接未完成";
 "home.notRunning" = "尚未启动";
@@ -217,11 +216,9 @@
 
 /* oauth */
 "oauth.changeProject" = "修改项目";
-"oauth.controlDesktop" = "控制桌面";
 "oauth.readProject" = "读取项目";
 "oauth.runCommands" = "运行命令";
 "oauth.useBrowser" = "使用浏览器";
-"oauth.viewScreen" = "查看屏幕";
 
 
 /* projects */
@@ -241,25 +238,19 @@
 
 /* settings */
 "settings.about" = "关于";
-"settings.accessibility" = "辅助功能";
 "settings.activity" = "活动记录";
 "settings.allow" = "授权";
 "settings.allowLutiSystemSettingsLoginItems" = "请在“系统设置”>“通用”>“登录项”中允许 Luti。";
 "settings.awaitingApproval" = "等待系统允许";
-"settings.captureObserveScreen" = "用于截图和观察屏幕";
 "settings.components" = "组件版本";
-"settings.controlWindowsKeyboardMouse" = "用于控制窗口、键盘和鼠标";
 "settings.displayLanguage" = "显示语言";
 "settings.general" = "通用";
 "settings.japanese" = "日语";
 "settings.launchLogin" = "登录时打开 Luti";
 "settings.notRegistered" = "未注册";
-"settings.screenRecording" = "屏幕录制";
 "settings.simplifiedChinese" = "简体中文";
 "settings.system" = "跟随系统";
 "settings.systemLoginItems" = "登录项设置";
-"settings.systemPermissionSettings" = "系统权限设置";
-"settings.systemPermissions" = "系统权限";
 "settings.viewStatus" = "查看状态";
 
 /* ui */

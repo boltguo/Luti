@@ -1,33 +1,7 @@
-import AppKit
-// The SDK exposes the immutable AX option key as a legacy mutable C global.
-// Permission requests stay on the main actor; keep Swift 6 checking elsewhere.
-@preconcurrency import ApplicationServices
 import Foundation
 import LocalAuthentication
 import Security
 
-@MainActor public enum PermissionManager {
-  public static func state() -> PermissionState {
-    PermissionState(screen: CGPreflightScreenCaptureAccess(), accessibility: AXIsProcessTrusted())
-  }
-  public static func requestScreen() { _ = CGRequestScreenCaptureAccess() }
-  public static func requestAccessibility() {
-    let options =
-      [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
-    _ = AXIsProcessTrustedWithOptions(options)
-  }
-  public static func openSettings() {
-    // Open the documented application, not a guessed private deep-link API.
-    if let url = NSWorkspace.shared.urlForApplication(
-      withBundleIdentifier: "com.apple.systempreferences")
-    {
-      NSWorkspace.shared.openApplication(
-        at: url, configuration: NSWorkspace.OpenConfiguration(), completionHandler: nil)
-    }
-  }
-  public static let instructions =
-    "System Settings → Privacy & Security → Screen Recording / Accessibility. Enable Luti at its final installation path. macOS may require restarting the app."
-}
 public enum KeychainService {
   /// One account per secret. The Tunnel Token is the default because it is the
   /// only one that existed before OAuth; a client secret gets an account derived

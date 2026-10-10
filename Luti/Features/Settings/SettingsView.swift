@@ -92,8 +92,6 @@ struct SettingsView: View {
           .textSelection(.enabled)
       }
 
-      PermissionsSettingsBlock(model: model)
-
       MDSection(title: L10n.text("settings.about")) {
         MDList {
           ComponentVersionRow(
@@ -207,72 +205,6 @@ struct SettingsView: View {
     case .notRegistered: L10n.text("common.disabled")
     case .notFound: L10n.text("settings.notRegistered")
     @unknown default: L10n.text("settings.viewStatus")
-    }
-  }
-}
-
-private struct PermissionsSettingsBlock: View {
-  let model: AppModel
-
-  var body: some View {
-    MDSection(title: L10n.text("settings.systemPermissions")) {
-      MDList {
-        permission(
-          L10n.text("settings.screenRecording"),
-          symbol: "rectangle.on.rectangle",
-          subtitle: L10n.text("settings.captureObserveScreen"),
-          granted: model.permissions.screen,
-          position: .first,
-          tone: .blue,
-          action: PermissionManager.requestScreen)
-        permission(
-          L10n.text("settings.accessibility"),
-          symbol: "hand.point.up.left",
-          subtitle: L10n.text("settings.controlWindowsKeyboardMouse"),
-          granted: model.permissions.accessibility,
-          position: .middle,
-          tone: .pink,
-          action: PermissionManager.requestAccessibility)
-        MDNavigationRow(
-          title: L10n.text("settings.systemPermissionSettings"),
-          symbol: "gearshape",
-          position: .last,
-          iconTone: .gray,
-          action: PermissionManager.openSettings)
-      }
-    }
-  }
-
-  @ViewBuilder private func permission(
-    _ title: String,
-    symbol: String,
-    subtitle: String,
-    granted: Bool,
-    position: MDListRowPosition,
-    tone: MDIconTone,
-    action: @escaping () -> Void
-  ) -> some View {
-    if granted {
-      MDListRow(
-        title: title,
-        symbol: symbol,
-        subtitle: subtitle,
-        position: position,
-        iconTone: tone
-      ) {
-        Text(L10n.text("common.granted"))
-          .font(.system(size: 12, weight: .medium))
-          .foregroundStyle(MDTheme.success)
-      }
-    } else {
-      MDNavigationRow(
-        title: title,
-        symbol: symbol,
-        subtitle: subtitle,
-        detail: L10n.text("settings.allow"),
-        position: position,
-        iconTone: tone,
-        action: action)
     }
   }
 }

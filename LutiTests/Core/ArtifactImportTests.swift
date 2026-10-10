@@ -81,7 +81,7 @@ import XCTest
         grant: grant([.projectWrite]))
       XCTAssertEqual(missingRead.data["error"], "insufficient_scope")
       let wrongDomain = await router.callInCurrentProject("import_artifact", arguments: arguments.adding("dryRun", true),
-        grant: grant([.projectWrite, .computerRead]))
+        grant: grant([.projectWrite, pair.1 == .browserUse ? .processRun : .browserUse]))
       XCTAssertEqual(wrongDomain.data["error"], "insufficient_scope")
       if pair.1 != .projectRead {
         let projectReader = await router.callInCurrentProject("import_artifact", arguments: arguments,

@@ -68,8 +68,19 @@ public final class OAuthStore: @unchecked Sendable {
       url.flatMap { try? PrivateFiles.read($0, max: Self.maxBytes) }.flatMap { data in
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
-        return try? decoder.decode(OAuthState.self, from: data)
+        return try? decoder.decode(OAuthState.self, from: Self.removingRetiredScopes(data))
       } ?? OAuthState()
+  }
+
+  private static func removingRetiredScopes(_ data: Data) throws -> Data {
+    guard var document = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+          var tokens = document["tokens"] as? [[String: Any]] else { return data }
+    for index in tokens.indices {
+      guard let scopes = tokens[index]["scopes"] as? [String] else { continue }
+      tokens[index]["scopes"] = scopes.filter { !["computer:read", "computer:control"].contains($0) }
+    }
+    document["tokens"] = tokens
+    return try JSONSerialization.data(withJSONObject: document)
   }
 
   /// Each provider has its own store; each store is pinned to one canonical

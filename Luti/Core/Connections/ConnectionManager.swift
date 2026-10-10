@@ -96,7 +96,7 @@ public actor ConnectionManager {
       try check(owned.id)
       guard result.state == .ready else {
         throw Failure("connection_not_ready", "The remote provider did not confirm readiness.",
-                      "Inspect the connection settings and reconnect explicitly. Local MCP is still available.")
+                      "Inspect the connection settings and reconnect explicitly. Project tasks keep running.")
       }
       state = decorate(result)
     } catch {
@@ -139,7 +139,7 @@ public actor ConnectionManager {
       guard attempt?.id == owned.id, closing == nil else { return state }
       if result.state == .failed || result.state == .stopped {
         await close(final: ConnectionSnapshot(state: .failed,
-          message: result.message.isEmpty ? "Remote connection stopped. Local MCP is still available." : result.message,
+          message: result.message.isEmpty ? "Remote connection stopped. Project tasks keep running." : result.message,
           providerID: owned.provider.id))
       } else {
         state = decorate(result)

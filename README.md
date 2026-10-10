@@ -27,21 +27,18 @@ Luti connects an AI client to one approved project. The AI host handles reasonin
 ```mermaid
 flowchart TB
     remote["Remote AI hosts<br/>ChatGPT · Claude · Grok · …"]
-    local["Local MCP clients<br/>Codex · Claude Code · …"]
     tunnel["Tunnel + OAuth<br/>Mac approval"]
-    loopback["Loopback MCP"]
     luti["Luti on your Mac"]
     context["Local records<br/>Activity"]
-    tools["Local capabilities<br/>Files · Git · Process · Browser · Computer"]
+    tools["Local capabilities<br/>Files · Git · Process · Browser"]
     project["One approved project"]
 
     remote --> tunnel --> luti
-    local --> loopback --> luti
     luti --> context --> project
     luti --> tools --> project
 ```
 
-It can read and edit files, run builds and tests, inspect Git, drive a browser, interact with the desktop, and export artifacts. All of these operations run on your Mac.
+It can read and edit files, run builds and tests, inspect Git, drive a browser and export artifacts. All of these operations run on your Mac.
 
 ## Get started
 
@@ -62,13 +59,13 @@ When loading an older multi-project configuration, Lite retains the selected pro
 
 Once configured, Cloudflare displays the full `/mcp` URL for direct copying. Changing the public origin invalidates authorizations tied to the old origin.
 
-Local MCP and Cloudflare use separate listeners. A Cloudflare failure leaves the local runtime and running jobs available.
+Lite exposes MCP through Cloudflare only. The connection manager owns the loopback ingress needed by the tunnel; there is no separate local MCP endpoint. A connection failure leaves project tools and running jobs alive.
 
 The Connections page shows Cloudflare configuration directly. Home always shows its connection status. Approved AI apps appear below the Cloudflare settings.
 
 ## Capabilities
 
-This Lite branch exposes **27 public MCP tools** across seven domains. MCP uses the folder selected locally, with no `projects`, `memory` or `skills` tool.
+This Lite branch exposes **24 public MCP tools** across seven domains. MCP uses the folder selected locally, with no `projects`, `memory` or `skills` tool.
 
 | Domain | Public tools | Scope |
 |---|---|---|
@@ -77,14 +74,13 @@ This Lite branch exposes **27 public MCP tools** across seven domains. MCP uses 
 | Process & Jobs | `run_process`, `run_shell`, `job_query`, `job_action` | Builds, tests, long jobs, logs, PTY input, stop |
 | Git | `git_query` | Status, diff, log, show, blame; read-only |
 | Browser | `browser_session`, `browser_observe`, `browser_action`, `browser_transfer`, `browser_inspect`, `browser_dialog`, `browser_evaluate` | Navigation, actions, screenshots, transfers, console, network, dialogs |
-| Computer | `computer_observe`, `computer_action`, `computer_wait` | macOS observation, input, state waiting |
 | Artifacts | `export_artifact`, `import_artifact` | Immutable exports and controlled imports |
 
 Project-specific behavior comes from the project's own manifest, instructions, and tasks rather than an expanding public tool set.
 
 Start with `project_info` for the current workspace and `projectToken`. Project writes, command execution, browser mutations and Job input require this token. It changes after selecting a different folder locally or restarting the Runtime; re-observe the intended workspace after a mismatch. Stopping an owned Job remains available without a current token. Connections with project-write, process-run or browser-use permission but no project-read permission receive only `projectId`, `generation` and `projectToken`.
 
-Resource listing, reads and imports check the permission for the source: project files, process logs, browser artifacts or desktop screenshots. Browser uploads also require project-read permission. `code_query` starts an installed language server, so it requires project-read and process-run permissions plus the current `projectToken`; the server may have side effects.
+Resource listing, reads and imports check the permission for the source: project files, process logs, browser artifacts. Browser uploads also require project-read permission. `code_query` starts an installed language server, so it requires project-read and process-run permissions plus the current `projectToken`; the server may have side effects.
 
 Job results separate process completion from recognized test results and record a bounded set of observed input files. `reportPath` can name a JUnit XML report produced by the command. Unchanged reports, incomplete output and unproven input consistency remain unknown; changed inputs are marked stale. These observations do not prove the entire project is correct.
 
@@ -105,7 +101,7 @@ Lite keeps bounded execution activity in `~/.luti/` for diagnostics. Current-run
 | **Secrets** | Runtime credentials use macOS Keychain; sensitive values are redacted before persistence |
 | **OAuth** | Public clients are origin-bound and require approval on this Mac |
 | **Git** | Public Git capability is read-only |
-| **Browser & Computer Use** | Luti owns its browser sessions; Screen Recording and Accessibility remain separate macOS permissions |
+| **Browser automation** | Luti owns its browser sessions; desktop capture and input are unavailable in Lite |
 | **Process execution** | `fullLocal` runs with your user privileges and is not an OS sandbox |
 | **Sandbox profiles** | `workspace` and `isolated` fail closed when an OS-enforced backend is unavailable |
 
@@ -116,8 +112,8 @@ Luti has no cloud backend that receives project data. The AI hosts you connect s
 ## Requirements
 
 - macOS 14 or later.
-- The core app runs on Apple Silicon and Intel.
-- Apple Silicon and a separately installed Google Chrome for browser automation with the pinned browser runtime.
+- An Apple Silicon Mac (arm64).
+- A separately installed Google Chrome for browser automation with the pinned browser runtime.
 - Xcode 26+ recommended for source builds.
 - An account and configuration for each remote provider you enable.
 

@@ -27,21 +27,18 @@ Luti 把 AI 客户端连接到一个已授权项目。AI Host 负责推理和编
 ```mermaid
 flowchart TB
     remote["远程 AI Host<br/>ChatGPT · Claude · Grok · …"]
-    local["本机 MCP 客户端<br/>Codex · Claude Code · …"]
     tunnel["Tunnel + OAuth<br/>本机批准"]
-    loopback["Loopback MCP"]
     luti["这台 Mac 上的 Luti"]
     context["本地记录<br/>Activity"]
-    tools["本地能力<br/>Files · Git · Process · Browser · Computer"]
+    tools["本地能力<br/>Files · Git · Process · Browser"]
     project["一个已授权项目"]
 
     remote --> tunnel --> luti
-    local --> loopback --> luti
     luti --> context --> project
     luti --> tools --> project
 ```
 
-它可以读写文件、运行构建和测试、查看 Git、操作浏览器与桌面、导出产物。这些操作都在你的 Mac 上完成。
+它可以读写文件、运行构建和测试、查看 Git、操作浏览器、导出产物。这些操作都在你的 Mac 上完成。
 
 ## 快速开始
 
@@ -62,13 +59,13 @@ flowchart TB
 
 Cloudflare 配置完成后会显示完整的 `/mcp` 地址，可直接复制。修改 Public Origin 后，绑定在旧 Origin 上的授权会失效。
 
-Local MCP 和 Cloudflare 使用独立监听。Cloudflare 出错时，本地 Runtime 和正在运行的 Job 不受影响。
+Lite 只提供 Cloudflare MCP 接入，不提供独立的本地 MCP 连接入口。Cloudflare 所需的回环监听由连接管理器持有；连接出错时，项目 Runtime 和已运行的 Job 不受影响。
 
 连接页只展示 Cloudflare 配置，首页常驻显示它的连接状态，AI 应用列表位于 Cloudflare 配置下方。
 
 ## 能力
 
-此 Lite 分支对外暴露 **27 个 MCP Tool**，分为 7 个领域。MCP 使用本地选定的文件夹，不提供 `projects`、`memory` 或 `skills` 工具。
+此 Lite 分支对外暴露 **24 个 MCP Tool**，分为 6 个领域。MCP 使用本地选定的文件夹，不提供 `projects`、`memory` 或 `skills` 工具。
 
 | 领域 | Public Tools | 范围 |
 |---|---|---|
@@ -77,14 +74,13 @@ Local MCP 和 Cloudflare 使用独立监听。Cloudflare 出错时，本地 Runt
 | Process & Jobs | `run_process`, `run_shell`, `job_query`, `job_action` | 构建、测试、长任务、日志、PTY 输入、停止 |
 | Git | `git_query` | Status、Diff、Log、Show、Blame；只读 |
 | Browser | `browser_session`, `browser_observe`, `browser_action`, `browser_transfer`, `browser_inspect`, `browser_dialog`, `browser_evaluate` | 导航、操作、截图、传输、Console、Network、Dialog |
-| Computer | `computer_observe`, `computer_action`, `computer_wait` | macOS 观察、输入和状态等待 |
 | Artifacts | `export_artifact`, `import_artifact` | 不可变导出与受控导入 |
 
 项目专属能力由项目自己的 manifest、instructions 和 tasks 提供，无需不断增加 Public Tool。
 
 先调用 `project_info`，取得当前目录信息与 `projectToken`。项目写入、命令执行、浏览器修改和 Job 输入需携带该标识；在本地选择其他文件夹或重启 Runtime 后会失效。遇到失配应重新观察并确认目标目录。停止仍归 Runtime 管理的 Job 不受旧标识阻碍。具有项目写入、进程执行或浏览器权限，但未获项目读取权限的连接，只返回 `projectId`、`generation` 和 `projectToken`。
 
-资源列举、读取和导入会检查来源对应的权限：项目文件、进程日志、浏览器产物或桌面截图。浏览器上传还需要项目读取权限。`code_query` 会启动已安装的语言服务，因此需要项目读取、进程执行权限及当前 `projectToken`；语言服务可能产生副作用。
+资源列举、读取和导入会检查来源对应的权限：项目文件、进程日志、浏览器产物。浏览器上传还需要项目读取权限。`code_query` 会启动已安装的语言服务，因此需要项目读取、进程执行权限及当前 `projectToken`；语言服务可能产生副作用。
 
 Job 结果区分进程完成与识别到的测试结果，并记录有限范围的输入文件观察。`reportPath` 可指定命令生成的 JUnit XML 报告。旧报告、截断输出与无法证明的输入一致性保持 unknown，输入变化标为 stale；这些观察不能证明完整工程正确。
 
@@ -105,7 +101,7 @@ Lite 只保留有容量限制的执行活动，存放于 `~/.luti/`，用于排�
 | **凭据** | Runtime 凭据存入 macOS Keychain；敏感值在持久化前脱敏 |
 | **OAuth** | Public Client 绑定 Origin，并且需要这台 Mac 批准 |
 | **Git** | 对外 Git 能力只读 |
-| **Browser 与 Computer Use** | Luti 只操作自己拥有的 Browser Session；屏幕录制和辅助功能仍是独立的 macOS 权限 |
+| **浏览器自动化** | Luti 只操作自己拥有的 Browser Session；Lite 不提供桌面截图或鼠标、键盘控制 |
 | **进程执行** | `fullLocal` 使用当前用户权限执行，不是 OS Sandbox |
 
 关闭某个 AI 应用的访问开关，只会暂停现有 OAuth 授权。重新开启后，未过期的授权会恢复；**撤销**和**删除客户端**则会永久终止访问。

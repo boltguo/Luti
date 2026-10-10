@@ -64,37 +64,18 @@ private actor TestConnectionProvider: ConnectionProvider {
     let (_, response) = try await URLSession.shared.data(for: request)
     return try XCTUnwrap(response as? HTTPURLResponse)
   }
-  private func setup(_ runtime: RuntimeCore) async throws -> (URL, String) {
-    let raw = try await runtime.localConnectionConfiguration()
-    let json = try JSONValue.decode(Data(raw.utf8))
-    let url = try XCTUnwrap(URL(string: try XCTUnwrap(json["url"].string)))
-    return (url, try XCTUnwrap(json["headers"]["Authorization"].string))
-  }
-
-  func testLocalRuntimeNeedsNoRemoteConfigurationAndKeepsAuthentication() async throws {
+  func testProjectRuntimeStartsWithoutRemoteConfiguration() async throws {
     let (_, runtime) = try makeRuntime()
-    let endpoint = try await runtime.start()
-    let (url, authorization) = try await setup(runtime)
-    XCTAssertEqual(endpoint, url)
-    XCTAssertEqual(url.host, "127.0.0.1")
-    let allowed = try await response(url, authorization: authorization)
-    let missing = try await response(url)
-    let wrong = try await response(url, authorization: "Bearer wrong")
-    let evil = try await response(url, authorization: authorization, origin: "https://evil.example")
-    let publicHost = try await response(url, authorization: authorization, host: "mcp.example.com")
-    XCTAssertEqual(allowed.statusCode, 200)
-    XCTAssertEqual(missing.statusCode, 401)
-    XCTAssertEqual(wrong.statusCode, 401)
-    XCTAssertEqual(evil.statusCode, 403)
-    XCTAssertEqual(publicHost.statusCode, 403)
-    let snapshot = await runtime.snapshot()
-    XCTAssertFalse(String(reflecting: snapshot).contains(authorization))
+    try await runtime.start()
+    let status = await runtime.router.callInCurrentProject("runtime_status", arguments: [:])
+    XCTAssertFalse(status.isError)
+    XCTAssertEqual(status.data["running"], true)
   }
 
-  func testPublicIngressDoesNotAcceptLocalCredential() async throws {
+  func testPublicIngressDoesNotAcceptUnknownCredential() async throws {
     let (f, runtime) = try makeRuntime()
     try await runtime.start()
-    let (_, authorization) = try await setup(runtime)
+    let authorization = "Bearer " + Budget.token()
     let connections = manager(f, runtime)
     let provider = TestConnectionProvider()
     try await connections.connect(provider)
@@ -104,17 +85,16 @@ private actor TestConnectionProvider: ConnectionProvider {
     XCTAssertTrue(response.value(forHTTPHeaderField: "WWW-Authenticate")?.contains("resource_metadata") == true)
   }
 
-  func testProviderStartupFailureLeavesLocalRuntimeUsable() async throws {
+  func testProviderStartupFailureLeavesProjectRuntimeUsable() async throws {
     let (f, runtime) = try makeRuntime()
     try await runtime.start()
-    let (url, auth) = try await setup(runtime)
     let connections = manager(f, runtime)
     do { try await connections.connect(TestConnectionProvider(.fail)); XCTFail("Expected transport failure") }
     catch { XCTAssertEqual((error as? Failure)?.code, "test_transport_failure") }
     let snapshot = await connections.snapshot()
     XCTAssertEqual(snapshot.state, .failed)
-    let local = try await response(url, authorization: auth)
-    XCTAssertEqual(local.statusCode, 200)
+    let project = await runtime.router.callInCurrentProject("project_info", arguments: [:])
+    XCTAssertFalse(project.isError)
     // Retry is an explicit new connection, not a duplicate runtime or job.
     try await connections.connect(TestConnectionProvider())
     let retried = await connections.snapshot()
@@ -137,23 +117,24 @@ private actor TestConnectionProvider: ConnectionProvider {
     await connections.disconnect()
     let existing = await runtime.router.callInCurrentProject("job_query", arguments: ["action": "status", "jobId": .string(id)])
     XCTAssertEqual(existing.data["status"], "running")
-    let (url, auth) = try await setup(runtime)
-    let local = try await response(url, authorization: auth)
-    XCTAssertEqual(local.statusCode, 200)
+    let project = await runtime.router.callInCurrentProject("project_info", arguments: [:])
+    XCTAssertFalse(project.isError)
   }
 
-  func testOccupiedIngressPortDoesNotStopLocalRuntime() async throws {
+  func testOccupiedIngressPortDoesNotStopProjectRuntime() async throws {
     let (f, runtime) = try makeRuntime()
-    let endpoint = try await runtime.start()
+    try await runtime.start()
+    let occupied = MCPServer()
+    let endpoint = try await occupied.start(router: runtime.router, authentication: nil, port: 0)
+    addTeardownBlock { await occupied.stop() }
     let connections = manager(f, runtime)
     let provider = TestConnectionProvider(port: try XCTUnwrap(endpoint.port))
     do { try await connections.connect(provider); XCTFail("Port must not silently move") }
     catch { XCTAssertEqual((error as? Failure)?.code, "port_unavailable") }
     let starts = await provider.starts
     XCTAssertEqual(starts, 0)
-    let (url, auth) = try await setup(runtime)
-    let local = try await response(url, authorization: auth)
-    XCTAssertEqual(local.statusCode, 200)
+    let project = await runtime.router.callInCurrentProject("project_info", arguments: [:])
+    XCTAssertFalse(project.isError)
   }
 
   func testCancelConnectCannotResurrectIngressAndShutdownRetiresManager() async throws {
@@ -187,17 +168,16 @@ private actor TestConnectionProvider: ConnectionProvider {
     XCTAssertEqual(starts, 0)
   }
 
-  func testStoppedRuntimeCannotExportOrReuseLocalCredentials() async throws {
+  func testStoppedRuntimeCannotRestartOrAcceptProjectCalls() async throws {
     let (_, runtime) = try makeRuntime()
     try await runtime.start()
     await runtime.stop()
-    do { _ = try await runtime.localConnectionConfiguration(); XCTFail("Stopped credentials must not be exported") } catch {}
     do { try await runtime.start(); XCTFail("Runtime has one lifetime") } catch {}
-    let snapshot = await runtime.snapshot()
-    XCTAssertNil(snapshot.localEndpoint)
+    let stopped = await runtime.router.callInCurrentProject("project_info", arguments: [:])
+    XCTAssertEqual(stopped.data["error"], "runtime_stopped")
   }
 
-  func testUnfinishedRemoteSettingsNeverDisableLocalStart() throws {
+  func testUnfinishedRemoteSettingsDoNotDisableProjectPreparation() throws {
     let f = try Fixture(); defer { f.remove() }
     let model = AppModel(contextDataRoot: f.contextDataRoot, defaults: f.defaults)
     let project = ApprovedProject(url: f.root)
@@ -210,7 +190,7 @@ private actor TestConnectionProvider: ConnectionProvider {
     XCTAssertFalse(model.canConnectProvider(.cloudflare))
   }
 
-  func testInvalidCloudflareConfigurationDoesNotBlockLocalStartup() throws {
+  func testInvalidCloudflareConfigurationDoesNotBlockProjectPreparation() throws {
     let f = try Fixture(); defer { f.remove() }
     let model = AppModel(contextDataRoot: f.contextDataRoot, defaults: f.defaults)
     model.activeProject = ApprovedProject(url: f.root)
@@ -279,7 +259,6 @@ private actor TestConnectionProvider: ConnectionProvider {
     await model.stop()
     await model.refresh()
     XCTAssertEqual(model.phase, .stopped)
-    XCTAssertNil(model.localEndpoint)
     XCTAssertTrue(model.connectionSnapshots.isEmpty)
     XCTAssertTrue(model.canStart)
   }
@@ -302,7 +281,6 @@ private actor TestConnectionProvider: ConnectionProvider {
       try await Task.sleep(for: .milliseconds(10))
     }
     XCTAssertEqual(model.phase, .running)
-    XCTAssertNotNil(model.localEndpoint)
     XCTAssertTrue(model.connectionSnapshots.isEmpty)
     XCTAssertTrue(model.connectionBusyProviders.isEmpty)
   }
@@ -322,36 +300,11 @@ private actor TestConnectionProvider: ConnectionProvider {
       _ = try await response(ingress, host: "mcp.example.com")
       XCTFail("Disconnected ingress must not accept requests")
     } catch is URLError {}
-    let (local, auth) = try await setup(runtime)
-    let available = try await response(local, authorization: auth)
-    XCTAssertEqual(available.statusCode, 200)
+    let available = await runtime.router.callInCurrentProject("project_info", arguments: [:])
+    XCTAssertFalse(available.isError)
     try await connections.connect(TestConnectionProvider())
     let reconnected = await connections.snapshot()
     XCTAssertEqual(reconnected.state, .ready)
   }
 
-  func testNewRuntimeRotatesLocalCredential() async throws {
-    let (_, first) = try makeRuntime()
-    try await first.start()
-    let (_, firstAuthorization) = try await setup(first)
-    await first.stop()
-    let (_, second) = try makeRuntime()
-    try await second.start()
-    let (_, secondAuthorization) = try await setup(second)
-    XCTAssertFalse(firstAuthorization == secondAuthorization)
-  }
-
-  func testClipboardCleanupNeverDeletesAnotherApplicationsCopy() throws {
-    let pasteboard = NSPasteboard(name: NSPasteboard.Name("LutiTests." + UUID().uuidString))
-    defer { pasteboard.releaseGlobally() }
-    let clipboard = ConnectionClipboard(pasteboard: pasteboard)
-    XCTAssertTrue(clipboard.copy("test-only-configuration"))
-    clipboard.clearIfOwned()
-    XCTAssertNil(pasteboard.string(forType: .string))
-    XCTAssertTrue(clipboard.copy("test-only-configuration"))
-    pasteboard.clearContents()
-    pasteboard.setString("user-copy", forType: .string)
-    clipboard.clearIfOwned()
-    XCTAssertEqual(pasteboard.string(forType: .string), "user-copy")
-  }
 }

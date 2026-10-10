@@ -40,16 +40,14 @@ import Darwin
     XCTAssertTrue(browser.isError)
     XCTAssertEqual(browser.data["error"], "execution_policy_denied")
 
-    let desktop = await router.callInCurrentProject("computer_observe", arguments: [:])
-    XCTAssertTrue(desktop.isError)
-    XCTAssertEqual(desktop.data["error"], "execution_policy_denied")
+
   }
 
   func testExecutionCannotBeEnabledByToolArguments() async throws {
     let f = try Fixture(); defer { f.remove() }
     let router = try ToolRouter(
-      workspace: f.files, jobs: JobManager(helper: Fixture.helper), images: ImageStore(),
-      computer: NoComputerBackend(), activity: ActivityStore(),
+      workspace: f.files, jobs: JobManager(helper: Fixture.helper),
+      activity: ActivityStore(),
       executionPolicy: .fullLocal(localApproval: false), contextDataRoot: f.contextDataRoot)
     addTeardownBlock { await router.stop() }
 

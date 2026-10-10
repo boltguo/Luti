@@ -34,8 +34,6 @@ private struct ProjectRuntimeContext: Sendable {
 
 public actor ToolRouter {
   public nonisolated let activity: ActivityStore
-  public nonisolated let images: ImageStore
-  private let computer: any ComputerBackend
   private let executionPolicy: ProjectExecutionPolicy
   private let redactor: Redactor
   private let context: ProjectRuntimeContext
@@ -52,7 +50,7 @@ public actor ToolRouter {
   var projectToken: String { context.projectToken }
 
   public init(
-    workspace: WorkspaceFiles, jobs: JobManager, images: ImageStore, computer: any ComputerBackend,
+    workspace: WorkspaceFiles, jobs: JobManager,
     activity: ActivityStore, executionPolicy: ProjectExecutionPolicy = .readOnly,
     redactor: Redactor = Redactor(), project: ApprovedProject? = nil,
     helper: URL = JobManager.defaultHelper, contextDataRoot: URL? = nil
@@ -61,8 +59,6 @@ public actor ToolRouter {
     guard selected.url.standardizedFileURL.resolvingSymlinksInPath() == workspace.root else {
       throw Failure.invalid("The selected folder must match this runtime's workspace.")
     }
-    self.images = images
-    self.computer = computer
     self.activity = activity
     self.executionPolicy = executionPolicy
     self.redactor = redactor
@@ -266,22 +262,6 @@ public actor ToolRouter {
     case "browser_evaluate":
       return ActivityDescriptor(
         action: nil, targetType: "tab", target: value["tabId"].string ?? "tab")
-    case "computer_observe":
-      if let display = value["displayId"].string ?? value["displayId"].int.map(String.init) {
-        return ActivityDescriptor(action: nil, targetType: "display", target: display)
-      }
-      return ActivityDescriptor(
-        action: nil, targetType: "window", target: value["window"].string ?? "frontmost")
-    case "computer_wait":
-      return ActivityDescriptor(
-        action: nil, targetType: "condition", target: value["condition"].string ?? "desktop")
-    case "computer_action":
-      let target =
-        value["window"].string ?? value["elementId"].string ?? value["bundleId"].string ?? "desktop"
-      let type =
-        value["elementId"].string != nil ? "element"
-          : (value["bundleId"].string != nil ? "application" : "window")
-      return ActivityDescriptor(action: action, targetType: type, target: target)
     default:
       return ActivityDescriptor(
         action: action, targetType: nil,
@@ -376,10 +356,6 @@ public actor ToolRouter {
     case "list_directory":
       let count = output.data["entries"].array?.count ?? 0
       return "\(count) entr\(count == 1 ? "y" : "ies")." + (output.data["truncated"] == true ? " Result truncated." : "")
-    case "computer_observe":
-      return "Desktop observation captured."
-    case "computer_action":
-      return output.data["method"].string ?? "Desktop action submitted."
     default:
       if let state = activityOperationState(name, output) {
         return "Job " + state.replacingOccurrences(of: "_", with: " ") + "."
@@ -413,7 +389,7 @@ public actor ToolRouter {
     let mutations: Set<String> = [
       "edit_files", "path_action", "import_artifact", "run_process", "run_shell", "job_action",
       "browser_session", "browser_action", "browser_transfer",
-      "browser_dialog", "browser_evaluate", "computer_action",
+      "browser_dialog", "browser_evaluate",
     ]
     if ["run_process", "run_shell", "job_action", "browser_evaluate"].contains(name) {
       return "submitted"
@@ -461,13 +437,11 @@ public actor ToolRouter {
           .adding("projectToken", .string(context.projectToken)))
     case "runtime_status":
       _ = try Arguments(value, allowed: [])
-      let permissions = await computer.permissions()
       return ToolOutput([
         "name": "Luti", "version": .string(Identity.version), "running": .bool(accepting),
         "executionEnabled": .bool(
           executionPolicy.commandExecutionAvailable),
         "executionPolicy": executionPolicy.statusJSON,
-        "permissions": permissions.json,
         "activeProject": [
           "id": .string(context.project.id), "name": .string(context.project.name),
           "path": .string(context.project.path),
@@ -764,15 +738,6 @@ public actor ToolRouter {
       }
       let tagged = result.adding("action", .string(action))
       return ToolOutput(tagged, isError: tagged["failure"] != .null)
-    case "computer_observe":
-      try requireExecution(.desktopControl)
-      return try await computer.observe(value)
-    case "computer_wait":
-      try requireExecution(.desktopControl)
-      return try await computer.wait(value)
-    case "computer_action":
-      try requireExecution(.desktopControl)
-      return try await computer.action(value)
     default: throw Failure.invalid("Unknown tool.")
     }
   }
@@ -783,10 +748,7 @@ public actor ToolRouter {
     }
     accepting = false
     let owned = context
-    async let project: Void = owned.shutdown()
-    async let desktop: Void = computer.stop()
-    async let screenshots: Void = images.stop()
-    _ = await (project, desktop, screenshots)
+    await owned.shutdown()
     // Close providers first to release blocked calls, then wait for final
     // activity writes before exposing the stopped/clearable state.
     if callsInFlight > 0 { await withCheckedContinuation { drainWaiters.append($0) } }

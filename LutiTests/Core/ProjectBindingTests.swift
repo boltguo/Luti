@@ -45,7 +45,7 @@ import XCTest
     XCTAssertFalse(allowed.isError)
     await router.stop()
     let restarted = try ToolRouter(workspace: WorkspaceFiles(root: f.root), jobs: JobManager(helper: Fixture.helper),
-      images: ImageStore(), computer: NoComputerBackend(), activity: ActivityStore(),
+      activity: ActivityStore(),
       executionPolicy: .fullLocal(localApproval: true), contextDataRoot: f.contextDataRoot)
     let stale = await restarted.call("run_process", arguments: ["program": "/usr/bin/true", "projectToken": before.data["projectToken"]])
     XCTAssertEqual(stale.data["error"], "project_binding_mismatch")
@@ -119,7 +119,7 @@ import XCTest
       XCTAssertNotNil(current.data["entries"].array)
       XCTAssertNotNil(current.data["projectToken"].string)
     }
-    for scopes: Set<OAuthScope> in [[], [.computerRead], [.computerControl], [.computerRead, .computerControl]] {
+    for scopes: Set<OAuthScope> in [[]] {
       let denied = await router.call("project_info", arguments: [:], grant: grant(scopes))
       XCTAssertEqual(denied.data["error"], "insufficient_scope")
       XCTAssertEqual(denied.data["projectToken"], .null)
@@ -139,7 +139,7 @@ import XCTest
     ], body: try body.data())
     for scopes: Set<OAuthScope> in [
       [.projectWrite], [.processRun], [.browserUse], [.projectRead], [.projectRead, .projectWrite],
-      [.computerRead], [.computerControl], [],
+      [],
     ] {
       let delegated = grant(scopes)
       let endpoint = MCPDispatcher(authentication: try fixtureRemoteAuthentication(bearer: bearer, context: delegated.context!),

@@ -172,7 +172,6 @@
 "home.connectionWasInterruptedAttemptingReconnect" = "The connection was interrupted. Attempting to reconnect.";
 "home.disconnected" = "Disconnected";
 "home.inactive" = "Inactive";
-"home.localService" = "Local service";
 "home.noWorkingProjectSelected" = "No working project selected";
 "home.notConnect" = "Could not connect";
 "home.notRunning" = "Not running";
@@ -217,11 +216,9 @@
 
 /* oauth */
 "oauth.changeProject" = "Change project";
-"oauth.controlDesktop" = "Control desktop";
 "oauth.readProject" = "Read project";
 "oauth.runCommands" = "Run commands";
 "oauth.useBrowser" = "Use browser";
-"oauth.viewScreen" = "View screen";
 
 
 /* projects */
@@ -241,25 +238,19 @@
 
 /* settings */
 "settings.about" = "About";
-"settings.accessibility" = "Accessibility";
 "settings.activity" = "Activity";
 "settings.allow" = "Allow";
 "settings.allowLutiSystemSettingsLoginItems" = "Allow Luti in System Settings > General > Login Items.";
 "settings.awaitingApproval" = "Waiting for system permission";
-"settings.captureObserveScreen" = "Capture and observe your screen";
 "settings.components" = "Components";
-"settings.controlWindowsKeyboardMouse" = "Control windows, keyboard and mouse";
 "settings.displayLanguage" = "Display language";
 "settings.general" = "General";
 "settings.japanese" = "Japanese";
 "settings.launchLogin" = "Open Luti at Login";
 "settings.notRegistered" = "Not registered";
-"settings.screenRecording" = "Screen Recording";
 "settings.simplifiedChinese" = "Simplified Chinese";
 "settings.system" = "System";
 "settings.systemLoginItems" = "Login Item Settings";
-"settings.systemPermissionSettings" = "System permission settings";
-"settings.systemPermissions" = "System permissions";
 "settings.viewStatus" = "View status";
 
 /* ui */

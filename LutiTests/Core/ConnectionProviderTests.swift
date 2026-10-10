@@ -92,7 +92,7 @@ private actor FixtureProvider: ConnectionProvider {
 
   func testProviderMustConfirmReadinessBeforeConnectionStarts() async throws {
     let (_, runtime, manager) = try fixture()
-    let local = try await runtime.start()
+    try await runtime.start()
     let provider = FixtureProvider(.cloudflare, initiallyReconnecting: true)
     do {
       try await manager.connect(provider)
@@ -103,9 +103,9 @@ private actor FixtureProvider: ConnectionProvider {
     let failed = await manager.snapshot()
     XCTAssertEqual(failed.state, .failed)
     XCTAssertNil(failed.publicOrigin)
-    let setup = try JSONValue.decode(Data(try await runtime.localConnectionConfiguration().utf8))
-    let localReply = try await rpc(local, bearer: setup["headers"]["Authorization"].string)
-    XCTAssertEqual(localReply.0, 200)
+    let project = await runtime.router.callInCurrentProject("project_info", arguments: [:])
+    XCTAssertFalse(project.isError)
+
   }
 
   func testProviderIngressCannotPointAtAnotherServiceOrPublicHost() throws {
@@ -209,10 +209,9 @@ private actor FixtureProvider: ConnectionProvider {
     XCTAssertFalse(model.canConnectProvider(.cloudflare))
   }
 
-  func testCloudflareIngressRejectsLocalBearerAndAcceptsOAuth() async throws {
+  func testCloudflareIngressRejectsUnknownBearerAndAcceptsOAuth() async throws {
     let (_, runtime, manager) = try fixture()
-    let localEndpoint = try await runtime.start()
-    let local = try JSONValue.decode(Data(try await runtime.localConnectionConfiguration().utf8))
+    try await runtime.start()
     let store = OAuthStore(url: nil)
     try store.bindOrigin("https://mcp.example.com")
     let client = try approvedClient(store)
@@ -222,11 +221,11 @@ private actor FixtureProvider: ConnectionProvider {
     let captured = await provider.endpoint
     let endpoint = try XCTUnwrap(captured)
     let missing = try await rpc(endpoint)
-    let localBearer = try await rpc(endpoint, bearer: local["headers"]["Authorization"].string)
+    let unknownBearer = try await rpc(endpoint, bearer: "Bearer " + Budget.token())
     let admitted = try await rpc(endpoint, bearer: "Bearer " + token,
       method: "tools/call", params: ["name": "project_info", "arguments": [:]])
     XCTAssertEqual(missing.0, 401)
-    XCTAssertEqual(localBearer.0, 401)
+    XCTAssertEqual(unknownBearer.0, 401)
     XCTAssertEqual(admitted.0, 200)
     let snapshot = await manager.snapshot()
     XCTAssertEqual(snapshot.providerID, .cloudflare)
@@ -234,8 +233,8 @@ private actor FixtureProvider: ConnectionProvider {
     let runtimeSnapshot = await runtime.snapshot()
     XCTAssertEqual(runtimeSnapshot.activity.last?.source?.transport, .cloudflare)
     await manager.disconnect()
-    let stillLocal = try await rpc(localEndpoint, bearer: local["headers"]["Authorization"].string)
-    XCTAssertEqual(stillLocal.0, 200)
+    let project = await runtime.router.callInCurrentProject("project_info", arguments: [:])
+    XCTAssertFalse(project.isError)
   }
 
   func testRetiredSelectionDoesNotGateConfiguredCloudflareOrResetAuthorizations() throws {

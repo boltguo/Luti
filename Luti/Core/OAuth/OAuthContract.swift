@@ -2,15 +2,12 @@ import Foundation
 
 /// A scope is admission, never execution permission. The effective permission is
 /// always the intersection of the granted scopes, the project/session policy, the
-/// tool's own policy and macOS TCC, so holding `computer:control` still fails when
-/// Accessibility is not granted.
+/// tool's own policy. A scope cannot enable local execution by itself.
 public enum OAuthScope: String, CaseIterable, Codable, Sendable {
   case projectRead = "project:read"
   case projectWrite = "project:write"
   case processRun = "process:run"
   case browserUse = "browser:use"
-  case computerRead = "computer:read"
-  case computerControl = "computer:control"
 
   /// Grok makes the Mac's owner retype this string by hand, so the order is fixed
   /// and the names stay short enough to type without a mistake.
@@ -49,10 +46,6 @@ public enum OAuthScope: String, CaseIterable, Codable, Sendable {
     case "browser_session", "browser_observe", "browser_action",
       "browser_inspect", "browser_dialog", "browser_evaluate":
       return [.browserUse]
-    case "computer_observe", "computer_wait":
-      return [.computerRead]
-    case "computer_action":
-      return [.computerControl]
     default:
       return nil
     }
@@ -64,8 +57,6 @@ public enum OAuthScope: String, CaseIterable, Codable, Sendable {
     case .projectWrite: L10n.text("oauth.changeProject")
     case .processRun: L10n.text("oauth.runCommands")
     case .browserUse: L10n.text("oauth.useBrowser")
-    case .computerRead: L10n.text("oauth.viewScreen")
-    case .computerControl: L10n.text("oauth.controlDesktop")
     }
   }
   public var symbol: String {
@@ -74,8 +65,6 @@ public enum OAuthScope: String, CaseIterable, Codable, Sendable {
     case .projectWrite: "square.and.pencil"
     case .processRun: "terminal"
     case .browserUse: "globe"
-    case .computerRead: "rectangle.on.rectangle"
-    case .computerControl: "hand.point.up.left"
     }
   }
 }

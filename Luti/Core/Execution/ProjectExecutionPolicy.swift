@@ -5,7 +5,7 @@ public enum ExecutionProfile: String, Sendable {
 }
 
 public enum ExecutionCapability: String, Sendable {
-  case workspaceWrite, process, rawShell, codeIntelligence, browserAutomation, desktopControl
+  case workspaceWrite, process, rawShell, codeIntelligence, browserAutomation
 }
 
 /// Immutable authority captured for one Runtime. File and process scope checks
@@ -23,7 +23,6 @@ public struct ProjectExecutionPolicy: Sendable, Equatable {
   public var workspaceWriteAvailable: Bool { profile == .fullLocal && localApproval }
   public var commandExecutionAvailable: Bool { workspaceWriteAvailable }
   public var browserAutomationAvailable: Bool { workspaceWriteAvailable }
-  public var desktopControlAvailable: Bool { workspaceWriteAvailable }
 
   public func authorize(_ capability: ExecutionCapability) throws {
     guard profile == .fullLocal else {
@@ -42,7 +41,7 @@ public struct ProjectExecutionPolicy: Sendable, Equatable {
   }
 
   public var scopeDescription: String {
-    profile == .fullLocal ? "macOS user privileges; not sandboxed"
+    profile == .fullLocal ? "Current user privileges; not sandboxed"
       : "Project reads only; project mutation and local execution are disabled."
   }
 
@@ -55,7 +54,6 @@ public struct ProjectExecutionPolicy: Sendable, Equatable {
       "environment": ["mode": "sanitized"],
       "rawShell": .bool(commandExecutionAvailable),
       "browserAutomation": .bool(browserAutomationAvailable),
-      "desktopControl": .bool(desktopControlAvailable),
       "scope": .string(scopeDescription),
     ]
   }

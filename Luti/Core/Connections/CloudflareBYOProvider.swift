@@ -2,7 +2,7 @@ import Foundation
 
 /// The existing pinned cloudflared implementation, behind the transport boundary.
 /// Every Connect gets a fresh provider. Preparation happens only after Connect,
-/// never on the Local MCP startup path.
+/// never during project runtime preparation.
 public actor CloudflareBYOProvider: ConnectionProvider {
   public nonisolated let publicOrigin: URL?
   public nonisolated var ingressPort: Int { TunnelContract.defaultPort }

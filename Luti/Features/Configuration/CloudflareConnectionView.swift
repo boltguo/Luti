@@ -173,7 +173,7 @@ struct CloudflareConnectionView: View {
 }
 
 private struct CloudflareConnectionHelp: View {
-  private var localService: String { "http://127.0.0.1:\(TunnelContract.defaultPort)" }
+  private var tunnelService: String { "http://127.0.0.1:\(TunnelContract.defaultPort)" }
 
   var body: some View {
     VStack(alignment: .leading, spacing: 14) {
@@ -191,8 +191,8 @@ private struct CloudflareConnectionHelp: View {
 
       SetupCopyRow(
         title: L10n.text("connection.service"),
-        value: localService,
-        accessibilityID: "copy-local-service")
+        value: tunnelService,
+        accessibilityID: "copy-tunnel-service")
     }
   }
 }

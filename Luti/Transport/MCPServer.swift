@@ -171,15 +171,15 @@ public actor MCPServer {
         }
         .childChannelOption(ChannelOptions.socketOption(.tcp_nodelay), value: 1)
         .childChannelOption(ChannelOptions.maxMessagesPerRead, value: 8)
-      // Core requests an ephemeral local port. Optional ingress requests its
-      // configured port exactly; never silently fall back when it is occupied.
+      // Cloudflare ingress binds its configured port exactly. Port zero is used
+      // by isolated transport tests; never silently move an occupied ingress.
       let channel: any Channel
       do {
         channel = try await bootstrap.bind(host: "127.0.0.1", port: port).get()
       } catch {
         throw Failure(
           "port_unavailable", "Local port \(port) is already in use.",
-          "Check the configured ingress port. Do not stop unrelated processes automatically; Local MCP can run independently."
+          "Check the configured Cloudflare ingress port. Do not stop unrelated processes automatically."
         )
       }
       guard !stopping else {

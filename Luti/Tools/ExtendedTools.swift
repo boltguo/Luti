@@ -128,16 +128,11 @@ extension ToolRouter {
 
   func resources(grant: ToolGrant = .local) async -> JSONValue {
     let store = artifacts
-    let screens = await images.list(grant: grant)["resources"].array ?? []
     let files = await store.list(grant: grant).map { $0.removing(["type"]) }
-    return ["resources": .array(screens + files)]
+    return ["resources": .array(files)]
   }
 
   func readResource(_ uri: String, grant: ToolGrant = .local) async throws -> JSONValue {
-    if uri.hasPrefix("luti://artifact/") {
-      let store = artifacts
-      return try await store.read(uri, grant: grant)
-    }
-    return try await images.read(uri, grant: grant)
+    return try await artifacts.read(uri, grant: grant)
   }
 }
