@@ -13,8 +13,8 @@ Bundled in Luti.app:
   is bundled and extracted intact. No browser executable is redistributed.
 
 Downloaded directly from the pinned official publisher when a feature is used:
-- cloudflared 2026.9.1: Apache-2.0, Cloudflare and its contributors.
-  Source: https://github.com/cloudflare/cloudflared/tree/2026.9.1
+- OpenAI tunnel-client 0.0.14: Apache-2.0; copyright and NOTICE below.
+  Source: https://github.com/openai/tunnel-client/tree/v0.0.14
 - Node.js 24.21.0 (darwin-arm64): Node.js and bundled third-party licenses.
   BrowserInstallation extracts the complete upstream LICENSE as Node-LICENSE
   next to the cached executable and reinstalls if this notice is absent.
@@ -3383,10 +3383,9 @@ For example:
 This project incorporates components from the projects listed below. The original copyright notices and the licenses under which Microsoft received such components are set forth below. Microsoft reserves all rights not expressly granted herein, whether by implication, estoppel or otherwise.
 
 ==============================================================================
-cloudflare/cloudflared 2026.9.1 / LICENSE
-SHA-256 (upstream bytes): 58d1e17ffe5109a7ae296caafcadfdbe6a7d176f0bc4ab01e12a689b0499d8bd
+openai/tunnel-client v0.0.14 / LICENSE
+SHA-256 (upstream bytes): f4c1d7ba32ef5bcf5cf03e2eefec5825ebafedf50fa330a36700a49c605c1ef4
 ==============================================================================
-
 
                                  Apache License
                            Version 2.0, January 2004
@@ -3576,16 +3575,21 @@ SHA-256 (upstream bytes): 58d1e17ffe5109a7ae296caafcadfdbe6a7d176f0bc4ab01e12a68
       same "printed page" as the copyright notice for easier
       identification within third-party archives.
 
-   Copyright [yyyy] [name of copyright owner]
+==============================================================================
+openai/tunnel-client v0.0.14 / NOTICE
+SHA-256 (upstream bytes): 1364c020d86ecf948b78b7c655175032068203d13aece70fb0bfe112d7802dc2
+==============================================================================
 
-   Licensed under the Apache License, Version 2.0 (the "License");
-   you may not use this file except in compliance with the License.
-   You may obtain a copy of the License at
+Copyright 2026 OpenAI
 
-       http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
 
-   Unless required by applicable law or agreed to in writing, software
-   distributed under the License is distributed on an "AS IS" BASIS,
-   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-   See the License for the specific language governing permissions and
-   limitations under the License.
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+Distributed under the License is distributed on an “AS IS” BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+Limitations under the License.

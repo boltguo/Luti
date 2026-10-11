@@ -69,9 +69,8 @@ public actor ToolRouter {
 
   public func lastSuccessfulCall() -> Date? { lastSuccess }
 
-  public func jobList(refreshValidationInputs: Bool = true) async -> [JSONValue] {
-    await jobs.list(refreshInputs: refreshValidationInputs)
-  }
+  public func jobList() async -> [JSONValue] { await jobs.list() }
+  public func jobLifecycles() async -> [JSONValue] { await jobs.lifecycles() }
 
   public func stopActiveJobs() async -> Int { await context.jobs.stopActive() }
 
@@ -97,7 +96,7 @@ public actor ToolRouter {
 
   /// `grant` defaults to `.local` because that is what an in-process caller is:
   /// the session the Mac's owner started. A call that arrived over the tunnel
-  /// always passes its own grant, and only that path is scope-checked.
+  /// passes its own grant so Activity can attribute it.
   public func call(_ name: String, arguments value: JSONValue, grant: ToolGrant = .local) async
     -> ToolOutput
   {
@@ -119,11 +118,10 @@ public actor ToolRouter {
     let output: ToolOutput
     do {
       guard accepting else { throw Failure.stopped }
-      try grant.authorize(tool: name, arguments: value)
       try validateProjectBinding(name, arguments: value)
       try Task.checkCancellation()
       let arguments = ProjectBindingContract.acceptsToken(name) ? value.removing(["projectToken"]) : value
-      output = try await dispatch(name, arguments, grant: grant)
+      output = try await dispatch(name, arguments)
       if !output.isError {
         lastSuccess = Date()
         recordTouchedFiles(tool: name, result: output.data)
@@ -418,17 +416,11 @@ public actor ToolRouter {
     try executionPolicy.authorize(capability)
   }
 
-  private func dispatch(_ name: String, _ value: JSONValue, grant: ToolGrant) async throws -> ToolOutput {
-    if let output = try await extendedTool(name, value, grant: grant) { return output }
+  private func dispatch(_ name: String, _ value: JSONValue) async throws -> ToolOutput {
+    if let output = try await extendedTool(name, value) { return output }
     switch name {
     case "project_info":
       _ = try Arguments(value, allowed: [])
-      if let scopes = grant.scopes, !scopes.contains(.projectRead) {
-        return ToolOutput([
-          "projectId": .string(context.project.id), "generation": .int(1),
-          "projectToken": .string(context.projectToken),
-        ])
-      }
       let info = try await workspace.projectInfo()
       return ToolOutput(
         info
@@ -660,7 +652,7 @@ public actor ToolRouter {
           .adding("nextStderrOffset", result["stderrBytes"])
         if try a.flag("exportFull", default: false), let bytes = try await jobs.fullLog(id) {
           let artifact = try await artifacts.insert(
-            bytes, name: "job-log.txt", mimeType: "text/plain", source: .process)
+            bytes, name: "job-log.txt", mimeType: "text/plain")
           return ToolOutput(
             result.adding("artifact", artifact.metadata), content: [artifact.link])
         }
@@ -752,7 +744,7 @@ public actor ToolRouter {
     // Close providers first to release blocked calls, then wait for final
     // activity writes before exposing the stopped/clearable state.
     if callsInFlight > 0 { await withCheckedContinuation { drainWaiters.append($0) } }
-    await activity.reconcileJobs(await owned.jobs.list())
+    await activity.reconcileJobs(await owned.jobs.lifecycles())
     touchedFiles.removeAll()
     stopFinished = true
     let waiters = stopWaiters

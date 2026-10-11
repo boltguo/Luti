@@ -2,8 +2,8 @@ import AppKit
 import SwiftUI
 
 extension ConnectionProviderID {
-  var symbol: String { "network" }
-  var iconTone: MDIconTone { .orange }
+  var symbol: String { "lock.icloud" }
+  var iconTone: MDIconTone { .green }
 }
 
 /// Provider details follow the same single-level section hierarchy as the
@@ -50,60 +50,6 @@ struct ProviderInfoCallout: View {
     switch tone {
     case .red: MDTheme.onErrorContainer
     default: MDTheme.onSurfaceVariant
-    }
-  }
-}
-
-struct ProviderInfoText: View {
-  let text: String
-  var symbol = "info.circle"
-
-  var body: some View {
-    HStack(alignment: .top, spacing: 12) {
-      Image(systemName: symbol)
-        .font(.system(size: 18, weight: .medium))
-        .foregroundStyle(MDTheme.onSurfaceVariant)
-        .frame(width: 22)
-        .accessibilityHidden(true)
-
-      Text(text)
-        .font(.system(size: 12))
-        .foregroundStyle(MDTheme.onSurfaceVariant)
-        .fixedSize(horizontal: false, vertical: true)
-    }
-    .frame(maxWidth: .infinity, alignment: .leading)
-    .padding(.horizontal, 4)
-  }
-}
-
-struct ProviderAuthorizationSection: View {
-  @Bindable var clients: OAuthClientModel
-  let openClient: (String) -> Void
-
-  var body: some View {
-    ProviderDetailCard(
-      title: L10n.text("connection.aiApps")
-    ) {
-      MDList {
-        let rows = Array(clients.clients.reversed())
-        ForEach(Array(rows.enumerated()), id: \.element.id) { index, record in
-          AIClientConnectionRow(
-            record: record,
-            grants: clients.grants,
-            position: MDListRowPosition(index: index, count: rows.count),
-            enabled: Binding(
-              get: { clients.client(record.id)?.isEnabled ?? false },
-              set: { clients.setEnabled($0, for: record.id) }),
-            open: { openClient(record.id) })
-        }
-      }
-
-      if !clients.message.isEmpty {
-        InlineNotice(
-          text: clients.message,
-          icon: "exclamationmark.triangle",
-          color: MDTheme.error)
-      }
     }
   }
 }

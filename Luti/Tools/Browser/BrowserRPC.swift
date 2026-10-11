@@ -69,12 +69,16 @@ final class BrowserRPC: @unchecked Sendable {
       }
     } onCancel: { self.stop() }
   }
+  /// A closed transport never reopens; its owner must start a new session.
+  var isClosed: Bool { lock.withLock { closed } }
+
   func stop() {
-    let continuations = lock.withLock { () -> [Pending] in
-      guard !closed else { return [] }
+    let continuations = lock.withLock { () -> [Pending]? in
+      guard !closed else { return nil }
       closed = true
       let values = Array(pending.values); pending.removeAll(); return values
     }
+    guard let continuations else { return }
     for item in continuations {
       item.continuation.resume(throwing: Failure(
         "browser_transport_unknown", "Browser helper stopped or exceeded its deadline.",
@@ -82,7 +86,12 @@ final class BrowserRPC: @unchecked Sendable {
         effect: Self.mayMutate(item.method) ? "possible" : "none"))
     }
     try? input.fileHandleForWriting.close()
-    if process.isRunning { process.terminate() }
+    guard process.isRunning else { return }
+    process.terminate()
+    // A wedged helper cannot act on EOF or SIGTERM. Reclaim it so the reader sees EOF.
+    DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + 3) { [self] in
+      if process.isRunning { kill(process.processIdentifier, SIGKILL) }
+    }
   }
 
   private static func mayMutate(_ method: String) -> Bool {

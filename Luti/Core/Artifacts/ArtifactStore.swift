@@ -1,18 +1,6 @@
 import Foundation
 import UniformTypeIdentifiers
 
-enum ArtifactSource: Sendable {
-  case project, process, browser
-
-  var readScope: OAuthScope {
-    switch self {
-    case .project: .projectRead
-    case .process: .processRun
-    case .browser: .browserUse
-    }
-  }
-}
-
 struct Artifact: Sendable {
   let uri: String
   let name: String
@@ -20,7 +8,6 @@ struct Artifact: Sendable {
   let bytes: Data
   let created: Date
   let expiresAt: Date
-  let source: ArtifactSource
   var metadata: JSONValue {
     let formatter = ISO8601DateFormatter()
     let remaining = max(0, Int(ceil(expiresAt.timeIntervalSinceNow)))
@@ -51,7 +38,7 @@ actor ArtifactStore {
     let now = Date()
     records.removeAll { $0.expiresAt <= now }
   }
-  func insert(_ bytes: Data, name: String, mimeType: String? = nil, source: ArtifactSource) throws -> Artifact {
+  func insert(_ bytes: Data, name: String, mimeType: String? = nil) throws -> Artifact {
     guard accepting else { throw Failure.stopped }
     guard bytes.count <= Self.maxBytes else { throw Failure.invalid("Artifacts are limited to 32 MiB each.") }
     expire()
@@ -63,24 +50,22 @@ actor ArtifactStore {
     let record = Artifact(
       uri: "luti://artifact/" + UUID().uuidString.lowercased(), name: name,
       mimeType: type, bytes: bytes, created: created,
-      expiresAt: created.addingTimeInterval(ttl), source: source)
+      expiresAt: created.addingTimeInterval(ttl))
     records.append(record)
     return record
   }
-  func list(grant: ToolGrant = .local) -> [JSONValue] {
+  func list() -> [JSONValue] {
     expire()
-    return records.filter {
-      (try? grant.authorize(scopes: [$0.source.readScope], operation: "artifact read")) != nil
-    }.map { $0.link }
+    return records.map { $0.link }
   }
-  func read(_ uri: String, grant: ToolGrant = .local) throws -> JSONValue {
-    let item = try resolve(uri, grant: grant)
+  func read(_ uri: String) throws -> JSONValue {
+    let item = try resolve(uri)
     return ["contents": [["uri": .string(uri), "mimeType": .string(item.mimeType),
                            "blob": .string(item.bytes.base64EncodedString())]]]
   }
   /// Resolve only an immutable snapshot issued by this project runtime. This is
   /// deliberately not a URL loader or a filesystem resolver.
-  func resolve(_ uri: String, grant: ToolGrant = .local) throws -> Artifact {
+  func resolve(_ uri: String) throws -> Artifact {
     guard accepting else { throw Failure.stopped }
     expire()
     guard let item = records.first(where: { $0.uri == uri }) else {
@@ -88,7 +73,6 @@ actor ArtifactStore {
         "resource_not_found", "The artifact expired or was not issued by this project runtime.",
         "Use a current resource from export_artifact or browser_transfer(download) in this project.")
     }
-    try grant.authorize(scopes: [item.source.readScope], operation: "artifact read")
     return item
   }
   func stop() { accepting = false; records.removeAll() }

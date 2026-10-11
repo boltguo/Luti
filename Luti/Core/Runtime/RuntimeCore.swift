@@ -7,8 +7,8 @@ public struct RuntimeSnapshot: Sendable {
   public let runID: UUID
 }
 
-/// One explicit Start owns the project tools and jobs. Cloudflare connections
-/// own their ingress listeners; the project runtime opens no separate MCP endpoint.
+/// One explicit Start owns the project tools and jobs. The remote connection owns
+/// its ingress listener; the project runtime opens no separate MCP endpoint.
 public actor RuntimeCore {
   nonisolated let router: ToolRouter
   nonisolated let activity: ActivityStore
@@ -41,7 +41,7 @@ public actor RuntimeCore {
   }
 
   public func snapshot() async -> RuntimeSnapshot {
-    let jobs = await router.jobList(refreshValidationInputs: false)
+    let jobs = await router.jobLifecycles()
     await activity.reconcileJobs(jobs)
     return RuntimeSnapshot(
       activity: await activity.snapshot(),

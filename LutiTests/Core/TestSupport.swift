@@ -29,7 +29,7 @@ struct Fixture {
     files = try WorkspaceFiles(root: root)
   }
   func remove() {
-    defaults.removePersistentDomain(forName: defaultsSuite)
+    removeDefaultsSuite(defaultsSuite)
     try? FileManager.default.removeItem(at: root)
   }
   func write(_ path: String, _ text: String) throws {
@@ -47,16 +47,16 @@ struct Fixture {
   }
 }
 
-/// Authenticates scoped fixtures through the production Cloudflare OAuth verifier.
-func fixtureRemoteAuthentication(bearer: String, context: RequestContext) throws -> MCPAuthentication {
-  let issuer = URL(string: "https://mcp.example.com")!
-  let store = OAuthStore(url: nil)
-  let client = OAuthClientRecord(id: context.clientID, name: context.clientName,
-    redirectURIs: ["https://client.example/callback"], authMethod: .none)
-  try store.persistRegisteredClient(client, secret: nil)
-  try store.insert([StoredToken(hash: OAuthStore.hash(bearer), kind: .access,
-    clientID: client.id, authorizationID: context.authorizationID,
-    resource: issuer.absoluteString + "/mcp", scopes: Array(context.scopes),
-    createdAt: Date(), expiresAt: Date().addingTimeInterval(3600))])
-  return .remote(publicHost: issuer.host!, oauth: LutiOAuthService(issuer: issuer, store: store))
+/// The listener a delegated tunnel connection uses, attributed to `context`.
+func fixtureRemoteAuthentication(bearer: String, context: RequestContext) -> MCPAuthentication {
+  .delegated(bearer: bearer, context: context)
+}
+
+/// Clearing a suite's domain leaves its plist behind; delete the file too so test
+/// runs do not accumulate files in ~/Library/Preferences.
+func removeDefaultsSuite(_ name: String) {
+  UserDefaults.standard.removePersistentDomain(forName: name)
+  try? FileManager.default.removeItem(
+    at: FileManager.default.homeDirectoryForCurrentUser
+      .appendingPathComponent("Library/Preferences/\(name).plist"))
 }

@@ -26,8 +26,8 @@ Luti connects an AI client to one approved project. The AI host handles reasonin
 
 ```mermaid
 flowchart TB
-    remote["Remote AI hosts<br/>ChatGPT · Claude · Grok · …"]
-    tunnel["Tunnel + OAuth<br/>Mac approval"]
+    remote["ChatGPT"]
+    tunnel["OpenAI Secure MCP Tunnel<br/>outbound only"]
     luti["Luti on your Mac"]
     context["Local records<br/>Activity"]
     tools["Local capabilities<br/>Files · Git · Process · Browser"]
@@ -44,24 +44,18 @@ It can read and edit files, run builds and tests, inspect Git, drive a browser a
 
 1. **Build Luti Lite.** Build this branch from source using the instructions below.
 2. **Add a folder.** Choose one folder in **Projects**. Lite uses Full Project Access automatically; removing it returns the page to its empty state.
-3. **Configure Cloudflare BYO.** Save your public origin and Tunnel token. The connection starts with the runtime automatically.
-4. **Connect your AI.** Add Luti as an MCP server. Public OAuth clients use DCR + PKCE, then wait for approval on this Mac.
+3. **Configure the OpenAI tunnel.** Save the Tunnel ID and runtime API key from OpenAI Platform. The connection starts with the runtime automatically.
+4. **Use it in ChatGPT.** Add the tunnel as an app in the associated ChatGPT workspace (Developer Mode).
 
-Select the active folder locally before starting the Runtime. Enabled providers run in parallel and work in that same folder.
-
-When loading an older multi-project configuration, Lite retains the selected project, or the first entry if the selection is unknown, and saves one folder with Full Project Access. Empty or unreadable configurations return to the empty state for a new selection. Files and local records are preserved.
+Select the active folder locally before starting the Runtime.
 
 ## Connections
 
 | Connection | What you provide | Authentication | Best for |
 |---|---|---|---|
-| **Cloudflare BYO** | HTTPS origin + Cloudflare Tunnel token | Luti OAuth + Mac approval | Your own stable Cloudflare endpoint |
+| **OpenAI Secure MCP Tunnel** | Tunnel ID + runtime API key | ChatGPT workspace association | ChatGPT, with no public endpoint |
 
-Once configured, Cloudflare displays the full `/mcp` URL for direct copying. Changing the public origin invalidates authorizations tied to the old origin.
-
-Lite exposes MCP through Cloudflare only. The connection manager owns the loopback ingress needed by the tunnel; there is no separate local MCP endpoint. A connection failure leaves project tools and running jobs alive.
-
-The Connections page shows Cloudflare configuration directly. Home always shows its connection status. Approved AI apps appear below the Cloudflare settings.
+Lite exposes MCP through the OpenAI tunnel only. Luti downloads the pinned, checksum-verified `tunnel-client`, which connects outbound to OpenAI; nothing listens publicly and there is no OAuth flow. The connection owns a private loopback listener that accepts only a fresh per-connection credential. A connection failure leaves project tools and running jobs alive; reconnect from the Connections page without restarting the runtime.
 
 ## Capabilities
 
@@ -78,9 +72,9 @@ This Lite branch exposes **24 public MCP tools** across seven domains. MCP uses 
 
 Project-specific behavior comes from the project's own manifest, instructions, and tasks rather than an expanding public tool set.
 
-Start with `project_info` for the current workspace and `projectToken`. Project writes, command execution, browser mutations and Job input require this token. It changes after selecting a different folder locally or restarting the Runtime; re-observe the intended workspace after a mismatch. Stopping an owned Job remains available without a current token. Connections with project-write, process-run or browser-use permission but no project-read permission receive only `projectId`, `generation` and `projectToken`.
+Start with `project_info` for the current workspace and `projectToken`. Project writes, command execution, browser mutations and Job input require this token. It changes after selecting a different folder locally or restarting the Runtime; re-observe the intended workspace after a mismatch. Stopping an owned Job remains available without a current token.
 
-Resource listing, reads and imports check the permission for the source: project files, process logs, browser artifacts. Browser uploads also require project-read permission. `code_query` starts an installed language server, so it requires project-read and process-run permissions plus the current `projectToken`; the server may have side effects.
+`code_query` starts an installed language server and requires the current `projectToken`; the server may have side effects.
 
 Job results separate process completion from recognized test results and record a bounded set of observed input files. `reportPath` can name a JUnit XML report produced by the command. Unchanged reports, incomplete output and unproven input consistency remain unknown; changed inputs are marked stale. These observations do not prove the entire project is correct.
 
@@ -90,7 +84,7 @@ Job results separate process completion from recognized test results and record 
 
 ## Local records
 
-Lite keeps bounded execution activity in `~/.luti/` for diagnostics. Current-run changed paths and job validation stay in memory. It does not persist sessions, memory or file recovery data, and does not write runtime metadata into the project repository. Existing retired data is left untouched.
+Lite keeps bounded execution activity in `~/.luti/` for diagnostics. Current-run changed paths and job validation stay in memory. It does not persist sessions, memory or file recovery data, and does not write runtime metadata into the project repository.
 
 ## Security and privacy
 
@@ -99,13 +93,11 @@ Lite keeps bounded execution activity in `~/.luti/` for diagnostics. Current-run
 | **Project scope** | File and project operations stay inside the active approved project |
 | **Permission mode** | Lite always uses `Full Project Access` within the selected folder; external operations retain their permission boundaries |
 | **Secrets** | Runtime credentials use macOS Keychain; sensitive values are redacted before persistence |
-| **OAuth** | Public clients are origin-bound and require approval on this Mac |
+| **Remote access** | Only the configured OpenAI tunnel reaches Luti; its listener is loopback-only and credential-bound |
 | **Git** | Public Git capability is read-only |
 | **Browser automation** | Luti owns its browser sessions; desktop capture and input are unavailable in Lite |
 | **Process execution** | `fullLocal` runs with your user privileges and is not an OS sandbox |
 | **Sandbox profiles** | `workspace` and `isolated` fail closed when an OS-enforced backend is unavailable |
-
-Turning off access for an AI app pauses its existing OAuth grants. Turning access back on resumes grants that have not expired. **Revoke** and **Delete client** invalidate access permanently.
 
 Luti has no cloud backend that receives project data. The AI hosts you connect still receive the tool results you request, which may include source code, command output, screenshots, or other project data. Every AI host and tunnel provider you enable is part of your trust boundary.
 

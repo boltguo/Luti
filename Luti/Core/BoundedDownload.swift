@@ -8,7 +8,7 @@ final class BoundedDownload: NSObject, URLSessionDownloadDelegate, @unchecked Se
   private var cancelled = false
   private let url: URL
   private let allowedHosts: Set<String>
-  init(destination: URL, url: URL = TunnelContract.downloadURL,
+  init(destination: URL, url: URL,
        allowedHosts: Set<String> = ["github.com", "release-assets.githubusercontent.com", "objects.githubusercontent.com"]) {
     self.destination = destination; self.url = url; self.allowedHosts = allowedHosts
   }

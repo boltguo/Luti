@@ -33,9 +33,9 @@ import XCTest
   func testThirdPartyNoticesAreIncludedInApplication() throws {
     let url = try XCTUnwrap(Bundle.main.url(forResource: "THIRD_PARTY_NOTICES", withExtension: nil))
     let notice = try String(contentsOf: url, encoding: .utf8)
-    XCTAssertFalse(notice.contains("openai/tunnel-client"))
+    XCTAssertFalse(notice.contains("cloudflare/cloudflared"))
     for component in ["SwiftNIO 2.103.0", "Playwright Core 1.63.0",
-                      "Node.js 24.21.0", "cloudflare/cloudflared",
+                      "Node.js 24.21.0", "openai/tunnel-client v0.0.14",
                       "utilsBundle.js.LICENSE", "Swift Runtime Library Exception"] {
       XCTAssertTrue(notice.contains(component), component)
     }

@@ -242,7 +242,7 @@ private struct RuntimeMenu: View {
   }
 
   private var connectionStatus: String {
-    L10n.text(model.cloudflareStatusKey)
+    L10n.text(model.connectionStatusKey)
   }
 
   private var projectPath: String {

@@ -26,8 +26,8 @@ Luti 把 AI 客户端连接到一个已授权项目。AI Host 负责推理和编
 
 ```mermaid
 flowchart TB
-    remote["远程 AI Host<br/>ChatGPT · Claude · Grok · …"]
-    tunnel["Tunnel + OAuth<br/>本机批准"]
+    remote["ChatGPT"]
+    tunnel["OpenAI Secure MCP Tunnel<br/>仅出站连接"]
     luti["这台 Mac 上的 Luti"]
     context["本地记录<br/>Activity"]
     tools["本地能力<br/>Files · Git · Process · Browser"]
@@ -44,24 +44,18 @@ flowchart TB
 
 1. **构建 Luti Lite。** 按下方说明从此分支的源码构建。
 2. **添加文件夹。** 在 **Projects** 中选择一个文件夹，默认完全访问。移除后回到空状态，可重新添加。
-3. **配置 Cloudflare BYO。** 保存公开地址和 Tunnel Token，连接会随 Runtime 自动启动。
-4. **连接 AI。** 把 Luti 添加为 MCP Server。公开 OAuth Client 使用 DCR + PKCE 注册，随后等待这台 Mac 批准。
+3. **配置 OpenAI Tunnel。** 保存 OpenAI Platform 中的 Tunnel ID 和运行 API Key，连接会随 Runtime 自动启动。
+4. **在 ChatGPT 中使用。** 在关联的 ChatGPT 工作区（开发者模式）中添加该 Tunnel 应用。
 
-启动 Runtime 前在本地选定文件夹。多个连接可以同时运行，使用同一个当前目录。
-
-首次加载旧的多项目配置时，优先保留已选中的项目，否则保留列表第一个，并保存为默认完全访问的单文件夹配置。配置为空或无法解析时，回到空状态重新选择；磁盘文件与本地记录保留。
+启动 Runtime 前在本地选定文件夹。
 
 ## 连接方式
 
 | 连接 | 需要提供 | 认证 | 适合场景 |
 |---|---|---|---|
-| **Cloudflare BYO** | HTTPS Origin + Cloudflare Tunnel Token | Luti OAuth + 本机批准 | 使用自己的稳定 Cloudflare 入口 |
+| **OpenAI Secure MCP Tunnel** | Tunnel ID + 运行 API Key | ChatGPT 工作区关联 | ChatGPT，无需公开入口 |
 
-Cloudflare 配置完成后会显示完整的 `/mcp` 地址，可直接复制。修改 Public Origin 后，绑定在旧 Origin 上的授权会失效。
-
-Lite 只提供 Cloudflare MCP 接入，不提供独立的本地 MCP 连接入口。Cloudflare 所需的回环监听由连接管理器持有；连接出错时，项目 Runtime 和已运行的 Job 不受影响。
-
-连接页只展示 Cloudflare 配置，首页常驻显示它的连接状态，AI 应用列表位于 Cloudflare 配置下方。
+Lite 只通过 OpenAI Tunnel 提供 MCP 接入。Luti 下载固定版本并校验哈希的 `tunnel-client`，由它主动连接 OpenAI；本机不对外监听，也没有 OAuth 流程。连接持有一个仅回环的私有监听，只接受每次连接新生成的凭据。连接出错时，项目 Runtime 和已运行的 Job 不受影响，可在连接页单独重连，无需重启 Runtime。
 
 ## 能力
 
@@ -78,9 +72,9 @@ Lite 只提供 Cloudflare MCP 接入，不提供独立的本地 MCP 连接入口
 
 项目专属能力由项目自己的 manifest、instructions 和 tasks 提供，无需不断增加 Public Tool。
 
-先调用 `project_info`，取得当前目录信息与 `projectToken`。项目写入、命令执行、浏览器修改和 Job 输入需携带该标识；在本地选择其他文件夹或重启 Runtime 后会失效。遇到失配应重新观察并确认目标目录。停止仍归 Runtime 管理的 Job 不受旧标识阻碍。具有项目写入、进程执行或浏览器权限，但未获项目读取权限的连接，只返回 `projectId`、`generation` 和 `projectToken`。
+先调用 `project_info`，取得当前目录信息与 `projectToken`。项目写入、命令执行、浏览器修改和 Job 输入需携带该标识；在本地选择其他文件夹或重启 Runtime 后会失效。遇到失配应重新观察并确认目标目录。停止仍归 Runtime 管理的 Job 不受旧标识阻碍。
 
-资源列举、读取和导入会检查来源对应的权限：项目文件、进程日志、浏览器产物。浏览器上传还需要项目读取权限。`code_query` 会启动已安装的语言服务，因此需要项目读取、进程执行权限及当前 `projectToken`；语言服务可能产生副作用。
+`code_query` 会启动已安装的语言服务，需要当前 `projectToken`；语言服务可能产生副作用。
 
 Job 结果区分进程完成与识别到的测试结果，并记录有限范围的输入文件观察。`reportPath` 可指定命令生成的 JUnit XML 报告。旧报告、截断输出与无法证明的输入一致性保持 unknown，输入变化标为 stale；这些观察不能证明完整工程正确。
 
@@ -90,7 +84,7 @@ Job 结果区分进程完成与识别到的测试结果，并记录有限范围�
 
 ## 本地记录
 
-Lite 只保留有容量限制的执行活动，存放于 `~/.luti/`，用于排查工具调用问题。本次运行的改动文件和任务验证状态保存在内存中。不会保存会话、记忆或文件恢复数据，也不会向项目仓库写入 Runtime 元数据。旧版停用的数据保留在磁盘上。
+Lite 只保留有容量限制的执行活动，存放于 `~/.luti/`，用于排查工具调用问题。本次运行的改动文件和任务验证状态保存在内存中。不会保存会话、记忆或文件恢复数据，也不会向项目仓库写入 Runtime 元数据。
 
 ## 安全与隐私
 
@@ -99,12 +93,10 @@ Lite 只保留有容量限制的执行活动，存放于 `~/.luti/`，用于排�
 | **项目范围** | 文件与项目操作限制在当前已授权项目中 |
 | **权限模式** | Lite 默认对选定文件夹使用完全访问；外部操作仍遵守原有权限边界 |
 | **凭据** | Runtime 凭据存入 macOS Keychain；敏感值在持久化前脱敏 |
-| **OAuth** | Public Client 绑定 Origin，并且需要这台 Mac 批准 |
+| **远程访问** | 只有已配置的 OpenAI Tunnel 能访问 Luti；监听仅限回环并绑定凭据 |
 | **Git** | 对外 Git 能力只读 |
 | **浏览器自动化** | Luti 只操作自己拥有的 Browser Session；Lite 不提供桌面截图或鼠标、键盘控制 |
 | **进程执行** | `fullLocal` 使用当前用户权限执行，不是 OS Sandbox |
-
-关闭某个 AI 应用的访问开关，只会暂停现有 OAuth 授权。重新开启后，未过期的授权会恢复；**撤销**和**删除客户端**则会永久终止访问。
 
 Luti 没有接收项目数据的云端服务。连接到 Luti 的 AI Host 仍会收到你请求的工具结果，其中可能包含源码、命令输出、截图或其他项目数据。你启用的每个 AI Host 和 Tunnel Provider 都属于信任边界。
 

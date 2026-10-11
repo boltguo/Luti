@@ -89,7 +89,7 @@ public enum ToolCatalog {
     let base: [JSONValue] = [
       tool(
         "project_info",
-        "Start here for the current locally selected workspace and projectToken. With project:read, includes top-level files and safety boundaries; with only project:write, process:run or browser:use, returns just projectId, generation and projectToken."),
+        "Start here for the current locally selected workspace and projectToken. Includes top-level files and safety boundaries."),
       tool(
         "runtime_status",
         "Inspect real permissions, running jobs and last successful tool call. Tunnel readiness is not proof of ChatGPT use."

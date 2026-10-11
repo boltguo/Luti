@@ -65,11 +65,6 @@ struct MainWindowView: View {
         }
       }
     }
-    .sheet(item: Binding(get: { model.pendingApprovals.first }, set: { _ in })) { request in
-      ApprovalView(request: request, queued: max(0, model.pendingApprovals.count - 1)) { approved in
-        model.resolveApproval(request.id, approved: approved)
-      }
-    }
     .onChange(of: scenePhase) { _, phase in
       if phase == .active { loginItem.refresh(); LanguageSettings.shared.refreshSystemLanguage() }
     }

@@ -36,8 +36,8 @@ import XCTest
     let f = try Fixture(); defer { f.remove() }
     let router = try f.router(execution: true)
     addTeardownBlock { await router.stop() }
-    let remote = ToolGrant.remote(RequestContext(transport: .cloudflare, clientID: "all-scopes",
-      clientName: "Host", authorizationID: UUID(), scopes: Set(OAuthScope.allCases), resource: "https://example.com/mcp"))
+    let remote = ToolGrant.remote(RequestContext(transport: .openAI, clientID: "openai-tunnel",
+      clientName: "Host", authorizationID: UUID()))
     for permission in [ToolGrant.local, remote] {
       for tool in ["projects", "memory", "skills"] {
         let result = await router.call(tool, arguments: ["action": "list"], grant: permission)

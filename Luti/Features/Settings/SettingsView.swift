@@ -173,9 +173,9 @@ struct SettingsView: View {
             position: .first,
             tone: .blue)
           ComponentVersionRow(
-            name: "Cloudflare Tunnel",
+            name: "OpenAI tunnel-client",
             symbol: "link",
-            version: TunnelContract.version,
+            version: TunnelClientInstaller.version,
             position: .middle,
             tone: .purple)
           ComponentVersionRow(

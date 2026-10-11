@@ -26,8 +26,8 @@ Lutiは、AIクライアントを承認済みのひとつのプロジェクト�
 
 ```mermaid
 flowchart TB
-    remote["リモートAI Host<br/>ChatGPT · Claude · Grok · …"]
-    tunnel["Tunnel + OAuth<br/>Mac上で承認"]
+    remote["ChatGPT"]
+    tunnel["OpenAI Secure MCP Tunnel<br/>送信方向のみ"]
     luti["このMac上のLuti"]
     context["ローカル記録<br/>Activity"]
     tools["ローカル機能<br/>Files · Git · Process · Browser"]
@@ -44,24 +44,18 @@ flowchart TB
 
 1. **Luti Liteをビルド。** 以下の手順で、このブランチのソースからビルドします。
 2. **フォルダを追加。** **Projects**でフォルダを1つ選択します。フルアクセスが自動で適用され、削除すると空の状態に戻ります。
-3. **Cloudflare BYOを設定。** 公開URLとTunnel Tokenを保存すると、Runtimeの起動に合わせて自動で接続します。
-4. **AIを接続。** LutiをMCP Serverとして追加します。Public OAuth ClientはDCR + PKCEで登録したあと、このMac上での承認を待ちます。
+3. **OpenAI Tunnelを設定。** OpenAI PlatformのTunnel IDとランタイムAPIキーを保存すると、Runtimeの起動に合わせて自動で接続します。
+4. **ChatGPTで使う。** 関連付けたChatGPTワークスペース（開発者モード）でTunnelアプリを追加します。
 
-Runtimeを起動する前に、ローカルでフォルダを選択します。複数の接続を同時に動かし、同じフォルダで作業できます。
-
-旧バージョンの複数プロジェクト設定では、選択中のプロジェクトを優先し、不明ならリストの先頭を保持します。フルアクセスの単一フォルダ設定として保存し、設定が空または読み取れない場合は空の状態から再選択します。ファイルとローカル記録は保持します。
+Runtimeを起動する前に、ローカルでフォルダを選択します。
 
 ## 接続方式
 
 | 接続 | 用意するもの | 認証 | 向いている用途 |
 |---|---|---|---|
-| **Cloudflare BYO** | HTTPS Origin + Cloudflare Tunnel Token | Luti OAuth + Mac上の承認 | 自分の安定したCloudflare Endpoint |
+| **OpenAI Secure MCP Tunnel** | Tunnel ID + ランタイムAPIキー | ChatGPTワークスペースの関連付け | 公開Endpointなしで使うChatGPT |
 
-Cloudflareでは、設定後に完全な`/mcp` URLが表示され、そのままコピーできます。Public Originを変更すると、古いOriginに結びついた認可は無効になります。
-
-LiteのMCP接続はCloudflareのみです。Tunnelに必要なLoopback Listenerは接続マネージャーが所有し、独立したLocal MCP接続口は提供しません。接続障害が起きてもProject Runtimeと実行中のJobは停止しません。
-
-接続ページにはCloudflareの設定だけを表示し、ホームには接続状態を常に表示します。AIアプリの一覧はCloudflareの設定下に表示します。
+LiteのMCP接続はOpenAI Tunnelのみです。Lutiは固定バージョンでハッシュ検証済みの`tunnel-client`をダウンロードし、OpenAIへ送信方向で接続します。公開Listenerはなく、OAuthフローもありません。接続ごとの新しいCredentialだけを受け付けるLoopback専用Listenerを接続が所有します。接続障害が起きてもProject Runtimeと実行中のJobは停止せず、Runtimeを再起動せずに接続ページから再接続できます。
 
 ## 機能
 
@@ -78,9 +72,9 @@ LiteのMCP接続はCloudflareのみです。Tunnelに必要なLoopback Listener�
 
 プロジェクト固有の動作は、そのプロジェクトのmanifest、instructions、tasksで定義します。Public Toolを増やす必要はありません。
 
-最初に `project_info` を呼び出して、現在のWorkspaceと `projectToken` を取得します。Projectへの書き込み、コマンド実行、Browserの変更、Job入力にはこの値が必要です。ローカルで別のフォルダを選択するかRuntimeを再起動すると失効するため、不一致の場合は対象Workspaceを再確認してください。所有するJobの停止は古い値によって妨げられません。Project書き込み、プロセス実行、Browser利用のいずれかの権限があり、Project読み取り権限がない接続には、`projectId`、`generation`、`projectToken`だけを返します。
+最初に `project_info` を呼び出して、現在のWorkspaceと `projectToken` を取得します。Projectへの書き込み、コマンド実行、Browserの変更、Job入力にはこの値が必要です。ローカルで別のフォルダを選択するかRuntimeを再起動すると失効するため、不一致の場合は対象Workspaceを再確認してください。所有するJobの停止は古い値によって妨げられません。
 
-リソースの一覧、読み取り、インポートでは、Projectファイル、プロセスログ、ブラウザ成果物それぞれの権限を確認します。ブラウザへのアップロードにはProject読み取り権限も必要です。`code_query` はインストール済みの言語サーバーを起動するため、Project読み取り・プロセス実行権限と現在の `projectToken` が必要です。言語サーバーは副作用を伴う場合があります。
+`code_query` はインストール済みの言語サーバーを起動するため、現在の `projectToken` が必要です。言語サーバーは副作用を伴う場合があります。
 
 Jobの結果はプロセス終了と認識したテスト結果を分け、限定した入力ファイルの状態を記録します。`reportPath` でコマンドが生成するJUnit XMLを指定できます。変更のない既存レポート、不完全な出力、証明できない入力の一貫性はunknown、入力の変更はstaleとして扱います。Project全体の正しさを保証するものではありません。
 
@@ -90,7 +84,7 @@ Jobの結果はプロセス終了と認識したテスト結果を分け、限�
 
 ## ローカル記録
 
-Liteは容量を制限した実行履歴だけを`~/.luti/`に保存します。現在の実行で変更したファイルとJobの検証状態はメモリに保持します。Session、Memory、ファイル復元データを保存せず、プロジェクト内にもRuntimeメタデータを書き込みません。旧版のデータはそのまま残します。
+Liteは容量を制限した実行履歴だけを`~/.luti/`に保存します。現在の実行で変更したファイルとJobの検証状態はメモリに保持します。Session、Memory、ファイル復元データを保存せず、プロジェクト内にもRuntimeメタデータを書き込みません。
 
 ## セキュリティとプライバシー
 
@@ -99,12 +93,10 @@ Liteは容量を制限した実行履歴だけを`~/.luti/`に保存します。
 | **Project Scope** | ファイルとProject操作を現在の承認済みProjectに限定 |
 | **Permission Mode** | Liteは選択したフォルダ内で常にフルアクセスを使用。外部操作の権限境界は維持します |
 | **Credential** | Runtime CredentialをmacOS Keychainに保存し、機密値を永続化前にRedact |
-| **OAuth** | Public ClientはOriginに結びつき、このMac上の承認が必要 |
+| **Remote Access** | 設定済みのOpenAI TunnelだけがLutiに到達。ListenerはLoopback専用でCredentialに結びつく |
 | **Git** | 公開Git Capabilityは読み取り専用 |
 | **ブラウザ自動化** | Lutiが所有するBrowser Sessionのみを操作。Liteではデスクトップ撮影やマウス・キーボード操作は提供しません |
 | **Process Execution** | `fullLocal`はユーザー権限で実行され、OS Sandboxではない |
-
-AIアプリのアクセスをオフにすると、既存のOAuth Grantは一時停止します。再度オンにすれば、期限内のGrantをそのまま再開できます。**取り消す**と**クライアントを削除**は、アクセスを完全に無効化します。
 
 Lutiには、プロジェクトデータを受け取るCloud Backendがありません。ただし、接続したAI Hostには要求したTool Resultが送られ、Source Code、Command Output、Screenshotなどが含まれる場合があります。有効にするAI HostとTunnel Providerは、いずれも信頼境界の一部です。
 

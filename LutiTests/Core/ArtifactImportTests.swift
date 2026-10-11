@@ -29,12 +29,6 @@ import XCTest
     let arguments: JSONValue = ["resource": .string(resource), "path": "imported.txt"]
     let missingBinding = await router.call("import_artifact", arguments: arguments)
     XCTAssertEqual(missingBinding.data["error"], "project_binding_required")
-    let readOnlyGrant = ToolGrant.remote(RequestContext(
-      transport: .loopback, clientID: "import-test", clientName: "Import test",
-      authorizationID: UUID(), scopes: [.projectRead], resource: "http://localhost/mcp"))
-    let denied = await router.callInCurrentProject(
-      "import_artifact", arguments: arguments, grant: readOnlyGrant)
-    XCTAssertEqual(denied.data["error"], "insufficient_scope")
     XCTAssertFalse(FileManager.default.fileExists(atPath: f.root.appendingPathComponent("imported.txt").path))
 
     let imported = await router.callInCurrentProject("import_artifact", arguments: arguments)
@@ -50,7 +44,7 @@ import XCTest
     let artifacts = ArtifactStore()
     // Binary imports retain their own size limit, independent of text editing.
     let bytes = Data(repeating: 0xff, count: WorkspaceFiles.maxFileBytes + 1)
-    let artifact = try await artifacts.insert(bytes, name: "design.png", mimeType: "image/png", source: .project)
+    let artifact = try await artifacts.insert(bytes, name: "design.png", mimeType: "image/png")
     let result = try await importArtifact(artifact, path: "design.png", fixture: f, artifacts: artifacts)
     XCTAssertEqual(result["applied"], true)
     XCTAssertEqual(result["effect"], "confirmed")
@@ -63,46 +57,10 @@ import XCTest
     XCTAssertFalse(FileManager.default.fileExists(atPath: checkpointDirectory(f).path))
   }
 
-  func testImportCannotBypassSourceReadPermission() async throws {
-    let f = try Fixture(); defer { f.remove() }
-    let router = try f.router(execution: true)
-    addTeardownBlock { await router.stop() }
-    let artifacts = await router.artifacts
-    let sources: [(ArtifactSource, OAuthScope)] = [(.project, .projectRead), (.process, .processRun), (.browser, .browserUse)]
-    func grant(_ scopes: Set<OAuthScope>) -> ToolGrant {
-      .remote(RequestContext(transport: .loopback, clientID: "importer", clientName: "Importer",
-        authorizationID: UUID(), scopes: scopes, resource: "http://localhost/mcp"))
-    }
-    for (index, pair) in sources.enumerated() {
-      let artifact = try await artifacts.insert(Data([UInt8(index)]), name: "source.bin", source: pair.0)
-      let path = "import-\(index).bin"
-      let arguments: JSONValue = ["resource": .string(artifact.uri), "path": .string(path)]
-      let missingRead = await router.callInCurrentProject("import_artifact", arguments: arguments,
-        grant: grant([.projectWrite]))
-      XCTAssertEqual(missingRead.data["error"], "insufficient_scope")
-      let wrongDomain = await router.callInCurrentProject("import_artifact", arguments: arguments.adding("dryRun", true),
-        grant: grant([.projectWrite, pair.1 == .browserUse ? .processRun : .browserUse]))
-      XCTAssertEqual(wrongDomain.data["error"], "insufficient_scope")
-      if pair.1 != .projectRead {
-        let projectReader = await router.callInCurrentProject("import_artifact", arguments: arguments,
-          grant: grant([.projectRead, .projectWrite]))
-        XCTAssertEqual(projectReader.data["error"], "insufficient_scope")
-      }
-      let missingWrite = await router.callInCurrentProject("import_artifact", arguments: arguments,
-        grant: grant([pair.1]))
-      XCTAssertEqual(missingWrite.data["error"], "insufficient_scope")
-      XCTAssertFalse(FileManager.default.fileExists(atPath: f.root.appendingPathComponent(path).path))
-      let imported = await router.callInCurrentProject("import_artifact", arguments: arguments,
-        grant: grant([.projectWrite, pair.1]))
-      XCTAssertFalse(imported.isError, imported.data.text())
-      XCTAssertEqual(try Data(contentsOf: f.root.appendingPathComponent(path)), artifact.bytes)
-    }
-  }
-
   func testDryRunAndNoOverwriteDoNotLeaveFilesOrRecoveryStorage() async throws {
     let f = try Fixture(); defer { f.remove() }
     let artifacts = ArtifactStore()
-    let artifact = try await artifacts.insert(Data([0, 1, 2]), name: "sample.bin", source: .project)
+    let artifact = try await artifacts.insert(Data([0, 1, 2]), name: "sample.bin")
     let preview = try await importArtifact(
       artifact, path: "sample.bin", fixture: f, artifacts: artifacts, dryRun: true)
     XCTAssertEqual(preview["applied"], false)
@@ -125,13 +83,13 @@ import XCTest
     let f = try Fixture(); defer { f.remove() }
     let artifacts = ArtifactStore()
     let foreignStore = ArtifactStore()
-    let foreign = try await foreignStore.insert(Data([1]), name: "foreign.bin", source: .project)
+    let foreign = try await foreignStore.insert(Data([1]), name: "foreign.bin")
     let expiredStore = ArtifactStore(ttl: -1)
-    let expired = try await expiredStore.insert(Data([1]), name: "expired.bin", source: .project)
+    let expired = try await expiredStore.insert(Data([1]), name: "expired.bin")
     let evictedStore = ArtifactStore()
-    let evicted = try await evictedStore.insert(Data([1]), name: "evicted.bin", source: .project)
+    let evicted = try await evictedStore.insert(Data([1]), name: "evicted.bin")
     for index in 0..<16 {
-      _ = try await evictedStore.insert(Data([1]), name: "cache-\(index).bin", source: .project)
+      _ = try await evictedStore.insert(Data([1]), name: "cache-\(index).bin")
     }
     for (source, store) in [
       (foreign.uri, artifacts), (expired.uri, expiredStore),
@@ -155,7 +113,7 @@ import XCTest
   func testImportUsesWorkspacePathAndSymlinkPolicy() async throws {
     let f = try Fixture(); defer { f.remove() }
     let artifacts = ArtifactStore()
-    let artifact = try await artifacts.insert(Data([0, 1]), name: "sample.bin", source: .project)
+    let artifact = try await artifacts.insert(Data([0, 1]), name: "sample.bin")
     try f.write("safe/target.bin", "keep")
     try FileManager.default.createSymbolicLink(
       at: f.root.appendingPathComponent("alias"), withDestinationURL: f.root.appendingPathComponent("safe"))
@@ -184,12 +142,12 @@ import XCTest
     let f = try Fixture(); defer { f.remove() }
     let artifacts = ArtifactStore()
     do {
-      _ = try await artifacts.insert(Data(count: ArtifactStore.maxBytes + 1), name: "oversized.bin", source: .project)
+      _ = try await artifacts.insert(Data(count: ArtifactStore.maxBytes + 1), name: "oversized.bin")
       XCTFail("Artifacts above 32 MiB must be rejected.")
     } catch let failure as Failure {
       XCTAssertEqual(failure.code, "invalid_arguments")
     }
-    let artifact = try await artifacts.insert(Data([0]), name: "sample.bin", source: .project)
+    let artifact = try await artifacts.insert(Data([0]), name: "sample.bin")
     await artifacts.stop()
     do {
       _ = try await importArtifact(artifact, path: "sample.bin", fixture: f, artifacts: artifacts)

@@ -247,12 +247,11 @@ enum LutiPaths {
 
   static var projects: URL { root.appendingPathComponent("projects", isDirectory: true) }
   static var logs: URL { root.appendingPathComponent("logs", isDirectory: true) }
-  static var auth: URL { root.appendingPathComponent("auth", isDirectory: true) }
   static var cache: URL { root.appendingPathComponent("cache", isDirectory: true) }
   static var runs: URL { root.appendingPathComponent("runs", isDirectory: true) }
 
   static func prepare() throws {
-    for url in [root, projects, logs, auth, cache, runs] { try PrivateFiles.directory(url) }
+    for url in [root, projects, logs, cache, runs] { try PrivateFiles.directory(url) }
   }
 
   static func canonicalProjectURL(_ url: URL) -> URL {

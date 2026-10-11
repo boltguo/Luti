@@ -5,8 +5,8 @@ import XCTest
 
 private actor TestConnectionProvider: ConnectionProvider {
   enum Behavior { case ready, fail, suspended }
-  nonisolated let publicOrigin = URL(string: "https://mcp.example.com")
-  nonisolated let ingressPort: Int
+  nonisolated let id = ConnectionProviderID.openAI
+  nonisolated let privateCredential = "lt_" + Budget.token()
   private let behavior: Behavior
   private var state = ConnectionSnapshot.stopped
   private var waiter: CheckedContinuation<Void, Never>?
@@ -14,7 +14,7 @@ private actor TestConnectionProvider: ConnectionProvider {
   private(set) var stops = 0
   private(set) var endpoint: URL?
 
-  init(_ behavior: Behavior = .ready, port: Int = 0) { self.behavior = behavior; ingressPort = port }
+  init(_ behavior: Behavior = .ready) { self.behavior = behavior }
   func start(endpoint: URL) async throws {
     starts += 1
     self.endpoint = endpoint
@@ -45,13 +45,12 @@ private actor TestConnectionProvider: ConnectionProvider {
     return (f, runtime)
   }
   private func manager(_ f: Fixture, _ runtime: RuntimeCore) -> ConnectionManager {
-    let result = ConnectionManager(router: runtime.router,
-      store: OAuthStore(url: f.contextDataRoot.appendingPathComponent("oauth-test.json")))
+    let result = ConnectionManager(router: runtime.router)
     addTeardownBlock { await result.shutdown() }
     return result
   }
-  private func response(_ url: URL, authorization: String? = nil, origin: String? = nil,
-                        host: String? = nil) async throws -> HTTPURLResponse {
+  private func response(_ url: URL, authorization: String? = nil, origin: String? = nil)
+    async throws -> HTTPURLResponse {
     var request = URLRequest(url: url)
     request.timeoutInterval = 3
     request.httpMethod = "POST"
@@ -59,7 +58,6 @@ private actor TestConnectionProvider: ConnectionProvider {
     request.setValue("application/json, text/event-stream", forHTTPHeaderField: "Accept")
     if let authorization { request.setValue(authorization, forHTTPHeaderField: "Authorization") }
     if let origin { request.setValue(origin, forHTTPHeaderField: "Origin") }
-    if let host { request.setValue(host, forHTTPHeaderField: "Host") }
     request.httpBody = try JSONValue.object(["jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": [:]]).data()
     let (_, response) = try await URLSession.shared.data(for: request)
     return try XCTUnwrap(response as? HTTPURLResponse)
@@ -72,17 +70,21 @@ private actor TestConnectionProvider: ConnectionProvider {
     XCTAssertEqual(status.data["running"], true)
   }
 
-  func testPublicIngressDoesNotAcceptUnknownCredential() async throws {
+  func testPrivateIngressDoesNotAcceptUnknownCredentialOrBrowserOrigin() async throws {
     let (f, runtime) = try makeRuntime()
     try await runtime.start()
-    let authorization = "Bearer " + Budget.token()
     let connections = manager(f, runtime)
     let provider = TestConnectionProvider()
     try await connections.connect(provider)
-    let remoteURL = await provider.endpoint
-    let response = try await response(XCTUnwrap(remoteURL), authorization: authorization, host: "mcp.example.com")
-    XCTAssertEqual(response.statusCode, 401)
-    XCTAssertTrue(response.value(forHTTPHeaderField: "WWW-Authenticate")?.contains("resource_metadata") == true)
+    let captured = await provider.endpoint
+    let remoteURL = try XCTUnwrap(captured)
+    let unknown = try await response(remoteURL, authorization: "Bearer " + Budget.token())
+    XCTAssertEqual(unknown.statusCode, 401)
+    let fromBrowser = try await response(remoteURL, authorization: "Bearer " + provider.privateCredential,
+      origin: "https://untrusted.invalid")
+    XCTAssertEqual(fromBrowser.statusCode, 403)
+    let admitted = try await response(remoteURL, authorization: "Bearer " + provider.privateCredential)
+    XCTAssertEqual(admitted.statusCode, 200)
   }
 
   func testProviderStartupFailureLeavesProjectRuntimeUsable() async throws {
@@ -117,22 +119,6 @@ private actor TestConnectionProvider: ConnectionProvider {
     await connections.disconnect()
     let existing = await runtime.router.callInCurrentProject("job_query", arguments: ["action": "status", "jobId": .string(id)])
     XCTAssertEqual(existing.data["status"], "running")
-    let project = await runtime.router.callInCurrentProject("project_info", arguments: [:])
-    XCTAssertFalse(project.isError)
-  }
-
-  func testOccupiedIngressPortDoesNotStopProjectRuntime() async throws {
-    let (f, runtime) = try makeRuntime()
-    try await runtime.start()
-    let occupied = MCPServer()
-    let endpoint = try await occupied.start(router: runtime.router, authentication: nil, port: 0)
-    addTeardownBlock { await occupied.stop() }
-    let connections = manager(f, runtime)
-    let provider = TestConnectionProvider(port: try XCTUnwrap(endpoint.port))
-    do { try await connections.connect(provider); XCTFail("Port must not silently move") }
-    catch { XCTAssertEqual((error as? Failure)?.code, "port_unavailable") }
-    let starts = await provider.starts
-    XCTAssertEqual(starts, 0)
     let project = await runtime.router.callInCurrentProject("project_info", arguments: [:])
     XCTAssertFalse(project.isError)
   }
@@ -180,42 +166,30 @@ private actor TestConnectionProvider: ConnectionProvider {
   func testUnfinishedRemoteSettingsDoNotDisableProjectPreparation() throws {
     let f = try Fixture(); defer { f.remove() }
     let model = AppModel(contextDataRoot: f.contextDataRoot, defaults: f.defaults)
-    let project = ApprovedProject(url: f.root)
-    model.activeProject = project
-
-    model.publicBaseURL = "unfinished remote configuration"
-    model.tokenDraft = "unsaved"
-    model.tokenSaved = false
+    model.activeProject = ApprovedProject(url: f.root)
+    model.tunnelID = "unfinished remote configuration"
+    model.apiKeyDraft = "unsaved"
+    model.apiKeySaved = false
     XCTAssertTrue(model.canStart)
-    XCTAssertFalse(model.canConnectProvider(.cloudflare))
+    XCTAssertFalse(model.canConnect)
   }
 
-  func testInvalidCloudflareConfigurationDoesNotBlockProjectPreparation() throws {
+  func testInvalidConnectionSettingsAreRejectedWithoutTouchingSavedState() async throws {
     let f = try Fixture(); defer { f.remove() }
+    f.defaults.set("tunnel_fixture123", forKey: "connection.openai.tunnelID")
     let model = AppModel(contextDataRoot: f.contextDataRoot, defaults: f.defaults)
     model.activeProject = ApprovedProject(url: f.root)
-    model.publicBaseURL = "http://invalid-origin.example.com"
-    XCTAssertFalse(model.saveSettings())
-    XCTAssertNotNil(model.connectionSettingsErrors[.cloudflare])
-    XCTAssertTrue(model.availableConnectionProviders.isEmpty)
+    model.tunnelID = "not-a-tunnel"
+    let saved = await model.saveConnection()
+    XCTAssertFalse(saved)
+    XCTAssertNotNil(model.connectionSettingsError)
+    XCTAssertEqual(model.savedTunnelID, "tunnel_fixture123")
+    model.tunnelID = "tunnel_fixture456"
+    model.apiKeyDraft = "not-an-api-key"
+    let resaved = await model.saveConnection()
+    XCTAssertFalse(resaved)
+    XCTAssertEqual(model.savedTunnelID, "tunnel_fixture123")
     XCTAssertTrue(model.canStart)
-  }
-
-  func testCloudflareConfigurationAvailabilityDoesNotRewriteSelectedFolder() throws {
-    let f = try Fixture(); defer { f.remove() }
-    let model = AppModel(contextDataRoot: f.contextDataRoot, defaults: f.defaults)
-    let project = ApprovedProject(url: f.root)
-    model.activeProject = project
-    model.tokenSaved = false
-    XCTAssertTrue(model.availableConnectionProviders.isEmpty)
-    f.defaults.set("https://mcp.example.com", forKey: "publicBaseURL")
-    model.publicBaseURL = "https://mcp.example.com"
-    model.tokenSaved = true
-    XCTAssertEqual(model.availableConnectionProviders, [.cloudflare])
-    XCTAssertEqual(model.activeProject, project)
-    model.tokenSaved = false
-    XCTAssertTrue(model.availableConnectionProviders.isEmpty)
-    XCTAssertEqual(model.activeProject, project)
   }
 
   func testSelectedFolderSurvivesDirectRuntimeStartStopAndReopen() async throws {
@@ -235,19 +209,6 @@ private actor TestConnectionProvider: ConnectionProvider {
     XCTAssertEqual(reopened.activeProject, project)
   }
 
-  func testLegacyFolderWithoutPermissionModeRemainsStartable() throws {
-    let f = try Fixture(); defer { f.remove() }
-    let path = f.root.appendingPathComponent("legacy", isDirectory: true)
-    try FileManager.default.createDirectory(at: path, withIntermediateDirectories: true)
-    let legacy = "[{\"id\":\"legacy\",\"name\":\"Legacy\",\"path\":\"" + path.path + "\"}]"
-    f.defaults.set(Data(legacy.utf8), forKey: "approvedProjects")
-    f.defaults.set("legacy", forKey: "activeProjectID")
-    let model = AppModel(contextDataRoot: f.contextDataRoot, defaults: f.defaults)
-    XCTAssertEqual(model.activeProject?.id, "legacy")
-    XCTAssertEqual(model.project?.path, path.resolvingSymlinksInPath().standardizedFileURL.path)
-    XCTAssertTrue(model.canStart)
-  }
-
   func testImmediateStopDoesNotResurrectQueuedNativeStartup() async throws {
     let f = try Fixture()
     let model = AppModel(contextDataRoot: f.contextDataRoot, defaults: f.defaults)
@@ -259,30 +220,27 @@ private actor TestConnectionProvider: ConnectionProvider {
     await model.stop()
     await model.refresh()
     XCTAssertEqual(model.phase, .stopped)
-    XCTAssertTrue(model.connectionSnapshots.isEmpty)
+    XCTAssertEqual(model.connection, .stopped)
     XCTAssertTrue(model.canStart)
   }
 
-  func testNativeStartWithoutTunnelCredentialKeepsRemoteUnavailable() async throws {
+  func testNativeStartWithoutAPIKeyKeepsRemoteUnavailable() async throws {
     let f = try Fixture()
-    f.defaults.set("https://mcp.example.com", forKey: "publicBaseURL")
-    f.defaults.set(
-      try JSONEncoder().encode(Set<ConnectionProviderID>()),
-      forKey: "enabledConnectionProviders")
+    f.defaults.set("tunnel_fixture123", forKey: "connection.openai.tunnelID")
     let model = AppModel(contextDataRoot: f.contextDataRoot, defaults: f.defaults)
     addTeardownBlock { await model.stop(); f.remove() }
     let project = ApprovedProject(url: f.root)
     model.activeProject = project
 
-    model.tokenSaved = false
+    model.apiKeySaved = false
     model.requestStart()
     for _ in 0..<200 {
       if model.phase == .running || model.phase == .failed { break }
       try await Task.sleep(for: .milliseconds(10))
     }
     XCTAssertEqual(model.phase, .running)
-    XCTAssertTrue(model.connectionSnapshots.isEmpty)
-    XCTAssertTrue(model.connectionBusyProviders.isEmpty)
+    XCTAssertEqual(model.connection, .stopped)
+    XCTAssertFalse(model.connectionBusy)
   }
 
   func testDisconnectClosesOnlyIngressAndAllowsExplicitReconnect() async throws {
@@ -293,11 +251,11 @@ private actor TestConnectionProvider: ConnectionProvider {
     try await connections.connect(provider)
     let endpoint = await provider.endpoint
     let ingress = try XCTUnwrap(endpoint)
-    let before = try await response(ingress, host: "mcp.example.com")
+    let before = try await response(ingress)
     XCTAssertEqual(before.statusCode, 401)
     await connections.disconnect()
     do {
-      _ = try await response(ingress, host: "mcp.example.com")
+      _ = try await response(ingress)
       XCTFail("Disconnected ingress must not accept requests")
     } catch is URLError {}
     let available = await runtime.router.callInCurrentProject("project_info", arguments: [:])

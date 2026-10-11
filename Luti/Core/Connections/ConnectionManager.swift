@@ -11,13 +11,10 @@ public struct ConnectionSnapshot: Sendable, Equatable {
   public let state: ConnectionState
   public let message: String
   public let providerID: ConnectionProviderID?
-  public let publicOrigin: URL?
-  public init(state: ConnectionState, message: String = "",
-              providerID: ConnectionProviderID? = nil, publicOrigin: URL? = nil) {
+  public init(state: ConnectionState, message: String = "", providerID: ConnectionProviderID? = nil) {
     self.state = state
     self.message = message
     self.providerID = providerID
-    self.publicOrigin = publicOrigin
   }
   public static let stopped = ConnectionSnapshot(state: .stopped)
 }
@@ -26,72 +23,51 @@ public struct ConnectionSnapshot: Sendable, Equatable {
 /// resources, never the project's router, jobs, files or local credentials.
 public protocol ConnectionProvider: Sendable {
   var id: ConnectionProviderID { get }
-  /// The configured public OAuth origin.
-  var publicOrigin: URL? { get async }
-  var ingressPort: Int { get }
+  /// A fresh per-connection credential the transport presents to the private listener.
+  var privateCredential: String { get }
   func start(endpoint: URL) async throws
   func stop() async
   func snapshot() async -> ConnectionSnapshot
 }
 
-public extension ConnectionProvider {
-  var id: ConnectionProviderID { .cloudflare }
-}
-
-/// Optional OAuth ingress has a separate listener and failure domain. Both
-/// listeners share one router; disconnecting remote access never stops its jobs.
+/// One remote connection: a private loopback listener plus the transport that
+/// forwards to it. It shares the runtime's router; disconnecting never stops jobs.
 public actor ConnectionManager {
   private struct Attempt {
     let id: UUID
     let server: MCPServer
-    var oauth: LutiOAuthService?
     let provider: any ConnectionProvider
-    let store: OAuthStore
-    var origin: URL?
   }
   private let router: ToolRouter
-  private let store: OAuthStore
   private var attempt: Attempt?
   private var state = ConnectionSnapshot.stopped
   private var closing: Task<Void, Never>?
   private var retired = false
 
-  init(router: ToolRouter, store: OAuthStore = .shared) {
+  init(router: ToolRouter) {
     self.router = router
-    self.store = store
   }
 
-  public func connect(_ provider: any ConnectionProvider,
-                      authorizationStore: OAuthStore? = nil) async throws {
+  public func connect(_ provider: any ConnectionProvider) async throws {
     guard !retired else { throw Failure.stopped }
     guard attempt == nil, closing == nil else {
       throw Failure.invalid("A remote connection is already starting, running or stopping.")
     }
-    let selectedStore = authorizationStore ?? store
-    let owned = Attempt(id: UUID(), server: MCPServer(), oauth: nil,
-                        provider: provider, store: selectedStore, origin: nil)
+    let owned = Attempt(id: UUID(), server: MCPServer(), provider: provider)
     attempt = owned
     state = ConnectionSnapshot(state: .starting, providerID: provider.id)
     do {
-      // Bind first, but answer only 503 until the explicit admission boundary is installed.
-      let endpoint = try await owned.server.start(
-        router: router, authentication: nil, port: provider.ingressPort)
-      try check(owned.id)
-      let configuredOrigin = await provider.publicOrigin
-      try check(owned.id)
-      if let configuredOrigin {
-        try await activatePublic(owned.id, origin: configuredOrigin)
+      guard provider.privateCredential.utf8.count >= 32 else {
+        throw Failure.invalid("The private tunnel requires a fresh ingress credential.")
       }
+      let context = RequestContext(
+        transport: provider.id.transport, clientID: provider.id.rawValue + "-tunnel",
+        clientName: provider.id.title, authorizationID: owned.id)
+      let endpoint = try await owned.server.start(
+        router: router, authentication: .delegated(bearer: provider.privateCredential, context: context))
+      try check(owned.id)
       try await provider.start(endpoint: endpoint)
       try check(owned.id)
-      guard let origin = await provider.publicOrigin else {
-        throw Failure.invalid("The provider did not return a public HTTPS origin.")
-      }
-      try check(owned.id)
-      if let configuredOrigin, origin != configuredOrigin {
-        throw Failure.invalid("The provider changed its configured public origin.")
-      }
-      if configuredOrigin == nil { try await activatePublic(owned.id, origin: origin) }
       let result = await provider.snapshot()
       try check(owned.id)
       guard result.state == .ready else {
@@ -108,24 +84,8 @@ public actor ConnectionManager {
     }
   }
 
-  private func activatePublic(_ id: UUID, origin: URL) async throws {
-    try check(id)
-    let url = try ConnectionContract.validatePublicBaseURL(origin.absoluteString)
-    guard let owned = attempt, let host = url.host else { throw CancellationError() }
-    let canonical = URL(string: "https://" + host)!
-    try owned.store.bindOrigin(canonical.absoluteString)
-    let oauth = LutiOAuthService(issuer: canonical, store: owned.store,
-                                 transport: owned.provider.id.transport)
-    attempt?.oauth = oauth
-    attempt?.origin = canonical
-    try await owned.server.activate(router: router, authentication: .remote(publicHost: host, oauth: oauth))
-    try check(id)
-  }
-
   private func decorate(_ result: ConnectionSnapshot) -> ConnectionSnapshot {
-    ConnectionSnapshot(state: result.state, message: result.message,
-      providerID: attempt?.provider.id,
-      publicOrigin: [.ready, .reconnecting].contains(result.state) ? attempt?.origin : nil)
+    ConnectionSnapshot(state: result.state, message: result.message, providerID: attempt?.provider.id)
   }
 
   private func check(_ id: UUID) throws {
@@ -148,22 +108,6 @@ public actor ConnectionManager {
     return state
   }
 
-  func doctor() async -> ConnectionDoctorReport? {
-    guard let owned = attempt, let origin = owned.origin,
-      [.ready, .reconnecting].contains(state.state) else { return nil }
-    let report = await ConnectionDoctor.publicEndpoint(origin)
-    return attempt?.id == owned.id && closing == nil ? report : nil
-  }
-
-  public func pendingApprovals() async -> [PendingAuthorization] {
-    guard let owned = attempt else { return [] }
-    let pending = await owned.oauth?.pendingApprovals() ?? []
-    return attempt?.id == owned.id ? pending : []
-  }
-  public func resolveApproval(_ id: UUID, approved: Bool) async {
-    await attempt?.oauth?.resolve(id, approved: approved)
-  }
-
   public func disconnect() async {
     await close(final: .stopped)
   }
@@ -178,11 +122,9 @@ public actor ConnectionManager {
     attempt = nil
     state = ConnectionSnapshot(state: .stopping, providerID: owned.provider.id)
     let task = Task {
-      await owned.oauth?.shutdown()
       async let listener: Void = owned.server.stop()
       async let transport: Void = owned.provider.stop()
       _ = await (listener, transport)
-      if owned.store.isEphemeral { try? owned.store.reset() }
     }
     closing = task
     await task.value

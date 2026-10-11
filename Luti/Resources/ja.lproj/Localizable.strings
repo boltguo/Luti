@@ -1,5 +1,3 @@
-/* Semantic localization keys. Add languages by providing the same keys in another .lproj. */
-
 /* Project context */
 "context.activity" = "アクティビティ";
 "context.activityDescription" = "ツール呼び出しと診断";
@@ -31,81 +29,6 @@
 
 /* app */
 "app.chooseProjectsLutiEdit" = "Lutiで使用するフォルダを選択";
-"app.enterTunnelTokenSaving" = "保存する前にTunnel Tokenを入力してください。";
-
-/* approval */
-"approval.accessRemainsLimitedCurrentProjectTool" = "アクセス範囲は現在のプロジェクト、ツールポリシー、システムの権限で制限されます。「接続」で取り消せます。";
-"approval.allow" = "許可";
-"approval.allowConnection" = "接続を許可しますか？";
-"approval.deny" = "拒否";
-"approval.moreRequestsWaiting" = "ほかに%d件のリクエストが待機中";
-"approval.receivePermissions" = "次の権限が渡されます";
-"approval.requestingAccessMac" = "%@がこのMacへのアクセスを求めています。";
-"approval.dynamicClientDetected" = "動的登録 · コールバックのドメインを%@として認識";
-"approval.dynamicClientUnverified" = "動的登録 · アプリを識別できません。コールバックURLを確認してください";
-
-/* operation approval */
-
-/* capability */
-
-/* clients */
-"clients.add" = "追加";
-"clients.addCallbackURL" = "コールバックURLを追加";
-"clients.aiAppShowCallbackURLPaste" = "AIアプリのコールバックURLを貼り付け";
-"clients.clientSecretAuthentication" = "Client Secret認証";
-"clients.clientSecretAuthenticationHint" = "オン: Client Secret · オフ: PKCEのみ";
-"clients.authorizationURL" = "認可URL";
-"clients.authorized" = "%@に承認";
-"clients.authorizedConnections" = "承認済みの接続";
-"clients.authorizedConnectionsCount" = "承認済みの接続%d件";
-"clients.callbackURLRequired" = "コールバックがありません";
-"clients.callbackURLs" = "コールバックURL";
-"clients.clientAuthentication" = "クライアント認証";
-"clients.copy" = "%@をコピー";
-"clients.enterAIApp" = "AIアプリに入力";
-"clients.noAuthorizations" = "承認はありません";
-"clients.notConnected" = "未接続";
-"clients.openToConfigure" = "未設定";
-"clients.readyToEnable" = "設定済み";
-"clients.remoteAccessFor" = "%@のリモートアクセス";
-"clients.removeCallbackURL" = "コールバックURLを削除";
-"clients.resetClientSecret" = "Client Secretをリセット";
-"clients.revoke" = "取り消す";
-"clients.scopes" = "スコープ";
-"clients.tokenURL" = "トークンURL";
-"clients.authentication" = "認証";
-"clients.callbackURL" = "コールバックURL";
-"clients.chatGPTCallbackHint" = "ChatGPTのコールバックURLを貼り付け";
-"clients.claudeCallbackHint" = "固定のコールバック · 入力済み";
-"clients.claudeCredentialsHint" = "下のClient ID / Secretを使用";
-"clients.copyScopesBelow" = "下のスコープをコピー";
-"clients.copyValueBelow" = "下の値をコピー";
-"clients.credentials" = "クライアント資格情報";
-"clients.customHost" = "その他のアプリ";
-"clients.customSetupHint" = "OAuth情報とコールバックURLを入力";
-"clients.geminiCredentialsHint" = "下のClient ID / Secretを使用";
-"clients.geminiRedirectHint" = "GeminiのリダイレクトURIを貼り付け";
-"clients.grokCallbackHint" = "GrokのコールバックURLを貼り付け";
-"clients.hostSetup" = "アプリの設定";
-"clients.oauthClient" = "OAuthクライアント";
-"clients.redirectURI" = "リダイレクトURI";
-"clients.registrationMethod" = "登録方法";
-"clients.secretOneTime" = "Secretは作成直後とリセット直後にのみ表示されます";
-"clients.accessControl" = "アクセス制御";
-"clients.approvedUnknownPlatform" = "接続済み · プラットフォームは未認識";
-"clients.clientNoLongerExists" = "このOAuthクライアントは存在しません。";
-"clients.connectionIdentity" = "クライアント情報";
-"clients.dcrClientsAppearAfterApproval" = "動的登録されたAIアプリは、このMacで承認すると表示されます。";
-"clients.deleteClient" = "クライアントを削除";
-"clients.deleteClientConfirm" = "このOAuthクライアントを削除しますか？";
-"clients.deleteClientMessage" = "削除すると、このクライアントのトークンは直ちに無効になります。再接続には再登録と承認が必要です。";
-"clients.detectedPlatformReady" = "%@として認識 · 接続済み";
-"clients.noApprovedClients" = "接続済みのAIアプリはありません";
-"clients.platform" = "プラットフォーム";
-"clients.platformDetected" = "コールバックドメインから識別";
-"clients.platformUnverified" = "プラットフォームは未識別。名前はクライアントが指定しています";
-"clients.remoteAccess" = "リモートアクセス";
-"clients.remoteAccessDisabled" = "一時停止中";
 
 /* common */
 "common.back" = "戻る";
@@ -127,39 +50,11 @@
 "common.stopping" = "停止中";
 
 /* connection */
-"connection.aiApps" = "AIアプリ";
-"connection.cnameProxied" = "CNAME、プロキシ経由";
-"connection.configureCloudflare" = "Cloudflareで設定";
-"connection.manageTunnel" = "Cloudflare Tunnels";
-"connection.pasteCloudflareTunnelToken" = "Cloudflare Tunnel Tokenを貼り付け";
-"connection.pasteTokenAgainStartingCloudflareTunnel" = "次回Cloudflare Tunnelを開始する前に、Tokenをもう一度貼り付けてください。";
-"connection.publicURL" = "公開URL";
-"connection.publishedHostname" = "公開ホスト名";
-"connection.removeSavedTunnelToken" = "保存済みのTunnel Tokenを削除しますか？";
-"connection.removeToken" = "Tokenを削除";
 "connection.saveConfiguration" = "保存";
-"connection.savedLeaveBlankKeepCurrentToken" = "保存済み · 空欄のままにすると現在のTokenを維持します";
-"connection.service" = "サービス";
+"connection.savedLeaveBlankKeepCurrentToken" = "保存済み · 空欄のままにすると現在のキーを維持します";
 "connection.stopSessionEditConnection" = "接続を編集するには、セッションを停止してください。";
-"connection.tokenStoredMacKeychain" = "TokenはこのMacのキーチェーンに保存されます";
 "connection.copied" = "コピーしました";
-"connection.dcrAutomatic" = "動的登録";
-"connection.mcpServerURL" = "MCPサーバURL";
-"connection.mcpServerURLHint" = "ChatGPTなどのAIアプリには、この完全なURLを入力してください。/mcpのパスは必須です。公開URLだけでは、OAuthのissuerとTunnelのホストを指すにすぎません。";
-"connection.copyMCPURL" = "MCP URLをコピー";
 "connection.quickSetup" = "クイック設定";
-"connection.enterPublicURLFirst" = "この値を生成するには、有効な公開URLを入力してください";
-
-/* Connection Providers */
-"provider.doctor" = "接続診断";
-"provider.doctorBoundary" = "トンネルと認証の設定のみ確認します。AIアプリの接続やツール呼び出しは検証しません。";
-"provider.checking" = "確認中…";
-"provider.runDoctor" = "チェックを実行";
-"doctor.reachable" = "公開エンドポイントにリダイレクトなしで到達できる";
-"doctor.resource" = "保護リソースのメタデータがこのMCP URLと一致する";
-"doctor.issuer" = "OAuthのissuer、エンドポイント、S256の設定が一致する";
-"doctor.challenge" = "未認証のMCPが正しいOAuthチャレンジを返す";
-"doctor.originGuard" = "信頼できないブラウザのオリジンを拒否する";
 
 /* home */
 "home.checkingTunnelClient" = "Tunnelクライアントを確認しています。";
@@ -175,7 +70,6 @@
 "home.noWorkingProjectSelected" = "使用中のプロジェクトが未選択";
 "home.notConnect" = "接続できませんでした";
 "home.notRunning" = "実行していません";
-"home.publicURLTokenNotConfigured" = "公開URLとTokenが未設定";
 "home.readyStart" = "開始できます";
 "home.reconnecting" = "再接続中";
 "home.setUpConnectionStarting" = "開始する前に、接続を設定してください。";
@@ -185,7 +79,6 @@
 "home.stop" = "停止";
 "home.stopAllTasks" = "すべてのタスクを停止";
 "home.toolStatus" = "ツールの状態";
-"home.tunnelTokenMissing" = "Tunnel Tokenがありません";
 
 /* login */
 "login.error" = "ログイン項目を更新できませんでした: %@";
@@ -203,23 +96,10 @@
 "menu.stopLuti" = "Lutiを停止";
 "menu.stopRunningTasks" = "実行中のタスクを停止 (%ld)";
 "menu.stopService" = "サービスを停止";
-"menu.tunnelConnecting" = "トンネルを接続中";
-"menu.tunnelConnectionFailed" = "トンネルの接続に失敗しました";
-"menu.tunnelReady" = "トンネル準備完了";
-"menu.tunnelReconnecting" = "トンネルを再接続中";
-"menu.tunnelStopped" = "トンネル停止";
-"menu.tunnelStopping" = "トンネルを停止中";
 
 /* navigation */
 "navigation.home" = "ホーム";
 "navigation.pageNavigation" = "ページナビゲーション";
-
-/* oauth */
-"oauth.changeProject" = "プロジェクトの変更";
-"oauth.readProject" = "プロジェクトの読み取り";
-"oauth.runCommands" = "コマンドの実行";
-"oauth.useBrowser" = "ブラウザの利用";
-
 
 /* projects */
 "projects.addProject" = "フォルダを追加";
@@ -279,7 +159,6 @@
 "connection.state.stopping" = "接続を解除中…";
 "connection.state.failed" = "接続に失敗しました";
 
-
 "common.starting" = "開始中";
 "connection.copyFailed" = "コピーできませんでした。Lutiが起動しているか確認してください。";
 "connection.setupHelp" = "設定のヘルプ";
@@ -292,30 +171,16 @@
 
 "connection.tunnelProviders" = "接続方法";
 "connection.setupGuide" = "設定ガイド";
-"connection.changeOriginOrCredentials" = "この変更を保存しますか？";
-"connection.authorizationResetMessage" = "AIアプリで再承認が必要です。";
-"connection.saveAndResetAuthorizations" = "保存";
-"connection.removeCredentialAuthorizationMessage" = "削除すると、この接続はオフになります。接続済みのAIアプリでは承認し直す必要があります。";
 "connection.clearConfigurationConfirmation" = "この設定を消去しますか？";
-"connection.clearConfigurationMessage" = "保存済みのアドレスと認証情報を削除し、接続を無効にします。AIアプリで再承認が必要です。";
+"connection.clearConfigurationMessage" = "保存済みのTunnel IDとAPIキーを削除します。再設定するまでChatGPTはアクセスできません。";
 "connection.clearConfiguration" = "設定を消去";
 "connection.providerStatus" = "接続状態";
-"connection.authorizationOriginNote" = "接続先や資格情報を変更すると、AIアプリで承認し直す必要があります。";
-"connection.noAIAppsAuthorized" = "承認済みのAIアプリはありません";
-"connection.authorizeAfterProviderReady" = "AI アプリから接続して承認します。";
 "connection.providerActions" = "接続の操作";
-"connection.cloudflareStep1" = "Cloudflare Tunnelを開く";
-"connection.cloudflareStep1Description" = "Tunnelを作成または選択し、公開ホスト名を設定します。";
-"connection.cloudflareStep2" = "ローカルサービスを公開する";
-"connection.cloudflareStep3" = "接続情報を保存する";
-
 
 "settings.activityDescription" = "最近のツール呼び出しと実行履歴を確認します。";
 "settings.aboutLuti" = "Lutiについて";
 "settings.versionAndComponents" = "バージョンとサードパーティコンポーネント";
 "settings.thirdPartyComponents" = "サードパーティコンポーネント";
-
-"connection.tunnelToken" = "Tunnel Token";
 
 // Project continuation and validation evidence
 "validation.kind.running" = "検証中";
@@ -329,3 +194,17 @@
 "validation.scopeNotice" = "確認したファイルだけでは、プロジェクト全体の正しさは証明できません。";
 
 "connection.notConfigured" = "未設定";
+
+/* OpenAI Secure MCP Tunnel */
+"connection.enterAPIKey" = "保存する前にRuntime API Keyを入力してください。";
+"connection.pasteAPIKey" = "OpenAIのランタイムAPIキーを貼り付け";
+"provider.openTunnelSettings" = "Tunnel設定を開く";
+"provider.openAPIKeys" = "APIキー設定を開く";
+"provider.openai.step1.title" = "ChatGPTの開発者モードをオンにする";
+"provider.openai.step1.detail" = "ChatGPTの「設定」>「アプリ」>「詳細設定」で開発者モードをオンにします。表示されない場合は、ワークスペース管理者に確認してください。";
+"provider.openai.step2.title" = "Secure MCP Tunnelを作成する";
+"provider.openai.step2.detail" = "OpenAI PlatformのTunnel設定でTunnelを作成し、使用するChatGPTワークスペースに関連付けます。作成または変更にはTunnels Read + Manage権限が必要です。";
+"provider.openai.step3.title" = "ランタイムAPIキーを作成する";
+"provider.openai.step3.detail" = "tunnel-client用のAPIキーを作成します。接続の実行にはTunnels Read + Use権限が必要です。";
+"provider.openai.step4.title" = "Lutiで設定を完了する";
+"provider.openai.step4.detail" = "上にTunnel IDとRuntime API Keyを入力して保存します。Lutiの実行中は自動的に接続します。";

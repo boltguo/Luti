@@ -33,11 +33,11 @@ struct HomeView: View {
   private var connectionSection: some View {
     MDSection(title: L10n.text("common.connection")) {
       MDNavigationRow(
-        title: ConnectionProviderID.cloudflare.title,
-        symbol: ConnectionProviderID.cloudflare.symbol,
-        subtitle: model.savedPublicBaseURL.isEmpty ? nil : model.savedPublicBaseURL,
-        detail: L10n.text(model.cloudflareStatusKey),
-        iconTone: ConnectionProviderID.cloudflare.iconTone,
+        title: ConnectionProviderID.openAI.title,
+        symbol: ConnectionProviderID.openAI.symbol,
+        subtitle: model.savedTunnelID.isEmpty ? nil : model.savedTunnelID,
+        detail: L10n.text(model.connectionStatusKey),
+        iconTone: ConnectionProviderID.openAI.iconTone,
         accessory: nil,
         action: openConnection)
     }

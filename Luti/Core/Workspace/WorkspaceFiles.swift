@@ -23,8 +23,8 @@ public struct TextEdit: Sendable {
   }
 }
 
-/// The one local folder selected by the Mac user. Legacy configuration fields
-/// are ignored when decoding; Lite always uses this folder with full access.
+/// The one local folder selected by the Mac user. Lite always uses this folder
+/// with full access.
 public struct ApprovedProject: Codable, Identifiable, Sendable, Equatable {
   public let id: String
   public let name: String

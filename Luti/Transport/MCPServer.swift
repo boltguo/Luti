@@ -115,7 +115,10 @@ private final class HTTPHandler: ChannelInboundHandler, @unchecked Sendable {
   }
   func userInboundEventTriggered(context: ChannelHandlerContext, event: Any) {
     if event is IdleStateHandler.IdleStateEvent {
-      inFlight?.cancel()
+      // The read timeout guards slow request bodies only. Once the request is
+      // complete, a long tool call keeps the connection until it answers or the
+      // peer disconnects (channelInactive cancels it).
+      guard !sent else { return }
       context.close(promise: nil)
     } else {
       context.fireUserInboundEventTriggered(event)
@@ -142,12 +145,11 @@ public actor MCPServer {
   public init() {}
   /// A server instance has one lifetime. Use a new instance on each Start.
   public func start(
-    router: ToolRouter, authentication: MCPAuthentication?, port: Int = 0
+    router: ToolRouter, authentication: MCPAuthentication, port: Int = 0
   ) async throws -> URL {
     guard !started else { throw Failure.invalid("MCP server instance already used.") }
     guard !stopping else { throw Failure.stopped }
     guard (0...65535).contains(port) else { throw Failure.invalid("Invalid listener port.") }
-    if case .remote(let host, _)? = authentication { try ConnectionContract.validateHostname(host) }
     started = true
     let group = MultiThreadedEventLoopGroup(numberOfThreads: 2)
     self.group = group
@@ -171,15 +173,14 @@ public actor MCPServer {
         }
         .childChannelOption(ChannelOptions.socketOption(.tcp_nodelay), value: 1)
         .childChannelOption(ChannelOptions.maxMessagesPerRead, value: 8)
-      // Cloudflare ingress binds its configured port exactly. Port zero is used
-      // by isolated transport tests; never silently move an occupied ingress.
+      // A fixed port is bound exactly; never silently move an occupied listener.
       let channel: any Channel
       do {
         channel = try await bootstrap.bind(host: "127.0.0.1", port: port).get()
       } catch {
         throw Failure(
           "port_unavailable", "Local port \(port) is already in use.",
-          "Check the configured Cloudflare ingress port. Do not stop unrelated processes automatically."
+          "Free the port or reconnect. Do not stop unrelated processes automatically."
         )
       }
       guard !stopping else {
@@ -192,9 +193,7 @@ public actor MCPServer {
       guard let bound = channel.localAddress?.port, bound > 0, port == 0 || bound == port else {
         throw Failure.invalid("MCP listener did not bind the requested port.")
       }
-      if let authentication {
-        await slot.set(MCPDispatcher(authentication: authentication, port: bound, router: router))
-      }
+      await slot.set(MCPDispatcher(authentication: authentication, port: bound, router: router))
       guard !stopping else {
         await slot.stop()
         throw Failure.stopped
@@ -205,14 +204,6 @@ public actor MCPServer {
       throw error
     }
   }
-  /// The bound listener answers 503 until a dynamic origin's admission is installed.
-  public func activate(router: ToolRouter, authentication: MCPAuthentication) async throws {
-    guard !stopping, let bound = listener?.localAddress?.port else { throw Failure.stopped }
-    if case .remote(let host, _) = authentication { try ConnectionContract.validateHostname(host) }
-    await slot.set(MCPDispatcher(authentication: authentication, port: bound, router: router))
-    guard !stopping else { await slot.stop(); throw Failure.stopped }
-  }
-
   public func stop() async {
     stopping = true
     await slot.stop()

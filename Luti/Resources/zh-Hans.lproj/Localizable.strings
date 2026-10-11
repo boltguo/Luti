@@ -1,5 +1,3 @@
-/* Semantic localization keys. Add languages by providing the same keys in another .lproj. */
-
 /* Project context */
 "context.activity" = "执行活动";
 "context.activityDescription" = "工具调用与诊断";
@@ -31,81 +29,6 @@
 
 /* app */
 "app.chooseProjectsLutiEdit" = "选择 Luti 使用的文件夹";
-"app.enterTunnelTokenSaving" = "请先填写 Tunnel Token 再保存。";
-
-/* approval */
-"approval.accessRemainsLimitedCurrentProjectTool" = "访问范围受当前项目、工具策略和系统权限限制；可在“连接”中撤销。";
-"approval.allow" = "允许";
-"approval.allowConnection" = "允许连接？";
-"approval.deny" = "拒绝";
-"approval.moreRequestsWaiting" = "还有 %d 个请求等待处理";
-"approval.receivePermissions" = "将获得以下权限";
-"approval.requestingAccessMac" = "%@ 正在请求访问这台 Mac。";
-"approval.dynamicClientDetected" = "动态注册客户端 · 根据回调域名识别为 %@";
-"approval.dynamicClientUnverified" = "动态注册 · 未识别应用，请核对回调地址";
-
-/* operation approval */
-
-/* capability */
-
-/* clients */
-"clients.add" = "添加";
-"clients.addCallbackURL" = "新增回调地址";
-"clients.aiAppShowCallbackURLPaste" = "粘贴 AI 应用提供的回调地址";
-"clients.clientSecretAuthentication" = "Client Secret 认证";
-"clients.clientSecretAuthenticationHint" = "开启：Client Secret · 关闭：仅 PKCE";
-"clients.authorizationURL" = "授权地址";
-"clients.authorized" = "授权于 %@";
-"clients.authorizedConnections" = "已授权的连接";
-"clients.authorizedConnectionsCount" = "%d 个已授权连接";
-"clients.callbackURLRequired" = "缺少回调地址";
-"clients.callbackURLs" = "回调地址";
-"clients.clientAuthentication" = "客户端认证";
-"clients.copy" = "复制 %@";
-"clients.enterAIApp" = "填到 AI 应用里";
-"clients.noAuthorizations" = "暂无授权";
-"clients.notConnected" = "尚未连接";
-"clients.openToConfigure" = "未配置";
-"clients.readyToEnable" = "已配置";
-"clients.remoteAccessFor" = "%@ 远程访问";
-"clients.removeCallbackURL" = "移除回调地址";
-"clients.resetClientSecret" = "重置 Client Secret";
-"clients.revoke" = "撤销";
-"clients.scopes" = "权限范围";
-"clients.tokenURL" = "令牌地址";
-"clients.authentication" = "身份验证";
-"clients.callbackURL" = "回调地址";
-"clients.chatGPTCallbackHint" = "粘贴 ChatGPT 的 Callback URL";
-"clients.claudeCallbackHint" = "固定回调，已预置";
-"clients.claudeCredentialsHint" = "填入下方 Client ID / Secret";
-"clients.copyScopesBelow" = "复制下方 Scopes";
-"clients.copyValueBelow" = "复制下方值";
-"clients.credentials" = "客户端凭据";
-"clients.customHost" = "其他应用";
-"clients.customSetupHint" = "填写 OAuth 信息和回调地址";
-"clients.geminiCredentialsHint" = "填入下方 Client ID / Secret";
-"clients.geminiRedirectHint" = "粘贴 Gemini 的重定向 URI";
-"clients.grokCallbackHint" = "粘贴 Grok 的回调地址";
-"clients.hostSetup" = "应用配置";
-"clients.oauthClient" = "OAuth 客户端";
-"clients.redirectURI" = "重定向 URI";
-"clients.registrationMethod" = "注册方式";
-"clients.secretOneTime" = "Secret 仅在创建或重置后显示";
-"clients.accessControl" = "访问控制";
-"clients.approvedUnknownPlatform" = "已连接 · 平台未识别";
-"clients.clientNoLongerExists" = "这个 OAuth 客户端已不存在。";
-"clients.connectionIdentity" = "客户端身份";
-"clients.dcrClientsAppearAfterApproval" = "动态注册的 AI 应用经本机授权后显示在这里。";
-"clients.deleteClient" = "删除客户端";
-"clients.deleteClientConfirm" = "删除这个 OAuth 客户端？";
-"clients.deleteClientMessage" = "删除将立即撤销此客户端的全部令牌；再次连接需重新注册并授权。";
-"clients.detectedPlatformReady" = "已识别为 %@ · 已连接";
-"clients.noApprovedClients" = "暂无已连接的 AI 应用";
-"clients.platform" = "平台";
-"clients.platformDetected" = "根据回调域名识别";
-"clients.platformUnverified" = "平台未识别；名称由客户端提供";
-"clients.remoteAccess" = "远程访问";
-"clients.remoteAccessDisabled" = "已暂停";
 
 /* common */
 "common.back" = "返回";
@@ -127,39 +50,11 @@
 "common.stopping" = "正在停止";
 
 /* connection */
-"connection.aiApps" = "AI 应用";
-"connection.cnameProxied" = "CNAME，橙云代理";
-"connection.configureCloudflare" = "Cloudflare 侧需要配置";
-"connection.manageTunnel" = "Cloudflare Tunnels";
-"connection.pasteCloudflareTunnelToken" = "粘贴 Cloudflare Tunnel Token";
-"connection.pasteTokenAgainStartingCloudflareTunnel" = "下次启动 Cloudflare Tunnel 前，需要重新粘贴 Token。";
-"connection.publicURL" = "公开地址";
-"connection.publishedHostname" = "已发布主机名";
-"connection.removeSavedTunnelToken" = "移除保存的 Tunnel Token？";
-"connection.removeToken" = "移除 Token";
 "connection.saveConfiguration" = "保存配置";
-"connection.savedLeaveBlankKeepCurrentToken" = "已保存，留空保留原 Token";
-"connection.service" = "服务";
+"connection.savedLeaveBlankKeepCurrentToken" = "已保存，留空保留原 Key";
 "connection.stopSessionEditConnection" = "停止运行后可修改连接。";
-"connection.tokenStoredMacKeychain" = "Token 保存在本机钥匙串";
 "connection.copied" = "已复制";
-"connection.dcrAutomatic" = "动态注册";
-"connection.mcpServerURL" = "MCP Server URL";
-"connection.mcpServerURLHint" = "在 ChatGPT 等 AI 应用中填写这个完整地址；必须包含 /mcp。公开地址本身只是 OAuth issuer / Tunnel 主机。";
-"connection.copyMCPURL" = "复制 MCP 地址";
 "connection.quickSetup" = "快捷配置";
-"connection.enterPublicURLFirst" = "填写有效公开地址后自动生成";
-
-/* Connection Providers */
-"provider.doctor" = "连接诊断";
-"provider.doctorBoundary" = "仅检查隧道和认证设置，不验证 AI 应用或工具调用。";
-"provider.checking" = "正在检查…";
-"provider.runDoctor" = "运行诊断";
-"doctor.reachable" = "公网入口可直接访问，无重定向";
-"doctor.resource" = "受保护资源元数据与本次 MCP 地址一致";
-"doctor.issuer" = "OAuth 签发方、端点与 S256 配置一致";
-"doctor.challenge" = "未认证 MCP 请求返回正确的 OAuth 质询";
-"doctor.originGuard" = "不可信网页来源被拒绝";
 
 /* home */
 "home.checkingTunnelClient" = "正在检查 Tunnel 客户端。";
@@ -175,7 +70,6 @@
 "home.noWorkingProjectSelected" = "尚未选择工作项目";
 "home.notConnect" = "连接未完成";
 "home.notRunning" = "尚未启动";
-"home.publicURLTokenNotConfigured" = "尚未设置公开地址与 Token";
 "home.readyStart" = "准备就绪";
 "home.reconnecting" = "重连中";
 "home.setUpConnectionStarting" = "填写连接信息后即可启动。";
@@ -185,7 +79,6 @@
 "home.stop" = "停止";
 "home.stopAllTasks" = "停止所有任务";
 "home.toolStatus" = "工具状态";
-"home.tunnelTokenMissing" = "缺少 Tunnel Token";
 
 /* login */
 "login.error" = "无法更新登录项：%@";
@@ -203,23 +96,10 @@
 "menu.stopLuti" = "停止 Luti";
 "menu.stopRunningTasks" = "停止运行中的任务 (%ld)";
 "menu.stopService" = "关闭服务";
-"menu.tunnelConnecting" = "Tunnel 正在连接";
-"menu.tunnelConnectionFailed" = "Tunnel 连接失败";
-"menu.tunnelReady" = "Tunnel 已连接";
-"menu.tunnelReconnecting" = "Tunnel 正在重连";
-"menu.tunnelStopped" = "Tunnel 已停止";
-"menu.tunnelStopping" = "Tunnel 正在停止";
 
 /* navigation */
 "navigation.home" = "首页";
 "navigation.pageNavigation" = "页面导航";
-
-/* oauth */
-"oauth.changeProject" = "修改项目";
-"oauth.readProject" = "读取项目";
-"oauth.runCommands" = "运行命令";
-"oauth.useBrowser" = "使用浏览器";
-
 
 /* projects */
 "projects.addProject" = "添加文件夹";
@@ -279,7 +159,6 @@
 "connection.state.stopping" = "正在断开…";
 "connection.state.failed" = "连接失败";
 
-
 "common.starting" = "启动中";
 "connection.copyFailed" = "复制失败。请确认 Luti 已启动。";
 "connection.setupHelp" = "连接设置帮助";
@@ -292,29 +171,16 @@
 
 "connection.tunnelProviders" = "连接方式";
 "connection.setupGuide" = "配置向导";
-"connection.changeOriginOrCredentials" = "保存这些更改？";
-"connection.authorizationResetMessage" = "AI 应用需要重新授权。";
-"connection.saveAndResetAuthorizations" = "保存";
-"connection.removeCredentialAuthorizationMessage" = "移除后，此连接会停用，已连接的 AI 应用需要重新授权。";
 "connection.clearConfigurationConfirmation" = "清除此配置？";
-"connection.clearConfigurationMessage" = "清除已保存的地址和凭据并停用连接。AI 应用需要重新授权。";
+"connection.clearConfigurationMessage" = "清除已保存的 Tunnel ID 和 API Key。重新配置前 ChatGPT 无法访问。";
 "connection.clearConfiguration" = "清除配置";
 "connection.providerStatus" = "连接状态";
-"connection.authorizationOriginNote" = "更改连接地址或凭据后，AI 应用需要重新授权。";
-"connection.noAIAppsAuthorized" = "尚未授权 AI 应用";
-"connection.authorizeAfterProviderReady" = "从 AI 应用连接并授权。";
 "connection.providerActions" = "连接操作";
-"connection.cloudflareStep1" = "打开 Cloudflare Tunnel";
-"connection.cloudflareStep1Description" = "创建或选择一个 Tunnel，并设置公开主机名。";
-"connection.cloudflareStep2" = "发布本地服务";
-"connection.cloudflareStep3" = "保存连接信息";
 
 "settings.activityDescription" = "查看最近的工具调用和运行记录。";
 "settings.aboutLuti" = "关于 Luti";
 "settings.versionAndComponents" = "版本与第三方组件";
 "settings.thirdPartyComponents" = "第三方组件";
-
-"connection.tunnelToken" = "隧道令牌";
 
 // Project continuation and validation evidence
 "validation.kind.running" = "正在验证";
@@ -328,3 +194,17 @@
 "validation.scopeNotice" = "仅验证已观察的文件，不能证明整个项目正确。";
 
 "connection.notConfigured" = "未配置";
+
+/* OpenAI Secure MCP Tunnel */
+"connection.enterAPIKey" = "请先填写 Runtime API Key 再保存。";
+"connection.pasteAPIKey" = "粘贴 OpenAI 运行 API Key";
+"provider.openTunnelSettings" = "打开 Tunnel 设置";
+"provider.openAPIKeys" = "打开 API Key 设置";
+"provider.openai.step1.title" = "开启 ChatGPT 开发者模式";
+"provider.openai.step1.detail" = "在 ChatGPT 的“设置”>“应用”>“高级设置”中开启开发者模式；若该选项不可用，请联系工作区管理员。";
+"provider.openai.step2.title" = "创建 Secure MCP Tunnel";
+"provider.openai.step2.detail" = "在 OpenAI Platform 的 Tunnel 设置中新建 Tunnel，并关联要使用的 ChatGPT 工作区。创建或修改 Tunnel 需要 Tunnels Read + Manage 权限。";
+"provider.openai.step3.title" = "创建运行 API Key";
+"provider.openai.step3.detail" = "创建供 tunnel-client 使用的 API Key。运行连接需要 Tunnels Read + Use 权限。";
+"provider.openai.step4.title" = "回到 Luti 完成设置";
+"provider.openai.step4.detail" = "在上方填入 Tunnel ID 和 Runtime API Key 并保存。Luti 运行时会自动连接。";

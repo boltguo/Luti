@@ -150,10 +150,7 @@ public actor JobManager {
         "job_not_found", "The job does not exist.", "Use a Job ID returned by this runtime.")
     }
     job.process.requestStop()
-    let until = ContinuousClock.now.advanced(by: .seconds(3))
-    while !job.process.finished && ContinuousClock.now < until {
-      try? await Task.sleep(for: .milliseconds(30))
-    }
+    await Self.awaitExit([job.process], seconds: 3)
     return await snapshot(id)
   }
   func fullLog(_ id: String) throws -> Data? {
@@ -173,13 +170,14 @@ public actor JobManager {
   }
   public func activeCount() -> Int { jobs.values.filter { !$0.process.finished }.count }
   public func stopActive() async -> Int {
-    let active = jobs.values.filter { !$0.process.finished }
-    for job in active { job.process.requestStop() }
-    let until = ContinuousClock.now.advanced(by: .seconds(3))
-    while jobs.values.contains(where: { !$0.process.finished }) && ContinuousClock.now < until {
-      try? await Task.sleep(for: .milliseconds(30))
-    }
+    let active = jobs.values.filter { !$0.process.finished }.map(\.process)
+    for process in active { process.requestStop() }
+    await Self.awaitExit(active, seconds: 3)
     return active.count
+  }
+  /// Lifecycle rows only; cheap enough for native polling.
+  public func lifecycles() -> [JSONValue] {
+    order.reversed().compactMap { id in jobs[id]?.process.lifecycle(id: id) }
   }
   public func list(refreshInputs: Bool = true) async -> [JSONValue] {
     var values: [JSONValue] = []
@@ -280,10 +278,17 @@ public actor JobManager {
 
   public func shutdown() async {
     open = false
-    for job in jobs.values { job.process.requestStop() }
-    let until = ContinuousClock.now.advanced(by: .seconds(4))
-    while jobs.values.contains(where: { !$0.process.finished }) && ContinuousClock.now < until {
-      try? await Task.sleep(for: .milliseconds(30))
+    let processes = jobs.values.map(\.process)
+    for process in processes { process.requestStop() }
+    await Self.awaitExit(processes, seconds: 4)
+  }
+
+  /// Bounded wait for processes to finish. Each pause runs in its own task, so a
+  /// cancelled caller keeps the 30 ms pacing instead of spinning until the deadline.
+  private static func awaitExit(_ processes: [OwnedProcess], seconds: Int) async {
+    let until = ContinuousClock.now.advanced(by: .seconds(seconds))
+    while processes.contains(where: { !$0.finished }) && ContinuousClock.now < until {
+      _ = await Task.detached { try? await Task.sleep(for: .milliseconds(30)) }.value
     }
   }
 }

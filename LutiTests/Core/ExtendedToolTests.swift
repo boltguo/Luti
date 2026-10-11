@@ -19,16 +19,10 @@ import SwiftUI
     model.activeProject = ApprovedProject(id: "current", name: "Luti", path: "/Projects/Luti")
 
     model.phase = .running
-    model.connectionSnapshots[.cloudflare] = ConnectionSnapshot(
-      state: .ready, providerID: .cloudflare)
-    model.publicBaseURL = "https://preview.example.com"
-    fixture.defaults.set("https://preview.example.com", forKey: "publicBaseURL")
-    model.tokenSaved = true
-    let store = model.authorizationStore(for: .cloudflare)
-    let client = OAuthClientRecord(
-      id: OAuthContract.newClientID(), name: "Grok", redirectURIs: [], authMethod: .none, host: .grok)
-    try store.persistRegisteredClient(client, secret: nil)
-    store.markClientUsed(client.id)
+    model.connection = ConnectionSnapshot(state: .ready, providerID: .openAI)
+    model.tunnelID = "tunnel_preview123"
+    fixture.defaults.set("tunnel_preview123", forKey: "connection.openai.tunnelID")
+    model.apiKeySaved = true
     let repo = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
     let output = repo.appendingPathComponent("build/ui-review-previews", isDirectory: true)
     try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
@@ -121,7 +115,6 @@ import SwiftUI
 
   func testRenderLocalFirstAndRemoteFailureStates() throws {
     let f = try Fixture(); defer { f.remove() }
-    f.defaults.set("https://mcp.example.com", forKey: "publicBaseURL")
     let model = AppModel(contextDataRoot: f.contextDataRoot, defaults: f.defaults)
     let project = ApprovedProject(id: "preview", name: "Luti", url: f.root)
     let repo = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
@@ -138,22 +131,26 @@ import SwiftUI
     for locale in AppLanguage.allCases where locale != .system {
       language.selection = locale
       for scheme in [ColorScheme.light, .dark] {
-        for state in ["empty", "project-empty", "project-details", "local-only", "cloudflare-setup", "cloudflare-failed"] {
+        for state in ["empty", "project-empty", "project-details", "local-only", "connection-setup", "connection-failed"] {
           model.activeProject = ["empty", "project-empty"].contains(state) ? nil : project
 
-          model.phase = ["empty", "project-empty", "project-details", "cloudflare-setup"].contains(state) ? .stopped : .running
-          model.publicBaseURL = state == "cloudflare-failed" ? "https://mcp.example.com" : ""
-          model.tokenSaved = state == "cloudflare-failed"
-          model.connectionSnapshots = state == "cloudflare-failed"
-            ? [.cloudflare: ConnectionSnapshot(
-              state: .failed, message: "The remote connection is unavailable.",
-              providerID: .cloudflare)]
-            : [:]
-          if state == "cloudflare-failed" {
-            XCTAssertTrue(model.canConnectProvider(.cloudflare))
+          model.phase = ["empty", "project-empty", "project-details", "connection-setup"].contains(state) ? .stopped : .running
+          let failed = state == "connection-failed"
+          if failed {
+            f.defaults.set("tunnel_preview123", forKey: "connection.openai.tunnelID")
+          } else {
+            f.defaults.removeObject(forKey: "connection.openai.tunnelID")
+          }
+          model.tunnelID = failed ? "tunnel_preview123" : ""
+          model.apiKeySaved = failed
+          model.connection = failed
+            ? ConnectionSnapshot(state: .failed, message: "The remote connection is unavailable.", providerID: .openAI)
+            : .stopped
+          if failed {
+            XCTAssertTrue(model.canConnect)
           }
           let page: AnyView
-          if state.hasPrefix("cloudflare-") {
+          if state.hasPrefix("connection-") {
             page = AnyView(ConfigurationView(model: model))
           } else if state.hasPrefix("project-") {
             page = AnyView(ProjectsView(model: model))
@@ -420,7 +417,7 @@ import SwiftUI
     addTeardownBlock { await router.stop() }
     let languageServiceGrant = ToolGrant.remote(RequestContext(
       transport: .loopback, clientID: "language-service", clientName: "Language service",
-      authorizationID: UUID(), scopes: [.projectRead, .processRun], resource: "http://localhost/mcp"))
+      authorizationID: UUID()))
     let symbols = await router.callInCurrentProject(
       "code_query",
       arguments: ["path": "src/app.ts", "action": "documentSymbols"], grant: languageServiceGrant)
@@ -747,7 +744,7 @@ import SwiftUI
   }
   func testLocaleDefaultPersistenceAndFallback() throws {
     let name = "LutiTests-" + UUID().uuidString
-    let defaults = try XCTUnwrap(UserDefaults(suiteName: name)); defer { defaults.removePersistentDomain(forName: name) }
+    let defaults = try XCTUnwrap(UserDefaults(suiteName: name)); defer { removeDefaultsSuite(name) }
     let settings = LanguageSettings(defaults: defaults, preferredLanguages: ["zh-CN", "en-US"])
     XCTAssertEqual(settings.selection, .system)
     XCTAssertEqual(settings.identifier, "zh-Hans")
@@ -772,7 +769,7 @@ import SwiftUI
     let id = await store.begin(
       tool: "run_process", targetType: "process", target: "echo secret-token", cwd: ".",
       source: ActivitySource(
-        transport: .cloudflare, clientID: "ot_cid_test", clientName: "ChatGPT",
+        transport: .openAI, clientID: "openai-tunnel", clientName: "ChatGPT",
         authorizationID: authorizationID))
     await store.finish(
       id: id, status: "ok", started: started, summary: "Job running.",
@@ -788,8 +785,8 @@ import SwiftUI
     XCTAssertEqual(event.status, "failed")
     XCTAssertEqual(event.effect, "possible")
     XCTAssertEqual(event.errorCode, "session_interrupted")
-    XCTAssertEqual(event.source?.transport, .cloudflare)
-    XCTAssertEqual(event.source?.clientID, "ot_cid_test")
+    XCTAssertEqual(event.source?.transport, .openAI)
+    XCTAssertEqual(event.source?.clientID, "openai-tunnel")
     XCTAssertEqual(event.source?.clientName, "ChatGPT")
     XCTAssertEqual(event.source?.authorizationID, authorizationID)
     XCTAssertFalse(event.target.contains("secret-token"))
@@ -803,8 +800,8 @@ import SwiftUI
     XCTAssertNotNil(persisted["startedAt"].string)
     XCTAssertNotEqual(persisted["durationSeconds"], .null)
     XCTAssertEqual(persisted["targetType"], "process")
-    XCTAssertEqual(persisted["source"]["transport"], "cloudflare")
-    XCTAssertEqual(persisted["source"]["clientID"], "ot_cid_test")
+    XCTAssertEqual(persisted["source"]["transport"], "openai")
+    XCTAssertEqual(persisted["source"]["clientID"], "openai-tunnel")
     XCTAssertEqual(persisted["source"]["clientName"], "ChatGPT")
     XCTAssertEqual(persisted["time"], .null)
     XCTAssertEqual(persisted["duration"], .null)
@@ -913,8 +910,9 @@ import SwiftUI
     let model = AppModel(contextDataRoot: fixture.contextDataRoot, defaults: fixture.defaults)
     model.activeProject = ApprovedProject(id: "luti", name: "Luti", url: fixture.root)
     model.phase = .stopped
-    model.publicBaseURL = "https://dev.example.com"
-    model.tokenSaved = true
+    model.tunnelID = "tunnel_preview123"
+    fixture.defaults.set("tunnel_preview123", forKey: "connection.openai.tunnelID")
+    model.apiKeySaved = true
 
     let root = MainWindowView(
       model: model, loginItem: LoginItemController(), selectedTab: .constant(.configuration)

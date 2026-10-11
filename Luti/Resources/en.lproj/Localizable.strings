@@ -1,5 +1,3 @@
-/* Semantic localization keys. Add languages by providing the same keys in another .lproj. */
-
 /* Project context */
 "context.activity" = "Activity";
 "context.activityDescription" = "Tool calls and diagnostics";
@@ -31,81 +29,6 @@
 
 /* app */
 "app.chooseProjectsLutiEdit" = "Choose a folder for Luti";
-"app.enterTunnelTokenSaving" = "Enter a Tunnel Token before saving.";
-
-/* approval */
-"approval.accessRemainsLimitedCurrentProjectTool" = "Access is limited by the current project, tool policy, and system permissions. Revoke it in Connection.";
-"approval.allow" = "Allow";
-"approval.allowConnection" = "Allow connection?";
-"approval.deny" = "Deny";
-"approval.moreRequestsWaiting" = "%d more requests waiting";
-"approval.receivePermissions" = "Will receive these permissions";
-"approval.requestingAccessMac" = "%@ is requesting access to this Mac.";
-"approval.dynamicClientDetected" = "Dynamically registered · callback domain recognized as %@";
-"approval.dynamicClientUnverified" = "Dynamic registration · app unrecognized; check the callback URL";
-
-/* operation approval */
-
-/* capability */
-
-/* clients */
-"clients.add" = "Add";
-"clients.addCallbackURL" = "Add callback URL";
-"clients.aiAppShowCallbackURLPaste" = "Paste the callback URL from the AI app";
-"clients.clientSecretAuthentication" = "Client Secret authentication";
-"clients.clientSecretAuthenticationHint" = "On: Client Secret · Off: PKCE only";
-"clients.authorizationURL" = "Authorization URL";
-"clients.authorized" = "Authorized %@";
-"clients.authorizedConnections" = "Authorized connections";
-"clients.authorizedConnectionsCount" = "%d authorized connections";
-"clients.callbackURLRequired" = "Callback missing";
-"clients.callbackURLs" = "Callback URLs";
-"clients.clientAuthentication" = "Client authentication";
-"clients.copy" = "Copy %@";
-"clients.enterAIApp" = "Enter in the AI app";
-"clients.noAuthorizations" = "No authorizations";
-"clients.notConnected" = "Not connected";
-"clients.openToConfigure" = "Not configured";
-"clients.readyToEnable" = "Configured";
-"clients.remoteAccessFor" = "%@ remote access";
-"clients.removeCallbackURL" = "Remove callback URL";
-"clients.resetClientSecret" = "Reset Client Secret";
-"clients.revoke" = "Revoke";
-"clients.scopes" = "Scopes";
-"clients.tokenURL" = "Token URL";
-"clients.authentication" = "Authentication";
-"clients.callbackURL" = "Callback URL";
-"clients.chatGPTCallbackHint" = "Paste ChatGPT’s Callback URL";
-"clients.claudeCallbackHint" = "Fixed callback · prefilled";
-"clients.claudeCredentialsHint" = "Use the Client ID / Secret below";
-"clients.copyScopesBelow" = "Copy Scopes below";
-"clients.copyValueBelow" = "Copy value below";
-"clients.credentials" = "Client credentials";
-"clients.customHost" = "Other app";
-"clients.customSetupHint" = "Enter OAuth details and a callback URL";
-"clients.geminiCredentialsHint" = "Use the Client ID / Secret below";
-"clients.geminiRedirectHint" = "Paste Gemini’s Redirect URI";
-"clients.grokCallbackHint" = "Paste Grok’s callback URL";
-"clients.hostSetup" = "App setup";
-"clients.oauthClient" = "OAuth client";
-"clients.redirectURI" = "Redirect URI";
-"clients.registrationMethod" = "Registration method";
-"clients.secretOneTime" = "Secret is shown only after creation or reset";
-"clients.accessControl" = "Access control";
-"clients.approvedUnknownPlatform" = "Connected · platform not recognized";
-"clients.clientNoLongerExists" = "This OAuth client no longer exists.";
-"clients.connectionIdentity" = "Client Identity";
-"clients.dcrClientsAppearAfterApproval" = "Dynamically registered AI apps appear here after approval on this Mac.";
-"clients.deleteClient" = "Delete client";
-"clients.deleteClientConfirm" = "Delete this OAuth client?";
-"clients.deleteClientMessage" = "Deleting immediately revokes this client's tokens. Connecting again requires registration and approval.";
-"clients.detectedPlatformReady" = "Recognized as %@ · connected";
-"clients.noApprovedClients" = "No connected AI apps";
-"clients.platform" = "Platform";
-"clients.platformDetected" = "Identified by callback domain";
-"clients.platformUnverified" = "Platform unrecognized; name supplied by the client";
-"clients.remoteAccess" = "Remote access";
-"clients.remoteAccessDisabled" = "Paused";
 
 /* common */
 "common.back" = "Back";
@@ -127,39 +50,11 @@
 "common.stopping" = "Stopping";
 
 /* connection */
-"connection.aiApps" = "AI apps";
-"connection.cnameProxied" = "CNAME, proxied";
-"connection.configureCloudflare" = "Configure in Cloudflare";
-"connection.manageTunnel" = "Cloudflare Tunnels";
-"connection.pasteCloudflareTunnelToken" = "Paste Cloudflare Tunnel Token";
-"connection.pasteTokenAgainStartingCloudflareTunnel" = "Paste the Token again before starting Cloudflare Tunnel next time.";
-"connection.publicURL" = "Public URL";
-"connection.publishedHostname" = "Published hostname";
-"connection.removeSavedTunnelToken" = "Remove saved Tunnel Token?";
-"connection.removeToken" = "Remove Token";
 "connection.saveConfiguration" = "Save";
-"connection.savedLeaveBlankKeepCurrentToken" = "Saved · leave blank to keep the current Token";
-"connection.service" = "Service";
+"connection.savedLeaveBlankKeepCurrentToken" = "Saved · leave blank to keep the current key";
 "connection.stopSessionEditConnection" = "Stop the session to edit the connection.";
-"connection.tokenStoredMacKeychain" = "Token stored in this Mac's Keychain";
 "connection.copied" = "Copied";
-"connection.dcrAutomatic" = "Dynamic registration";
-"connection.mcpServerURL" = "MCP Server URL";
-"connection.mcpServerURLHint" = "Use this complete URL in ChatGPT or another AI app; the /mcp path is required. The Public URL alone is only the OAuth issuer / Tunnel host.";
-"connection.copyMCPURL" = "Copy MCP URL";
 "connection.quickSetup" = "Quick setup";
-"connection.enterPublicURLFirst" = "Enter a valid Public URL to generate this value";
-
-/* Connection Providers */
-"provider.doctor" = "Connection Doctor";
-"provider.doctorBoundary" = "Checks tunnel and authentication settings only, not AI app connections or tool calls.";
-"provider.checking" = "Checking…";
-"provider.runDoctor" = "Run checks";
-"doctor.reachable" = "Public endpoint is reachable without redirects";
-"doctor.resource" = "Protected-resource metadata matches this MCP URL";
-"doctor.issuer" = "OAuth issuer, endpoints and S256 configuration match";
-"doctor.challenge" = "Unauthenticated MCP returns the correct OAuth challenge";
-"doctor.originGuard" = "Untrusted browser origins are rejected";
 
 /* home */
 "home.checkingTunnelClient" = "Checking the Tunnel client.";
@@ -175,7 +70,6 @@
 "home.noWorkingProjectSelected" = "No working project selected";
 "home.notConnect" = "Could not connect";
 "home.notRunning" = "Not running";
-"home.publicURLTokenNotConfigured" = "Public URL and Token not configured";
 "home.readyStart" = "Ready to start";
 "home.reconnecting" = "Reconnecting";
 "home.setUpConnectionStarting" = "Set up your connection before starting.";
@@ -185,7 +79,6 @@
 "home.stop" = "Stop";
 "home.stopAllTasks" = "Stop All Tasks";
 "home.toolStatus" = "Tool status";
-"home.tunnelTokenMissing" = "Tunnel Token missing";
 
 /* login */
 "login.error" = "Could not update login item: %@";
@@ -203,23 +96,10 @@
 "menu.stopLuti" = "Stop Luti";
 "menu.stopRunningTasks" = "Stop Running Tasks (%ld)";
 "menu.stopService" = "Stop Service";
-"menu.tunnelConnecting" = "Tunnel connecting";
-"menu.tunnelConnectionFailed" = "Tunnel connection failed";
-"menu.tunnelReady" = "Tunnel connected";
-"menu.tunnelReconnecting" = "Tunnel reconnecting";
-"menu.tunnelStopped" = "Tunnel stopped";
-"menu.tunnelStopping" = "Tunnel stopping";
 
 /* navigation */
 "navigation.home" = "Home";
 "navigation.pageNavigation" = "Page navigation";
-
-/* oauth */
-"oauth.changeProject" = "Change project";
-"oauth.readProject" = "Read project";
-"oauth.runCommands" = "Run commands";
-"oauth.useBrowser" = "Use browser";
-
 
 /* projects */
 "projects.addProject" = "Add Folder";
@@ -279,7 +159,6 @@
 "connection.state.stopping" = "Disconnecting…";
 "connection.state.failed" = "Connection failed";
 
-
 "common.starting" = "Starting";
 "connection.copyFailed" = "Copy failed. Make sure Luti is running.";
 "connection.setupHelp" = "Setup help";
@@ -292,29 +171,16 @@
 
 "connection.tunnelProviders" = "Connection Methods";
 "connection.setupGuide" = "Setup Guide";
-"connection.changeOriginOrCredentials" = "Save these changes?";
-"connection.authorizationResetMessage" = "AI apps will need to authorize again.";
-"connection.saveAndResetAuthorizations" = "Save";
-"connection.removeCredentialAuthorizationMessage" = "Removing this disables the connection. Connected AI apps will need to authorize again.";
 "connection.clearConfigurationConfirmation" = "Clear this configuration?";
-"connection.clearConfigurationMessage" = "Remove the saved address and credentials and disable this connection. AI apps will need to authorize again.";
+"connection.clearConfigurationMessage" = "Remove the saved Tunnel ID and API key. ChatGPT loses access until you set them up again.";
 "connection.clearConfiguration" = "Clear Configuration";
 "connection.providerStatus" = "Connection status";
-"connection.authorizationOriginNote" = "Changing the connection address or credentials requires AI apps to authorize again.";
-"connection.noAIAppsAuthorized" = "No AI apps authorized";
-"connection.authorizeAfterProviderReady" = "Connect from your AI app to authorize.";
 "connection.providerActions" = "Connection Actions";
-"connection.cloudflareStep1" = "Open Cloudflare Tunnel";
-"connection.cloudflareStep1Description" = "Create or select a Tunnel and set a public hostname.";
-"connection.cloudflareStep2" = "Publish the local service";
-"connection.cloudflareStep3" = "Save connection details";
 
 "settings.activityDescription" = "View recent tool calls and activity.";
 "settings.aboutLuti" = "About Luti";
 "settings.versionAndComponents" = "Version and third-party components";
 "settings.thirdPartyComponents" = "Third-party Components";
-
-"connection.tunnelToken" = "Tunnel Token";
 
 // Project continuation and validation evidence
 "validation.kind.running" = "Validation is running";
@@ -328,3 +194,17 @@
 "validation.scopeNotice" = "Only observed files were checked; this does not prove the entire project is correct.";
 
 "connection.notConfigured" = "Not configured";
+
+/* OpenAI Secure MCP Tunnel */
+"connection.enterAPIKey" = "Enter the Runtime API Key before saving.";
+"connection.pasteAPIKey" = "Paste the OpenAI runtime API key";
+"provider.openTunnelSettings" = "Open Tunnel Settings";
+"provider.openAPIKeys" = "Open API Keys";
+"provider.openai.step1.title" = "Turn on ChatGPT Developer Mode";
+"provider.openai.step1.detail" = "In ChatGPT, open Settings > Apps > Advanced Settings and turn on Developer Mode. If it isn’t available, contact your workspace admin.";
+"provider.openai.step2.title" = "Create a Secure MCP Tunnel";
+"provider.openai.step2.detail" = "In OpenAI Platform Tunnel settings, create a Tunnel and associate the ChatGPT workspace that will use it. Creating or editing a Tunnel requires Tunnels Read + Manage.";
+"provider.openai.step3.title" = "Create a runtime API key";
+"provider.openai.step3.detail" = "Create an API key for tunnel-client. Running the connection requires Tunnels Read + Use.";
+"provider.openai.step4.title" = "Finish setup in Luti";
+"provider.openai.step4.detail" = "Enter the Tunnel ID and Runtime API Key above and save. Luti connects whenever it is running.";

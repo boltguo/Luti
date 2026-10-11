@@ -1,12 +1,12 @@
 import Foundation
 
 extension ToolRouter {
-  func extendedTool(_ name: String, _ value: JSONValue, grant: ToolGrant = .local) async throws -> ToolOutput? {
+  func extendedTool(_ name: String, _ value: JSONValue) async throws -> ToolOutput? {
     switch name {
     case "import_artifact":
       try requireExecution(.workspaceWrite)
       let a = try Arguments(value, allowed: ["resource", "path", "dryRun"])
-      let artifact = try await artifacts.resolve(a.string("resource", max: 256), grant: grant)
+      let artifact = try await artifacts.resolve(a.string("resource", max: 256))
       return ToolOutput(try await workspace.importArtifact(
         artifact, path: a.string("path"), dryRun: a.flag("dryRun", default: false)))
     case "list_directory":
@@ -33,7 +33,7 @@ extension ToolRouter {
         let path = try a.string("path")
         let bytes = try await workspace.binary(path)
         let artifact = try await artifacts.insert(
-          bytes, name: (path as NSString).lastPathComponent, source: .project)
+          bytes, name: (path as NSString).lastPathComponent)
         return ToolOutput(
           artifact.metadata.adding("mode", "file"),
           content: [artifact.link])
@@ -47,7 +47,7 @@ extension ToolRouter {
         name += ".zip"
       }
       let bytes = try await workspace.archive(paths: paths)
-      let artifact = try await artifacts.insert(bytes, name: name, mimeType: "application/zip", source: .project)
+      let artifact = try await artifacts.insert(bytes, name: name, mimeType: "application/zip")
       return ToolOutput(
         artifact.metadata
           .adding("mode", "archive")
@@ -126,13 +126,13 @@ extension ToolRouter {
     }
   }
 
-  func resources(grant: ToolGrant = .local) async -> JSONValue {
+  func resources() async -> JSONValue {
     let store = artifacts
-    let files = await store.list(grant: grant).map { $0.removing(["type"]) }
+    let files = await store.list().map { $0.removing(["type"]) }
     return ["resources": .array(files)]
   }
 
-  func readResource(_ uri: String, grant: ToolGrant = .local) async throws -> JSONValue {
-    return try await artifacts.read(uri, grant: grant)
+  func readResource(_ uri: String) async throws -> JSONValue {
+    return try await artifacts.read(uri)
   }
 }

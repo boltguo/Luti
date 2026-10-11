@@ -415,6 +415,20 @@ private final class LSPWire: @unchecked Sendable {
     while true {
       guard Date() < deadline else { throw timeoutFailure() }
       let message = try receive(until: deadline)
+      // Server-to-client requests share the id space with our requests; classify
+      // by method first so a colliding id is answered rather than taken as our result.
+      if let method = message["method"].string {
+        guard message["id"] != .null else { continue }
+        let result: JSONValue
+        if method == "workspace/configuration" {
+          let count = message["params"]["items"].array?.count ?? 0
+          result = .array(Array(repeating: .null, count: count))
+        } else {
+          result = .null
+        }
+        try send(["jsonrpc": "2.0", "id": message["id"], "result": result])
+        continue
+      }
       if message["id"].int == id {
         if message["error"] != .null {
           throw Failure(
@@ -424,16 +438,6 @@ private final class LSPWire: @unchecked Sendable {
             "Use search_project or inspect the current source position and try a narrower query.")
         }
         return message["result"]
-      }
-      if message["id"] != .null, message["method"].string != nil {
-        let result: JSONValue
-        if message["method"].string == "workspace/configuration" {
-          let count = message["params"]["items"].array?.count ?? 0
-          result = .array(Array(repeating: .null, count: count))
-        } else {
-          result = .null
-        }
-        try send(["jsonrpc": "2.0", "id": message["id"], "result": result])
       }
     }
   }
