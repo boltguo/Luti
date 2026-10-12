@@ -209,6 +209,19 @@ private actor TestConnectionProvider: ConnectionProvider {
     XCTAssertEqual(reopened.activeProject, project)
   }
 
+  func testStartIsResumedAfterQuitButNotAfterExplicitStop() async throws {
+    let f = try Fixture(); defer { f.remove() }
+    let model = AppModel(contextDataRoot: f.contextDataRoot, defaults: f.defaults)
+    model.addProject(f.root)
+    model.requestStart()
+    XCTAssertTrue(f.defaults.bool(forKey: "runtime.resumeOnLaunch"))
+    await model.stop(keepResume: true)
+    XCTAssertTrue(f.defaults.bool(forKey: "runtime.resumeOnLaunch"), "Quit keeps the runtime for the next launch.")
+    model.requestStart()
+    await model.stop()
+    XCTAssertFalse(f.defaults.bool(forKey: "runtime.resumeOnLaunch"))
+  }
+
   func testImmediateStopDoesNotResurrectQueuedNativeStartup() async throws {
     let f = try Fixture()
     let model = AppModel(contextDataRoot: f.contextDataRoot, defaults: f.defaults)

@@ -32,11 +32,15 @@ import Observation
   @ObservationIgnored private var activityFeed: Task<Void, Never>?
   @ObservationIgnored private var teardown: Task<Void, Never>?
   @ObservationIgnored private var revision = UUID()
+  @ObservationIgnored private var reconnectFailures = 0
+  @ObservationIgnored private var reconnectAt: Date?
   /// The latest stored-activity load; tests await it.
   @ObservationIgnored private(set) var activityLoad: Task<Void, Never>?
   @ObservationIgnored private let defaults: UserDefaults
   private static let selectedFolderKey = "selectedFolder"
   private static let tunnelIDKey = "connection.openai.tunnelID"
+  /// Set by Start, cleared by an explicit Stop; Quit and update relaunch keep it.
+  private static let resumeKey = "runtime.resumeOnLaunch"
   var active: Bool { [.preparing, .starting, .running, .stopping].contains(phase) }
   var savedTunnelID: String { defaults.string(forKey: Self.tunnelIDKey) ?? "" }
   var hasUnsavedConnection: Bool { tunnelID.trimmed != savedTunnelID || !apiKeyDraft.isEmpty }
@@ -76,6 +80,13 @@ import Observation
     Self.discardStaleRuns(in: contextDataRoot)
     reloadStoredActivity()
     LocalLogStore.runtime("info", "Luti app initialized.")
+    if defaults.bool(forKey: Self.resumeKey) && canLaunch {
+      // Login launch or update relaunch may never show the window; observe from here.
+      Task { @MainActor [weak self] in
+        self?.beginObserving()
+        self?.requestStart()
+      }
+    }
   }
 
   /// Nothing runs yet, so every per-run directory left by a crash or force-quit is
@@ -254,6 +265,9 @@ import Observation
 
   func requestStart() {
     guard canStart, let selectedProject = activeProject else { return }
+    defaults.set(true, forKey: Self.resumeKey)
+    reconnectFailures = 0
+    reconnectAt = nil
     let root = selectedProject.url
     let policy = ProjectExecutionPolicy.fullLocal(localApproval: true)
     errorText = nil
@@ -368,7 +382,11 @@ import Observation
     _ = await owned.stopActiveJobs()
     await refresh()
   }
-  func stop() async {
+  /// `keepResume` is for Quit: the runtime comes back on the next launch.
+  func stop(keepResume: Bool = false) async {
+    if !keepResume { defaults.set(false, forKey: Self.resumeKey) }
+    reconnectFailures = 0
+    reconnectAt = nil
     if let teardown {
       await teardown.value
       return
@@ -431,6 +449,25 @@ import Observation
     }
     if lastCall != snapshot.lastCall { lastCall = snapshot.lastCall }
     if activeJobs != snapshot.activeJobs { activeJobs = snapshot.activeJobs }
+    retryConnectionIfNeeded()
+  }
+
+  /// A failed tunnel (client exit, network down at login) reconnects on its own
+  /// with capped backoff while the runtime runs; jobs are never touched.
+  private func retryConnectionIfNeeded() {
+    if connection.state == .ready { reconnectFailures = 0 }
+    guard phase == .running, connection.state == .failed, canConnect else {
+      reconnectAt = nil
+      return
+    }
+    guard let due = reconnectAt else {
+      reconnectAt = Date().addingTimeInterval(min(5 * pow(2, Double(reconnectFailures)), 300))
+      reconnectFailures += 1
+      return
+    }
+    guard Date() >= due else { return }
+    reconnectAt = nil
+    connectRemote()
   }
 }
 

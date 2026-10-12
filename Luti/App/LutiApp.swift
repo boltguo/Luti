@@ -11,7 +11,7 @@ import SwiftUI
     if !quitting {
       quitting = true
       Task {
-        await model.stop()
+        await model.stop(keepResume: true)
         sender.reply(toApplicationShouldTerminate: true)
       }
     }
@@ -65,8 +65,13 @@ private extension LutiApp {
       "LutiMenuIdle"
     case .preparing, .starting:
       "LutiMenuStarting"
+    // Running without a usable tunnel is not reachable from ChatGPT; never show it as healthy.
     case .running:
-      "LutiMenuRunning"
+      switch model.connection.state {
+      case .ready: "LutiMenuRunning"
+      case .failed, .stopped: "LutiMenuFailed"
+      case .starting, .reconnecting, .stopping: "LutiMenuStarting"
+      }
     case .stopping:
       "LutiMenuStopping"
     case .failed:
@@ -240,7 +245,7 @@ private struct RuntimeMenu: View {
 
   private var statusColor: Color {
     switch model.phase {
-    case .running: MDTheme.success
+    case .running: model.connection.state == .ready ? MDTheme.success : MDTheme.warning
     case .preparing, .starting, .stopping: MDTheme.warning
     case .failed: MDTheme.error
     case .stopped: MDTheme.onSurfaceVariant
