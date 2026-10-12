@@ -68,14 +68,11 @@ final class FixtureKeychain: @unchecked Sendable {
   private var failedReads: [String: Int]
   private var failedSaves: Int
   private var failedProbes: Int
-  private var failedEnumerations: Int
-  private var failedRemoves: [String: Int]
   private var interactions: [Bool] = []
   init(values: [String: String] = [:], failedReads: [String: Int] = [:], failedSaves: Int = 0,
-       failedProbes: Int = 0, failedEnumerations: Int = 0, failedRemoves: [String: Int] = [:]) {
+       failedProbes: Int = 0) {
     self.values = values; self.failedReads = failedReads; self.failedSaves = failedSaves
-    self.failedProbes = failedProbes; self.failedEnumerations = failedEnumerations
-    self.failedRemoves = failedRemoves
+    self.failedProbes = failedProbes
   }
   var readInteractions: [Bool] { lock.withLock { interactions } }
   func value(_ account: String) -> String? { lock.withLock { values[account] } }
@@ -98,13 +95,7 @@ final class FixtureKeychain: @unchecked Sendable {
         values[account] = value
       }
     }, remove: { [self] account in
-      try lock.withLock {
-        if failedRemoves[account, default: 0] > 0 {
-          failedRemoves[account]! -= 1
-          throw Failure("keychain_unavailable", "Temporary fixture removal failure.", "Retry.")
-        }
-        values.removeValue(forKey: account)
-      }
+      _ = lock.withLock { values.removeValue(forKey: account) }
     }, exists: { [self] account in
       try lock.withLock {
         if failedProbes > 0 {
@@ -112,14 +103,6 @@ final class FixtureKeychain: @unchecked Sendable {
           throw Failure("keychain_unavailable", "Temporary fixture probe failure.", "Retry.")
         }
         return values[account] != nil
-      }
-    }, accounts: { [self] in
-      try lock.withLock {
-        if failedEnumerations > 0 {
-          failedEnumerations -= 1
-          throw Failure("keychain_unavailable", "Temporary fixture enumeration failure.", "Retry.")
-        }
-        return Array(values.keys)
       }
     })
   }

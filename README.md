@@ -49,6 +49,8 @@ It can read and edit files, run builds and tests, inspect Git, drive a browser a
 
 Select the active folder locally before starting the Runtime.
 
+**Upgrading to 1.2.0:** Settings and credentials already saved in the 1.1 format are retained. Automatic migration and cleanup of 1.0.x data have been removed. If upgrading directly from 1.0.x, or if an earlier migration did not finish, select the project folder and save the Tunnel ID and API key again.
+
 ## Connections
 
 | Connection | What you provide | Authentication | Best for |
@@ -80,7 +82,7 @@ Job results separate process completion from recognized test results and record 
 
 `import_artifact` saves an unexpired artifact from the current project runtime to a new project file, up to 32 MiB. It does not overwrite, execute or unpack files. Chat attachments are outside the current scope; evaluate a Host adapter only when a concrete Host exposes a verified file binding.
 
-`inspect_project` returns a compact task registry and scoped instruction sources, without duplicate legacy projections. Selecting a folder and pressing Start enables full local execution directly.
+`inspect_project` returns a compact task registry and scoped instruction sources. Selecting a folder and pressing Start enables full local execution directly.
 
 ## Local records
 
@@ -97,7 +99,6 @@ Luti keeps bounded execution activity in `~/.luti/` for diagnostics. Current-run
 | **Git** | Public Git capability is read-only |
 | **Browser automation** | Luti owns its browser sessions; desktop capture and input are unavailable |
 | **Process execution** | `fullLocal` runs with your user privileges and is not an OS sandbox |
-| **Sandbox profiles** | `workspace` and `isolated` fail closed when an OS-enforced backend is unavailable |
 
 Luti has no cloud backend that receives project data. The AI hosts you connect still receive the tool results you request, which may include source code, command output, screenshots, or other project data. Every AI host and tunnel provider you enable is part of your trust boundary.
 
@@ -107,7 +108,7 @@ Luti has no cloud backend that receives project data. The AI hosts you connect s
 - An Apple Silicon Mac (arm64).
 - A separately installed Google Chrome for browser automation with the pinned browser runtime.
 - Xcode 26+ recommended for source builds.
-- An account and configuration for each remote provider you enable.
+- An OpenAI account with a configured Tunnel and runtime API key.
 
 The app includes English, Simplified Chinese, and Japanese.
 

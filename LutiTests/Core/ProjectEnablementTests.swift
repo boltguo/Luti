@@ -8,6 +8,9 @@ import XCTest
     let model = AppModel(contextDataRoot: first.contextDataRoot, defaults: first.defaults)
     XCTAssertNil(model.activeProject)
     XCTAssertFalse(model.canStart)
+    XCTAssertFalse(model.canLaunch)
+    XCTAssertFalse(model.apiKeySaved)
+    XCTAssertEqual(model.tunnelID, "")
     model.addProject(first.root)
     let selected = try XCTUnwrap(model.activeProject)
     XCTAssertEqual(selected.path, first.root.path)
@@ -57,165 +60,33 @@ import XCTest
     XCTAssertEqual(model.activeProject, selected)
   }
 
-  func testLegacyMigrationKeepsActiveProjectAndOpenAISettings() throws {
-    let f = try Fixture(), other = try Fixture(); defer { f.remove(); other.remove() }
-    // The 1.0.x format: several projects with extra fields, OpenAI address, other providers.
-    let legacy = """
-      [{"id":"a","name":"A","path":"\(other.root.path)","enabled":true,"permissionMode":"ask"},
-       {"id":"b","name":"B","path":"\(f.root.path)","enabled":false,"permissionMode":"full"}]
-      """
-    f.defaults.set(Data(legacy.utf8), forKey: "approvedProjects")
-    f.defaults.set("b", forKey: "activeProjectID")
-    f.defaults.set("tunnel_0123456789abcdef0123456789abcdef", forKey: "connection.openai.address")
-    f.defaults.set("https://mcp.example.com", forKey: "publicBaseURL")
-    f.defaults.set("https://example.ngrok.app", forKey: "connection.ngrok.address")
-    let data = f.contextDataRoot
-    let project = data.appendingPathComponent("projects/key")
-    for name in ["auth", "projects/key/memory", "projects/key/sessions", "projects/key/checkpoints",
-                 "projects/key/activity"] {
-      try FileManager.default.createDirectory(
-        at: data.appendingPathComponent(name), withIntermediateDirectories: true)
-    }
-
-    LegacyMigration.run(defaults: f.defaults, dataRoot: data, keychain: false)
-
-    let selected = try XCTUnwrap(f.defaults.data(forKey: "selectedFolder"))
-    XCTAssertEqual(try JSONDecoder().decode(ApprovedProject.self, from: selected).id, "b")
-    XCTAssertEqual(f.defaults.string(forKey: "connection.openai.tunnelID"), "tunnel_0123456789abcdef0123456789abcdef")
-    for key in ["approvedProjects", "activeProjectID", "connection.openai.address",
-                "publicBaseURL", "connection.ngrok.address"] {
-      XCTAssertNil(f.defaults.object(forKey: key), key)
-    }
-    XCTAssertTrue(f.defaults.bool(forKey: LegacyMigration.completedKey))
-    XCTAssertFalse(FileManager.default.fileExists(atPath: data.appendingPathComponent("auth").path))
-    for name in ["memory", "sessions", "checkpoints"] {
-      XCTAssertFalse(FileManager.default.fileExists(atPath: project.appendingPathComponent(name).path), name)
-    }
-    XCTAssertTrue(FileManager.default.fileExists(atPath: project.appendingPathComponent("activity").path))
-
-    let model = AppModel(contextDataRoot: data, defaults: f.defaults)
-    XCTAssertEqual(model.activeProject?.path, ApprovedProject(url: f.root).path)
-    XCTAssertEqual(model.tunnelID, "tunnel_0123456789abcdef0123456789abcdef")
-  }
-
-  func testLegacyMigrationLeavesFreshInstallUntouched() throws {
+  func testRelaunchRestoresCurrentSettingsCredentialsAndActivity() async throws {
     let f = try Fixture(); defer { f.remove() }
-    let auth = f.contextDataRoot.appendingPathComponent("auth")
-    try FileManager.default.createDirectory(at: auth, withIntermediateDirectories: true)
-    LegacyMigration.run(defaults: f.defaults, dataRoot: f.contextDataRoot, keychain: false)
-    XCTAssertTrue(f.defaults.bool(forKey: LegacyMigration.completedKey))
-    XCTAssertNil(f.defaults.data(forKey: "selectedFolder"))
-    // No 1.0.x settings means nothing on disk is treated as legacy data.
-    XCTAssertTrue(FileManager.default.fileExists(atPath: auth.path))
-  }
-}
-
-extension ProjectEnablementTests {
-  func testCredentialMigrationRetriesReadsAndWritesAfterPreferencesAreRetired() throws {
-    let old = "connection-openai-credential", current = KeychainService.openAIAPIKey
-    for failWrite in [false, true] {
-      let f = try Fixture(); defer { f.remove() }
-      let store = FixtureKeychain(values: [old: "synthetic-key"],
-        failedReads: failWrite ? [:] : [old: 1], failedSaves: failWrite ? 1 : 0)
-      let tunnel = "tunnel_0123456789abcdef0123456789abcdef"
-      f.defaults.set(tunnel, forKey: "connection.openai.address")
-      f.defaults.set(try JSONEncoder().encode([ApprovedProject(url: f.root)]), forKey: "approvedProjects")
-      LegacyMigration.run(defaults: f.defaults, dataRoot: f.contextDataRoot, keychain: true, credentials: store.client)
-      XCTAssertTrue(f.defaults.bool(forKey: LegacyMigration.completedKey))
-      XCTAssertFalse(f.defaults.bool(forKey: LegacyMigration.credentialsCompletedKey))
-      XCTAssertNil(f.defaults.object(forKey: "connection.openai.address"))
-      XCTAssertEqual(store.value(old), "synthetic-key")
-      XCTAssertNil(store.value(current))
-      LegacyMigration.run(defaults: f.defaults, dataRoot: f.contextDataRoot, keychain: true, credentials: store.client)
-      XCTAssertTrue(f.defaults.bool(forKey: LegacyMigration.credentialsCompletedKey))
-      XCTAssertEqual(store.value(current), "synthetic-key")
-      XCTAssertNil(store.value(old))
-      XCTAssertEqual(f.defaults.string(forKey: "connection.openai.tunnelID"), tunnel)
-      XCTAssertNotNil(f.defaults.data(forKey: "selectedFolder"))
-      XCTAssertTrue(store.readInteractions.allSatisfy { !$0 })
-    }
-  }
-
-  func testCredentialMigrationRecoversAnAlreadyMarkedLegacyUpgrade() throws {
-    let f = try Fixture(); defer { f.remove() }
-    f.defaults.set(true, forKey: LegacyMigration.completedKey)
-    let store = FixtureKeychain(values: ["connection-openai-credential": "preserved-key"])
-    LegacyMigration.run(defaults: f.defaults, dataRoot: f.contextDataRoot, keychain: true, credentials: store.client)
-    XCTAssertEqual(store.value(KeychainService.openAIAPIKey), "preserved-key")
-    XCTAssertTrue(f.defaults.bool(forKey: LegacyMigration.credentialsCompletedKey))
-  }
-
-  func testCredentialMigrationRetriesFailedEnumerationAfterCopyingKey() throws {
-    let f = try Fixture(); defer { f.remove() }
-    let old = "connection-openai-credential", current = KeychainService.openAIAPIKey
-    let store = FixtureKeychain(values: [old: "preserved-key", "retired-provider": "retired-key"],
-      failedEnumerations: 1)
-    f.defaults.set(true, forKey: LegacyMigration.completedKey)
-    LegacyMigration.run(defaults: f.defaults, dataRoot: f.contextDataRoot, keychain: true, credentials: store.client)
-    XCTAssertEqual(store.value(current), "preserved-key")
-    XCTAssertEqual(store.value(old), "preserved-key")
-    XCTAssertEqual(store.value("retired-provider"), "retired-key")
-    XCTAssertFalse(f.defaults.bool(forKey: LegacyMigration.credentialsCompletedKey))
-
-    LegacyMigration.run(defaults: f.defaults, dataRoot: f.contextDataRoot, keychain: true, credentials: store.client)
-    XCTAssertEqual(store.value(current), "preserved-key")
-    XCTAssertNil(store.value(old))
-    XCTAssertNil(store.value("retired-provider"))
-    XCTAssertTrue(f.defaults.bool(forKey: LegacyMigration.credentialsCompletedKey))
-  }
-
-  func testCredentialMigrationRetriesRemovalWithoutOverwritingCurrentKey() throws {
-    let f = try Fixture(); defer { f.remove() }
-    let old = "connection-openai-credential", current = KeychainService.openAIAPIKey
-    let store = FixtureKeychain(values: [old: "old-key", current: "newer-key"], failedRemoves: [old: 1])
-    LegacyMigration.run(defaults: f.defaults, dataRoot: f.contextDataRoot, keychain: true, credentials: store.client)
-    XCTAssertEqual(store.value(current), "newer-key")
-    XCTAssertEqual(store.value(old), "old-key")
-    XCTAssertFalse(f.defaults.bool(forKey: LegacyMigration.credentialsCompletedKey))
-
-    LegacyMigration.run(defaults: f.defaults, dataRoot: f.contextDataRoot, keychain: true, credentials: store.client)
-    XCTAssertEqual(store.value(current), "newer-key")
-    XCTAssertNil(store.value(old))
-    XCTAssertTrue(f.defaults.bool(forKey: LegacyMigration.credentialsCompletedKey))
-  }
-
-  func testCredentialMigrationKeepsOldItemUntilCopyCanBeVerified() throws {
-    let f = try Fixture(); defer { f.remove() }
-    let old = "connection-openai-credential", current = KeychainService.openAIAPIKey
-    let store = FixtureKeychain(values: [old: "preserved-key"])
-    var unavailableVerification = store.client
-    unavailableVerification.read = { account, interaction in
-      if account == current, store.value(current) != nil {
-        throw Failure("keychain_unavailable", "Copied item temporarily unreadable.", "Retry.")
-      }
-      return try store.client.read(account, interaction)
-    }
-    LegacyMigration.run(defaults: f.defaults, dataRoot: f.contextDataRoot, keychain: true,
-      credentials: unavailableVerification)
-    XCTAssertEqual(store.value(current), "preserved-key")
-    XCTAssertEqual(store.value(old), "preserved-key")
-    XCTAssertFalse(f.defaults.bool(forKey: LegacyMigration.credentialsCompletedKey))
-
-    LegacyMigration.run(defaults: f.defaults, dataRoot: f.contextDataRoot, keychain: true, credentials: store.client)
-    XCTAssertEqual(store.value(current), "preserved-key")
-    XCTAssertNil(store.value(old))
-    XCTAssertTrue(f.defaults.bool(forKey: LegacyMigration.credentialsCompletedKey))
-  }
-
-  func testLegacyMigrationPreservesNewSelectionAndTunnelAcrossRepeatedLaunches() throws {
-    let f = try Fixture(), other = try Fixture(); defer { f.remove(); other.remove() }
     let selected = ApprovedProject(url: f.root)
-    let saved = "tunnel_0123456789abcdef0123456789abcdef"
-    f.defaults.set(try JSONEncoder().encode(selected), forKey: LegacyMigration.selectedFolderKey)
-    f.defaults.set(saved, forKey: LegacyMigration.tunnelIDKey)
-    f.defaults.set(try JSONEncoder().encode([ApprovedProject(url: other.root)]), forKey: "approvedProjects")
-    f.defaults.set("tunnel_fedcba9876543210fedcba9876543210", forKey: "connection.openai.address")
+    let encoded = try JSONEncoder().encode(selected)
+    let tunnel = "tunnel_0123456789abcdef0123456789abcdef"
+    let key = "sk-" + String(repeating: "a", count: 40)
+    let store = FixtureKeychain(values: [KeychainService.openAIAPIKey: key])
+    f.defaults.set(encoded, forKey: "selectedFolder")
+    f.defaults.set(tunnel, forKey: "connection.openai.tunnelID")
+    let directory = LocalLogStore.activityDirectory(for: f.root, dataRoot: f.contextDataRoot)
+    let event = ActivityEvent(id: UUID(), startedAt: Date(), finishedAt: Date(), tool: "read_files",
+      target: "source.txt", status: "ok", summary: "Read", durationSeconds: 0)
+    LocalLogStore.appendActivity(event, directory: directory)
+
     for _ in 0..<2 {
-      LegacyMigration.run(defaults: f.defaults, dataRoot: f.contextDataRoot, keychain: false)
-      let reopened = AppModel(contextDataRoot: f.contextDataRoot, defaults: f.defaults)
-      XCTAssertEqual(reopened.activeProject, selected)
-      XCTAssertEqual(reopened.savedTunnelID, saved)
-      XCTAssertEqual(reopened.tunnelID, saved)
+      let model = AppModel(contextDataRoot: f.contextDataRoot, defaults: f.defaults, credentials: store.client)
+      await model.activityLoad?.value
+      XCTAssertEqual(model.activeProject, selected)
+      XCTAssertEqual(model.tunnelID, tunnel)
+      XCTAssertEqual(model.savedTunnelID, tunnel)
+      XCTAssertTrue(model.apiKeySaved)
+      XCTAssertTrue(model.canLaunch)
+      XCTAssertEqual(model.phase, .stopped)
+      XCTAssertEqual(model.activity.map(\.id), [event.id])
+      XCTAssertEqual(f.defaults.data(forKey: "selectedFolder"), encoded)
+      XCTAssertEqual(store.value(KeychainService.openAIAPIKey), key)
+      XCTAssertTrue(store.readInteractions.isEmpty, "Launch only checks whether the current key exists.")
     }
   }
 }
