@@ -221,7 +221,7 @@ public final class OwnedProcess: @unchecked Sendable {
         stderrHead.append(chunk.prefix(max(0, 16384 - stderrHead.count)))
         fullStderr.append(chunk.prefix(max(0, fullLimit - fullStderr.count)))
         stderr.append(chunk)
-        if stderr.count > tailLimit + 8192 { stderr.removeFirst(stderr.count - tailLimit - 8192) }
+        if stderr.count > tailLimit * 2 { stderr = Self.compactTail(stderr, keep: tailLimit) }
       } else {
         stdoutCount += chunk.count
         stdoutHead.append(chunk.prefix(max(0, 16384 - stdoutHead.count)))
@@ -233,9 +233,14 @@ public final class OwnedProcess: @unchecked Sendable {
         if urlBuffer.utf8.count > 8192 { urlBuffer = "" }
         fullStdout.append(chunk.prefix(max(0, fullLimit - fullStdout.count)))
         stdout.append(chunk)
-        if stdout.count > tailLimit + 8192 { stdout.removeFirst(stdout.count - tailLimit - 8192) }
+        if stdout.count > tailLimit * 2 { stdout = Self.compactTail(stdout, keep: tailLimit) }
       }
     }
+  }
+  /// A fresh buffer, not a slice: `removeFirst` would keep the trimmed prefix
+  /// allocated and leave a non-zero startIndex behind.
+  private static func compactTail(_ data: Data, keep: Int) -> Data {
+    Data(data.suffix(keep))
   }
   private func captureURLs(_ text: String) {
     for url in LocalURLDetector.find(redactor.clean(text)) where !detectedURLs.contains(url) && detectedURLs.count < 16 {
@@ -279,7 +284,7 @@ public final class OwnedProcess: @unchecked Sendable {
         if offset < full.count {
           from = offset
           let end = min(full.count, offset + maxBytes)
-          bytes = full.subdata(in: offset..<end)
+          bytes = full.subdata(in: full.startIndex + offset..<full.startIndex + end)
         } else {
           let availableFrom = max(0, total - tail.count)
           let effective: Int
@@ -293,7 +298,7 @@ public final class OwnedProcess: @unchecked Sendable {
           from = effective
           let local = effective - availableFrom
           let end = min(tail.count, local + maxBytes)
-          bytes = tail.subdata(in: local..<end)
+          bytes = tail.subdata(in: tail.startIndex + local..<tail.startIndex + end)
         }
         let next = from + bytes.count
         var result: JSONValue = [

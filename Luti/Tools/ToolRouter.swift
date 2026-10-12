@@ -648,10 +648,11 @@ public actor ToolRouter {
         } else {
           result = try await jobs.status(id)
         }
+        // A paged read continues where this page ended; a snapshot continues at the end.
         result = result
           .adding("action", "logs")
-          .adding("nextStdoutOffset", result["stdoutBytes"])
-          .adding("nextStderrOffset", result["stderrBytes"])
+          .adding("nextStdoutOffset", hasStdout ? result["delta"]["stdout"]["nextOffset"] : result["stdoutBytes"])
+          .adding("nextStderrOffset", hasStdout ? result["delta"]["stderr"]["nextOffset"] : result["stderrBytes"])
         if try a.flag("exportFull", default: false), let bytes = try await jobs.fullLog(id) {
           let artifact = try await artifacts.insert(
             bytes, name: "job-log.txt", mimeType: "text/plain")

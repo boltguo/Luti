@@ -446,6 +446,25 @@ import XCTest
     await jobs.shutdown()
   }
 
+  /// Past the 1 MiB full log, offsets resolve inside the trimmed tail buffer.
+  func testIncrementalLogsReadTailBeyondFullLogBoundary() async throws {
+    let f = try Fixture(); defer { f.remove() }
+    let jobs = JobManager(helper: Fixture.helper)
+    let total = 2_097_152
+    let result = try await jobs.submit(
+      ProcessRequest(
+        program: "/bin/sh", args: ["-c", "yes x | head -c \(total)"], cwd: f.root, syncWait: 5))
+    XCTAssertEqual(result["terminal"], true)
+    let id = try XCTUnwrap(result["jobId"].string)
+    let delta = try await jobs.logs(
+      id, stdoutOffset: total - 1024, stderrOffset: 0, maxBytes: 512)
+    let stdout = delta["delta"]["stdout"]
+    XCTAssertEqual(stdout["fromOffset"].int, total - 1024)
+    XCTAssertEqual(stdout["nextOffset"].int, total - 512)
+    XCTAssertEqual(stdout["text"].string?.utf8.count, 512)
+    await jobs.shutdown()
+  }
+
   func testChangedEnvironmentRejectsIdempotentReplay() async throws {
     let f = try Fixture(); defer { f.remove() }
     let jobs = JobManager(helper: Fixture.helper)
