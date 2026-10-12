@@ -103,6 +103,28 @@ private actor TestConnectionProvider: ConnectionProvider {
     XCTAssertEqual(retried.state, .ready)
   }
 
+  func testReconnectRejectsPreviousCredentialAndKeepsProjectBinding() async throws {
+    let (f, runtime) = try makeRuntime()
+    try await runtime.start()
+    let connections = manager(f, runtime)
+    let first = TestConnectionProvider()
+    try await connections.connect(first)
+    let before = await runtime.router.call("project_info", arguments: [:])
+    await connections.disconnect()
+
+    let second = TestConnectionProvider()
+    try await connections.connect(second)
+    let endpoint = await second.endpoint
+    let url = try XCTUnwrap(endpoint)
+    let rejected = try await response(url, authorization: "Bearer " + first.privateCredential)
+    XCTAssertEqual(rejected.statusCode, 401)
+    let accepted = try await response(url, authorization: "Bearer " + second.privateCredential)
+    XCTAssertEqual(accepted.statusCode, 200)
+    let after = await runtime.router.call("project_info", arguments: [:])
+    XCTAssertNotNil(before.data["projectToken"].string)
+    XCTAssertEqual(after.data["projectToken"], before.data["projectToken"])
+  }
+
   func testRemoteFailureAndDisconnectPreserveRunningProjectJob() async throws {
     let (f, runtime) = try makeRuntime(execution: true)
     try await runtime.start()
@@ -190,6 +212,73 @@ private actor TestConnectionProvider: ConnectionProvider {
     XCTAssertFalse(resaved)
     XCTAssertEqual(model.savedTunnelID, "tunnel_0123456789abcdef0123456789abcdef")
     XCTAssertTrue(model.canStart)
+  }
+
+  func testKeychainWriteFailurePreservesSavedConnectionAndAllowsRetry() async throws {
+    let f = try Fixture(); defer { f.remove() }
+    let oldTunnel = "tunnel_0123456789abcdef0123456789abcdef"
+    let newTunnel = "tunnel_fedcba9876543210fedcba9876543210"
+    let oldKey = "sk-" + String(repeating: "a", count: 40)
+    let newKey = "sk-" + String(repeating: "b", count: 40)
+    let store = FixtureKeychain(values: [KeychainService.openAIAPIKey: oldKey], failedSaves: 1)
+    f.defaults.set(oldTunnel, forKey: "connection.openai.tunnelID")
+    let model = AppModel(contextDataRoot: f.contextDataRoot, defaults: f.defaults, credentials: store.client)
+    model.addProject(f.root)
+    model.tunnelID = newTunnel
+    model.apiKeyDraft = newKey
+
+    let failed = await model.saveConnection()
+    XCTAssertFalse(failed)
+    XCTAssertEqual(model.savedTunnelID, oldTunnel)
+    XCTAssertEqual(store.value(KeychainService.openAIAPIKey), oldKey)
+    XCTAssertEqual(model.tunnelID, newTunnel)
+    XCTAssertEqual(model.apiKeyDraft, newKey)
+    XCTAssertTrue(model.apiKeySaved)
+    XCTAssertFalse(model.savingConnection)
+    XCTAssertFalse(model.canLaunch)
+    XCTAssertNotNil(model.connectionSettingsError)
+
+    let retried = await model.saveConnection()
+    XCTAssertTrue(retried)
+    XCTAssertEqual(model.savedTunnelID, newTunnel)
+    XCTAssertEqual(store.value(KeychainService.openAIAPIKey), newKey)
+    XCTAssertEqual(model.apiKeyDraft, "")
+    XCTAssertNil(model.connectionSettingsError)
+    XCTAssertTrue(model.canLaunch)
+    let reopened = AppModel(contextDataRoot: f.contextDataRoot, defaults: f.defaults, credentials: store.client)
+    XCTAssertEqual(reopened.savedTunnelID, newTunnel)
+    XCTAssertTrue(reopened.canLaunch)
+  }
+
+  func testKeychainRemovalFailurePreservesConnectionUntilSuccessfulClear() async throws {
+    let f = try Fixture(); defer { f.remove() }
+    let tunnel = "tunnel_0123456789abcdef0123456789abcdef"
+    let key = "sk-" + String(repeating: "a", count: 40)
+    let store = FixtureKeychain(values: [KeychainService.openAIAPIKey: key])
+    var unavailable = store.client
+    unavailable.remove = { _ in
+      throw Failure("keychain_unavailable", "Temporary fixture removal failure.", "Retry.")
+    }
+    f.defaults.set(tunnel, forKey: "connection.openai.tunnelID")
+    let model = AppModel(contextDataRoot: f.contextDataRoot, defaults: f.defaults, credentials: unavailable)
+    let failed = await model.clearConnection()
+    XCTAssertFalse(failed)
+    XCTAssertEqual(model.savedTunnelID, tunnel)
+    XCTAssertEqual(model.tunnelID, tunnel)
+    XCTAssertEqual(store.value(KeychainService.openAIAPIKey), key)
+    XCTAssertTrue(model.apiKeySaved)
+    XCTAssertFalse(model.savingConnection)
+    XCTAssertNotNil(model.connectionSettingsError)
+
+    let reopened = AppModel(contextDataRoot: f.contextDataRoot, defaults: f.defaults, credentials: store.client)
+    let cleared = await reopened.clearConnection()
+    XCTAssertTrue(cleared)
+    XCTAssertEqual(reopened.savedTunnelID, "")
+    XCTAssertEqual(reopened.tunnelID, "")
+    XCTAssertNil(store.value(KeychainService.openAIAPIKey))
+    XCTAssertFalse(reopened.apiKeySaved)
+    XCTAssertFalse(reopened.canLaunch)
+    XCTAssertNil(reopened.connectionSettingsError)
   }
 
   func testSelectedFolderSurvivesDirectRuntimeStartStopAndReopen() async throws {
