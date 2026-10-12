@@ -83,6 +83,8 @@ public struct ActivityEvent: Identifiable, Codable, Sendable {
 enum LocalLogStore {
   private static let lock = NSLock()
   private static let maxBytes: Int64 = 4_194_304
+  /// Runtime diagnostics are written in order, never on the caller's (often main) thread.
+  private static let runtimeQueue = DispatchQueue(label: "com.aouos.luti.runtime-log", qos: .utility)
 
   static func activityDirectory(for project: URL, dataRoot: URL = LutiPaths.root) -> URL {
     dataRoot.appendingPathComponent("projects")
@@ -101,8 +103,10 @@ enum LocalLogStore {
   static func runtime(_ level: String, _ message: String) {
     let clean = Budget.prefix(Redactor().clean(message), bytes: 2048)
       .replacingOccurrences(of: "\n", with: " ")
-    let stamp = ISO8601DateFormatter().string(from: Date())
-    append(Data("\(stamp) \(level.uppercased()) \(clean)\n".utf8), name: "runtime.log", directory: runtimeLogDirectory)
+    let line = Data("\(Date().ISO8601Format()) \(level.uppercased()) \(clean)\n".utf8)
+    runtimeQueue.async {
+      append(line, name: "runtime.log", directory: runtimeLogDirectory)
+    }
   }
 
   static func appendActivity(_ event: ActivityEvent, directory: URL) {
@@ -113,32 +117,30 @@ enum LocalLogStore {
     append(data, name: "activity.jsonl", directory: directory)
   }
 
+  /// Only the consistent file snapshot is taken under the lock; decoding up to
+  /// 8 MiB happens outside it so log writers never wait for a history load.
   static func recentActivities(limit: Int, directory: URL) -> [ActivityEvent] {
-    lock.withLock {
+    let files = lock.withLock { () -> [Data] in
       guard (try? prepare(directory)) != nil else { return [] }
-      var decoded: [ActivityEvent] = []
-      for url in [
-        directory.appendingPathComponent("activity.jsonl.1"),
-        directory.appendingPathComponent("activity.jsonl"),
-      ] {
-        guard let data = try? PrivateFiles.read(url, max: Int(maxBytes)) else { continue }
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
-        for line in data.split(separator: 10) {
-          if let event = try? decoder.decode(ActivityEvent.self, from: Data(line)), event.schemaVersion == 3 {
-            decoded.append(event)
-          }
-        }
+      return ["activity.jsonl.1", "activity.jsonl"].compactMap {
+        try? PrivateFiles.read(directory.appendingPathComponent($0), max: Int(maxBytes))
       }
-      var latest: [UUID: ActivityEvent] = [:]
-      var order: [UUID] = []
-      for event in decoded {
+    }
+    let decoder = JSONDecoder()
+    decoder.dateDecodingStrategy = .iso8601
+    var latest: [UUID: ActivityEvent] = [:]
+    var order: [UUID] = []
+    for data in files {
+      for line in data.split(separator: 10) {
+        guard let event = try? decoder.decode(ActivityEvent.self, from: Data(line)),
+          event.schemaVersion == 3
+        else { continue }
         if latest[event.id] == nil { order.append(event.id) }
         latest[event.id] = event
       }
-      let unique = order.compactMap { latest[$0] }
-      return Array(unique.suffix(max(0, limit)))
     }
+    let unique = order.compactMap { latest[$0] }
+    return Array(unique.suffix(max(0, limit)))
   }
 
   private static func prepare(_ directory: URL) throws {

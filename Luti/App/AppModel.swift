@@ -70,10 +70,28 @@ import Observation
       activeProject = try? JSONDecoder().decode(ApprovedProject.self, from: data)
     }
     apiKeySaved = KeychainService.exists()
-    // Nothing runs yet, so every per-run directory left by a crash or force-quit is stale.
-    try? FileManager.default.removeItem(at: contextDataRoot.appendingPathComponent("runs"))
+    Self.discardStaleRuns(in: contextDataRoot)
     reloadStoredActivity()
     LocalLogStore.runtime("info", "Luti app initialized.")
+  }
+
+  /// Nothing runs yet, so every per-run directory left by a crash or force-quit is
+  /// stale. A rename moves it aside at once; the recursive delete runs off the main actor.
+  private static func discardStaleRuns(in root: URL) {
+    let files = FileManager.default
+    let runs = root.appendingPathComponent("runs")
+    if files.fileExists(atPath: runs.path),
+      (try? files.moveItem(at: runs, to: root.appendingPathComponent("runs.stale-" + UUID().uuidString))) == nil
+    {
+      try? files.removeItem(at: runs)
+    }
+    Task.detached(priority: .utility) {
+      let files = FileManager.default
+      for item in (try? files.contentsOfDirectory(at: root, includingPropertiesForKeys: nil)) ?? []
+      where item.lastPathComponent.hasPrefix("runs.stale-") {
+        try? files.removeItem(at: item)
+      }
+    }
   }
 
   private func persistSelectedFolder() {
