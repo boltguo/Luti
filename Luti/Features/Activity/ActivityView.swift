@@ -141,14 +141,6 @@ private struct ActivityEventRow: View {
             .font(.system(size: 12, weight: .medium, design: .monospaced))
             .foregroundStyle(MDTheme.secondary)
         }
-        if let source = event.source {
-          Text(source.clientName + " · " + transportTitle(source.transport))
-            .font(.system(size: 10, weight: .medium))
-            .foregroundStyle(MDTheme.secondary)
-            .padding(.horizontal, 6).padding(.vertical, 2)
-            .background(MDTheme.containerHigh, in: Capsule())
-            .help(source.clientID)
-        }
         if repeatCount > 1 {
           Text("×\(repeatCount)")
             .font(.system(size: 10, weight: .semibold, design: .monospaced))
@@ -222,13 +214,6 @@ private struct ActivityEventRow: View {
       }
       .font(.system(size: 11).monospacedDigit())
       .foregroundStyle(MDTheme.secondary)
-    }
-  }
-
-  private func transportTitle(_ transport: TransportProviderID) -> String {
-    switch transport {
-    case .openAI: "OpenAI Tunnel"
-    case .loopback: "Local"
     }
   }
 
