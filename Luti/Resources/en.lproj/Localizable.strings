@@ -73,6 +73,7 @@
 "home.notRunning" = "Not running";
 "home.readyStart" = "Ready to start";
 "home.configureTunnel" = "Set up OpenAI Tunnel to start";
+"home.saveConnection" = "Save connection settings to start";
 "home.reconnecting" = "Reconnecting";
 "home.setUpConnectionStarting" = "Set up your connection before starting.";
 "home.setupRequired" = "Set up";

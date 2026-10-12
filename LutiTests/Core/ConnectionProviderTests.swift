@@ -166,6 +166,15 @@ private actor FixtureProvider: ConnectionProvider {
     model.savingConnection = false
     model.tunnelID = "tunnel_changed"
     XCTAssertFalse(model.canConnect, "Unsaved edits must be saved before connecting.")
+    model.phase = .stopped
+    model.activeProject = ApprovedProject(url: f.root)
+    XCTAssertFalse(model.canLaunch, "Start must not run a runtime whose tunnel cannot connect.")
+    model.tunnelID = "tunnel_0123456789abcdef0123456789abcdef"
+    model.apiKeyDraft = "sk-" + String(repeating: "b", count: 40)
+    XCTAssertFalse(model.canLaunch)
+    model.apiKeyDraft = ""
+    XCTAssertTrue(model.canLaunch)
+    model.phase = .running
     model.tunnelID = "tunnel_0123456789abcdef0123456789abcdef"
     model.apiKeySaved = false
     XCTAssertFalse(model.canConnect)

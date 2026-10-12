@@ -57,8 +57,9 @@ import Observation
     !active && !contextBusy && !savingConnection && activeProject != nil
   }
   /// What the UI offers: the OpenAI Tunnel is Luti's only client path, so starting
-  /// without it would expose nothing. Tests drive `requestStart` on `canStart` alone.
-  var canLaunch: Bool { canStart && connectionConfigured }
+  /// without a connection it can open (saved, no pending edits) would expose nothing.
+  /// Tests drive `requestStart` on `canStart` alone.
+  var canLaunch: Bool { canStart && connectionConfigured && !hasUnsavedConnection }
   var canEditConnection: Bool {
     !savingConnection && !connectionBusy && !connection.state.isActive
       && ![.preparing, .starting, .stopping].contains(phase)

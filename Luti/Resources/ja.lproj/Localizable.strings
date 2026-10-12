@@ -73,6 +73,7 @@
 "home.notRunning" = "実行していません";
 "home.readyStart" = "開始できます";
 "home.configureTunnel" = "OpenAI Tunnelを設定すると開始できます";
+"home.saveConnection" = "接続設定を保存すると開始できます";
 "home.reconnecting" = "再接続中";
 "home.setUpConnectionStarting" = "開始する前に、接続を設定してください。";
 "home.setupRequired" = "設定";

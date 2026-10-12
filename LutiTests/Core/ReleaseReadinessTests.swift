@@ -38,6 +38,7 @@ import XCTest
         "connection.notConfigured",
         "connection.stopToEdit",
         "home.configureTunnel",
+        "home.saveConnection",
         "activity.projectRoot",
       ] {
         let value = bundle.localizedString(forKey: key, value: "__MISSING__", table: nil)

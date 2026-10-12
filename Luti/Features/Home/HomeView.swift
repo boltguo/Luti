@@ -125,6 +125,7 @@ struct HomeView: View {
     case .stopped:
       if model.canLaunch { L10n.text("home.readyStart") }
       else if model.activeProject != nil && !model.connectionConfigured { L10n.text("home.configureTunnel") }
+      else if model.activeProject != nil && model.hasUnsavedConnection { L10n.text("home.saveConnection") }
       else { L10n.text("home.notRunning") }
     case .preparing: L10n.text("common.preparing")
     case .starting: L10n.text("common.starting")

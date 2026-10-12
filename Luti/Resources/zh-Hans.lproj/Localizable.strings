@@ -73,6 +73,7 @@
 "home.notRunning" = "尚未启动";
 "home.readyStart" = "准备就绪";
 "home.configureTunnel" = "配置 OpenAI Tunnel 后即可启动";
+"home.saveConnection" = "保存连接配置后即可启动";
 "home.reconnecting" = "重连中";
 "home.setUpConnectionStarting" = "填写连接信息后即可启动。";
 "home.setupRequired" = "待设置";
