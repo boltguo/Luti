@@ -72,6 +72,7 @@
 "home.notConnect" = "连接未完成";
 "home.notRunning" = "尚未启动";
 "home.readyStart" = "准备就绪";
+"home.configureTunnel" = "配置 OpenAI Tunnel 后即可启动";
 "home.reconnecting" = "重连中";
 "home.setUpConnectionStarting" = "填写连接信息后即可启动。";
 "home.setupRequired" = "待设置";
@@ -149,12 +150,10 @@
 "connection.runtimeFailed" = "启动失败";
 "connection.optionalRemote" = "远程连接";
 "connection.remoteAccess" = "远程访问";
-"connection.disconnect" = "断开";
-"connection.connect" = "连接";
 "connection.startBeforeRemote" = "请先启动 Luti，再启用此连接。";
 "connection.remoteFailureLocalSafe" = "本地任务仍会继续运行。";
 "connection.configuration" = "连接配置";
-"connection.disconnectToEdit" = "请先断开连接。";
+"connection.stopToEdit" = "请先在首页停止服务再修改。";
 "connection.advanced" = "高级选项";
 "connection.state.stopped" = "未连接";
 "connection.state.starting" = "正在连接…";
@@ -173,7 +172,6 @@
 
 "projects.stopRuntimeToEditProject" = "停止 Luti 后可移除文件夹。";
 
-"connection.tunnelProviders" = "连接方式";
 "connection.setupGuide" = "配置向导";
 "connection.clearConfigurationConfirmation" = "清除此配置？";
 "connection.clearConfigurationMessage" = "清除已保存的 Tunnel ID 和 API Key。重新配置前 ChatGPT 无法访问。";

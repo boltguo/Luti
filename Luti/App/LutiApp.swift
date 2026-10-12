@@ -109,7 +109,7 @@ private struct AppCommands: Commands {
         openWindow(id: "main")
         NSApplication.shared.activate(ignoringOtherApps: true)
         model.requestStart()
-      }.disabled(!model.canStart)
+      }.disabled(!model.canLaunch)
       if model.activeJobs > 0 {
         Button(L10n.format("menu.stopRunningTasks", model.activeJobs)) {
           Task { await model.stopActiveJobs() }
@@ -217,7 +217,7 @@ private struct RuntimeMenu: View {
         ) {
           selectedTab = .home
           showWindow()
-          if model.canStart { model.requestStart() }
+          if model.canLaunch { model.requestStart() }
         }
       }
     }

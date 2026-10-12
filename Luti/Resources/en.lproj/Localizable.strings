@@ -72,6 +72,7 @@
 "home.notConnect" = "Could not connect";
 "home.notRunning" = "Not running";
 "home.readyStart" = "Ready to start";
+"home.configureTunnel" = "Set up OpenAI Tunnel to start";
 "home.reconnecting" = "Reconnecting";
 "home.setUpConnectionStarting" = "Set up your connection before starting.";
 "home.setupRequired" = "Set up";
@@ -149,12 +150,10 @@
 "connection.runtimeFailed" = "Could not start";
 "connection.optionalRemote" = "Remote connection";
 "connection.remoteAccess" = "Remote access";
-"connection.disconnect" = "Disconnect";
-"connection.connect" = "Connect";
 "connection.startBeforeRemote" = "Start Luti before enabling this connection.";
 "connection.remoteFailureLocalSafe" = "Local tasks keep running.";
 "connection.configuration" = "Configuration";
-"connection.disconnectToEdit" = "Disconnect before editing.";
+"connection.stopToEdit" = "Stop Luti on Home before editing.";
 "connection.advanced" = "Advanced";
 "connection.state.stopped" = "Not connected";
 "connection.state.starting" = "Connecting…";
@@ -173,7 +172,6 @@
 
 "projects.stopRuntimeToEditProject" = "Stop Luti before removing this folder.";
 
-"connection.tunnelProviders" = "Connection Methods";
 "connection.setupGuide" = "Setup Guide";
 "connection.clearConfigurationConfirmation" = "Clear this configuration?";
 "connection.clearConfigurationMessage" = "Remove the saved Tunnel ID and API key. ChatGPT loses access until you set them up again.";

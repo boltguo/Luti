@@ -17,10 +17,6 @@ struct OpenAIConnectionView: View {
           .textSelection(.enabled)
       }
 
-      if model.phase == .running && model.connectionConfigured {
-        connectionControl
-      }
-
       configurationForm
 
       if !model.connectionConfigured {
@@ -37,26 +33,6 @@ struct OpenAIConnectionView: View {
         Task { await model.clearConnection() }
       }
     }
-  }
-
-  /// Reconnect or disconnect the tunnel alone; the runtime and its jobs keep running.
-  private var connectionControl: some View {
-    let connected = [.ready, .reconnecting].contains(model.connection.state)
-    return Button {
-      if connected {
-        Task { await model.disconnectRemote() }
-      } else {
-        model.connectRemote()
-      }
-    } label: {
-      Label(
-        L10n.text(connected ? "connection.disconnect" : "connection.connect"),
-        systemImage: connected ? "stop.fill" : "arrow.clockwise")
-        .frame(maxWidth: .infinity)
-    }
-    .buttonStyle(MDButtonStyle(kind: .tonal))
-    .disabled(model.connectionBusy || (!connected && !model.canConnect))
-    .accessibilityIdentifier("connection-toggle")
   }
 
   private var configurationForm: some View {
@@ -111,7 +87,7 @@ struct OpenAIConnectionView: View {
 
       if !model.canEditConnection && !model.savingConnection {
         ProviderInfoCallout(
-          text: L10n.text("connection.disconnectToEdit"),
+          text: L10n.text("connection.stopToEdit"),
           symbol: "lock",
           tone: .gray)
       }

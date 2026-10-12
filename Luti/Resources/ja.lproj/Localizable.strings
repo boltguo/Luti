@@ -72,6 +72,7 @@
 "home.notConnect" = "接続できませんでした";
 "home.notRunning" = "実行していません";
 "home.readyStart" = "開始できます";
+"home.configureTunnel" = "OpenAI Tunnelを設定すると開始できます";
 "home.reconnecting" = "再接続中";
 "home.setUpConnectionStarting" = "開始する前に、接続を設定してください。";
 "home.setupRequired" = "設定";
@@ -149,12 +150,10 @@
 "connection.runtimeFailed" = "開始できませんでした";
 "connection.optionalRemote" = "リモート接続";
 "connection.remoteAccess" = "リモートアクセス";
-"connection.disconnect" = "接続を解除";
-"connection.connect" = "接続";
 "connection.startBeforeRemote" = "この接続をオンにする前に、Lutiを開始してください。";
 "connection.remoteFailureLocalSafe" = "ローカルのタスクは引き続き実行されます。";
 "connection.configuration" = "設定";
-"connection.disconnectToEdit" = "編集する前に接続を解除してください。";
+"connection.stopToEdit" = "編集する前にホームで停止してください。";
 "connection.advanced" = "詳細";
 "connection.state.stopped" = "未接続";
 "connection.state.starting" = "接続中…";
@@ -173,7 +172,6 @@
 
 "projects.stopRuntimeToEditProject" = "フォルダを削除する前にLutiを停止してください。";
 
-"connection.tunnelProviders" = "接続方法";
 "connection.setupGuide" = "設定ガイド";
 "connection.clearConfigurationConfirmation" = "この設定を消去しますか？";
 "connection.clearConfigurationMessage" = "保存済みのTunnel IDとAPIキーを削除します。再設定するまでChatGPTはアクセスできません。";

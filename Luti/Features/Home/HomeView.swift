@@ -71,7 +71,8 @@ struct HomeView: View {
       }
       .buttonStyle(MDButtonStyle())
       .controlSize(.large)
-      .disabled(model.contextBusy || model.phase == .stopping)
+      .disabled(model.contextBusy || model.phase == .stopping
+        || (!model.active && model.activeProject != nil && !model.canLaunch))
       .accessibilityIdentifier("runtime-toggle")
     }
     .frame(maxWidth: .infinity)
@@ -119,7 +120,10 @@ struct HomeView: View {
 
   private var statusTitle: String {
     switch model.phase {
-    case .stopped: model.canStart ? L10n.text("home.readyStart") : L10n.text("home.notRunning")
+    case .stopped:
+      if model.canLaunch { L10n.text("home.readyStart") }
+      else if model.activeProject != nil && !model.connectionConfigured { L10n.text("home.configureTunnel") }
+      else { L10n.text("home.notRunning") }
     case .preparing: L10n.text("common.preparing")
     case .starting: L10n.text("common.starting")
     case .running: L10n.text("common.running")

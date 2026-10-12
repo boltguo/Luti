@@ -52,6 +52,9 @@ import Observation
   var canStart: Bool {
     !active && !contextBusy && !savingConnection && activeProject != nil
   }
+  /// What the UI offers: the OpenAI Tunnel is Luti's only client path, so starting
+  /// without it would expose nothing. Tests drive `requestStart` on `canStart` alone.
+  var canLaunch: Bool { canStart && connectionConfigured }
   var canEditConnection: Bool {
     !savingConnection && !connectionBusy && !connection.state.isActive
       && ![.preparing, .starting, .stopping].contains(phase)
@@ -356,18 +359,6 @@ import Observation
       self.connectionBusy = false
       self.connectionTask = nil
     }
-  }
-
-  func disconnectRemote() async {
-    guard let manager = remote, !connectionBusy else { return }
-    connectionRevision = UUID()
-    connectionBusy = true
-    connection = ConnectionSnapshot(state: .stopping, providerID: .openAI)
-    await manager.disconnect()
-    if remote === manager { remote = nil }
-    connection = .stopped
-    connectionError = nil
-    connectionBusy = false
   }
 
   func stopActiveJobs() async {

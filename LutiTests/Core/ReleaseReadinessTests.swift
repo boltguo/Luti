@@ -34,9 +34,11 @@ import XCTest
         "projects.noProjectsYet",
         "projects.projectFolder",
         "projects.removeProject",
-        "connection.tunnelToken",
-        "connection.tunnelProviders",
+        "connection.pasteAPIKey",
         "connection.notConfigured",
+        "connection.stopToEdit",
+        "home.configureTunnel",
+        "activity.projectRoot",
       ] {
         let value = bundle.localizedString(forKey: key, value: "__MISSING__", table: nil)
         XCTAssertNotEqual(value, "__MISSING__", "\(language): \(key)")
