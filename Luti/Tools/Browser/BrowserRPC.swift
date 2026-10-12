@@ -94,6 +94,22 @@ final class BrowserRPC: @unchecked Sendable {
     }
   }
 
+  /// Stop and return only once the helper is gone: SIGTERM, then SIGKILL at the
+  /// deadline. App Quit relies on this; a delayed kill would die with the app.
+  func shutdown() async {
+    stop()
+    // Unstructured: a cancelled caller must not turn the throttled wait into a spin.
+    await Task { [self] in
+      let deadline = ContinuousClock.now.advanced(by: .seconds(3))
+      while process.isRunning, ContinuousClock.now < deadline {
+        try? await Task.sleep(for: .milliseconds(50))
+      }
+      guard process.isRunning else { return }
+      kill(process.processIdentifier, SIGKILL)
+      for _ in 0..<20 where process.isRunning { try? await Task.sleep(for: .milliseconds(25)) }
+    }.value
+  }
+
   private static func mayMutate(_ method: String) -> Bool {
     [
       "browser_open", "browser_navigate", "browser_click", "browser_hover", "browser_fill",

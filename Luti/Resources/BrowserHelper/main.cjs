@@ -9,7 +9,9 @@ const scratch = process.argv[3];
 const headless = process.argv[4] === '1';
 let browser;
 const tabs = new Map();
-// Downloads that browser_download imports; any other download is discarded when it ends.
+// Context -> its single close promise. Closing contexts still count toward capacity.
+const closingContexts = new Map();
+// Downloads that browser_download imports; any other download is cancelled at once.
 const claimed = new WeakSet();
 // Whole-frame budget, below the native 1 MiB RPC limit.
 const frameBudget = 1000000;
@@ -112,10 +114,9 @@ function registerPage(context, page) {
     for (const waiter of state.dialogWaiters) waiter(meta);
     state.dialogWaiters.clear();
   });
+  // Emission is synchronous: by the next turn browser_download's predicate has claimed it.
   page.on('download', download => {
-    download.path().catch(() => {}).finally(() => {
-      if (!claimed.has(download)) download.delete().catch(() => {});
-    });
+    setImmediate(() => { if (!claimed.has(download)) discard(download); });
   });
   page.on('close', () => forget(state));
   return state;
@@ -123,9 +124,21 @@ function registerPage(context, page) {
 // Every way a page goes away (tool close, native window close, page self-close)
 // ends here. Idempotent; the last owned page of a context closes that context.
 function forget(state) {
-  if (!tabs.delete(state.id)) return undefined;
-  const shared = [...tabs.values()].some(item => item.context === state.context);
-  return shared ? undefined : state.context.close().catch(() => {});
+  if (tabs.delete(state.id)) {
+    const shared = [...tabs.values()].some(item => item.context === state.context);
+    if (!shared) closeContext(state.context);
+  }
+  return closingContexts.get(state.context);
+}
+function closeContext(context) {
+  if (!closingContexts.has(context)) {
+    closingContexts.set(context, context.close().catch(() => {})
+      .finally(() => closingContexts.delete(context)));
+  }
+  return closingContexts.get(context);
+}
+function discard(download) {
+  download.cancel().catch(() => {}).finally(() => download.delete().catch(() => {}));
 }
 // Newest entries first in priority, bounded by serialized bytes rather than count.
 function recent(list, limit) {
@@ -229,27 +242,33 @@ async function closeOwnedTab(state) {
   return { closed: true, tabId: state.id };
 }
 async function addTab(args) {
-  if (tabs.size >= 4) fail('browser_capacity', 'Close a tab before opening another; maximum four tabs.');
+  if (tabs.size + closingContexts.size >= 4) fail('browser_capacity', 'Close a tab before opening another; maximum four tabs.');
   await ensureBrowser();
   const context = await browser.newContext({ viewport: { width: args.width || 1440, height: args.height || 900 }, acceptDownloads: true });
-  context.setDefaultTimeout(10000);
-  context.setDefaultNavigationTimeout(15000);
-  const page = await context.newPage();
-  const state = registerPage(context, page);
-  if (!state) { await context.close(); fail('browser_capacity', 'Close a tab before opening another; maximum four tabs.'); }
-  context.on('page', popup => {
-    if (stateForPage(popup)) return;
-    const popupState = registerPage(context, popup);
-    if (!popupState) {
-      push(state.console, { level: 'browser', text: 'Popup closed because the four-tab capacity is already in use.' });
-      popup.close().catch(() => {});
-      return;
-    }
-    push(state.console, { level: 'browser', text: 'Popup adopted as owned tab ' + popupState.id + '.' });
-  });
-  try { await page.goto(webURL(args.url), { waitUntil: 'domcontentloaded' }); }
-  catch (error) { tabs.delete(state.id); await context.close().catch(() => {}); throw error; }
-  return { tabId: state.id, url: cleanURL(page.url()), title: clip(await page.title(), 512) };
+  // Any failure after creation releases the context and every tab it registered.
+  try {
+    context.setDefaultTimeout(10000);
+    context.setDefaultNavigationTimeout(15000);
+    const page = await context.newPage();
+    const state = registerPage(context, page);
+    if (!state) fail('browser_capacity', 'Close a tab before opening another; maximum four tabs.');
+    context.on('page', popup => {
+      if (stateForPage(popup)) return;
+      const popupState = registerPage(context, popup);
+      if (!popupState) {
+        push(state.console, { level: 'browser', text: 'Popup closed because the four-tab capacity is already in use.' });
+        popup.close().catch(() => {});
+        return;
+      }
+      push(state.console, { level: 'browser', text: 'Popup adopted as owned tab ' + popupState.id + '.' });
+    });
+    await page.goto(webURL(args.url), { waitUntil: 'domcontentloaded' });
+    return { tabId: state.id, url: cleanURL(page.url()), title: clip(await page.title(), 512) };
+  } catch (error) {
+    for (const [id, item] of tabs) if (item.context === context) tabs.delete(id);
+    await closeContext(context);
+    throw error;
+  }
 }
 function cleanURL(value) {
   try { const u = new URL(value); u.username = ''; u.password = ''; u.search = ''; u.hash = ''; return u.href; } catch { return ''; }
@@ -373,13 +392,13 @@ async function dispatch(method, args) {
       const locator = await target(state, args);
       state.refs.clear(); state.snapshotId = null;
       let download;
+      // Claimed synchronously on emission, before the page-level discard can run.
+      const emitted = page.waitForEvent('download', { timeout: 15000, predicate: item => { claimed.add(item); return true; } });
       try {
-        [download] = await Promise.all([
-          // Claimed synchronously on emission, before the page-level discard can run.
-          page.waitForEvent('download', { timeout: 15000, predicate: item => { claimed.add(item); return true; } }),
-          locator.click()
-        ]);
+        [download] = await Promise.all([emitted, locator.click()]);
       } catch {
+        // A download that arrived before, or arrives after, the failed click is ours to discard.
+        emitted.then(discard, () => {});
         fail('browser_outcome_unknown', 'The click did not produce a confirmed download; observe before any retry.');
       }
       // Playwright keeps the original until its context closes; always release it here.

@@ -138,7 +138,11 @@ actor BrowserProvider {
     accepting = false
     // Nobody needs a first-run installation after Stop; do not wait for it.
     if preparing { await BrowserInstallation.shared.cancel() }
-    discardSession()
+    let owned = rpc, directory = scratch
+    rpc = nil
+    scratch = nil
+    await owned?.shutdown()
+    if let directory { try? FileManager.default.removeItem(at: directory) }
   }
 
   private func discardSession() {
