@@ -451,11 +451,14 @@ import XCTest
     let f = try Fixture(); defer { f.remove() }
     let jobs = JobManager(helper: Fixture.helper)
     let total = 2_097_152
-    let result = try await jobs.submit(
+    var result = try await jobs.submit(
       ProcessRequest(
-        program: "/bin/sh", args: ["-c", "yes x | head -c \(total)"], cwd: f.root, syncWait: 5))
-    XCTAssertEqual(result["terminal"], true)
+        program: "/bin/sh", args: ["-c", "yes x | head -c \(total)"], cwd: f.root, syncWait: 3))
     let id = try XCTUnwrap(result["jobId"].string)
+    for _ in 0..<100 where result["terminal"] != true {
+      result = try await jobs.status(id, waitMilliseconds: 100)
+    }
+    XCTAssertEqual(result["terminal"], true)
     let delta = try await jobs.logs(
       id, stdoutOffset: total - 1024, stderrOffset: 0, maxBytes: 512)
     let stdout = delta["delta"]["stdout"]
