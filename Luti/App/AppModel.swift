@@ -88,7 +88,10 @@ import Observation
     if let data = defaults.data(forKey: Self.selectedFolderKey) {
       activeProject = try? JSONDecoder().decode(ApprovedProject.self, from: data)
     }
-    apiKeySaved = credentials.exists(KeychainService.openAIAPIKey)
+    // An unavailable Keychain does not prove the saved key is absent. Let the
+    // connection read report the error and use the existing noninteractive retry
+    // path; only a confirmed missing item disables Start and automatic recovery.
+    apiKeySaved = (try? credentials.exists(KeychainService.openAIAPIKey)) ?? true
     Self.discardStaleRuns(in: contextDataRoot)
     reloadStoredActivity()
     LocalLogStore.runtime("info", "Luti app initialized.")
