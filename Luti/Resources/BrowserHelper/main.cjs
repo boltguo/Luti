@@ -436,7 +436,16 @@ async function dispatch(method, args) {
         ? await scoped.boundingBox()
         : await page.evaluate(() => ({ width: Math.max(document.documentElement.scrollWidth, innerWidth), height: Math.max(document.documentElement.scrollHeight, innerHeight) }));
       if (!size) fail('stale_snapshot', 'The scoped element is no longer visible. Take a fresh browser_observe(action=snapshot).');
-      if (args.fullPage && (size.width > 10000 || size.height > 16000 || size.width * size.height > 40000000)) fail('screenshot_too_large', 'Full-page screenshot exceeds 40 megapixels; use fullPage=false.');
+      // Budget rendered pixels before capture: scoped elements can be as large as full pages.
+      if (scoped || args.fullPage) {
+        const scale = await page.evaluate(() => window.devicePixelRatio || 1);
+        const pixels = size.width * size.height * scale * scale;
+        if (!(size.width <= 10000 && size.height <= 16000 && pixels <= 40000000)) {
+          fail('screenshot_too_large', scoped
+            ? 'Element screenshot exceeds 40 megapixels; scope a smaller element.'
+            : 'Full-page screenshot exceeds 40 megapixels; use fullPage=false.');
+        }
+      }
       const filename = crypto.randomUUID() + '.png';
       const bytes = scoped
         ? await scoped.screenshot({ type: 'png', timeout: 15000 })

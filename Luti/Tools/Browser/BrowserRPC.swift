@@ -5,6 +5,7 @@ final class BrowserRPC: @unchecked Sendable {
   private struct Pending {
     let method: String
     let continuation: CheckedContinuation<JSONValue, Error>
+    let deadline: Task<Void, Never>
   }
   private let process = Process()
   private let input = Pipe()
@@ -34,6 +35,7 @@ final class BrowserRPC: @unchecked Sendable {
           buffer.removeSubrange(...end)
           guard let message = try? JSONValue.decode(Data(line)), let id = message["id"].string else { return }
           let item = lock.withLock { pending.removeValue(forKey: id) }
+          item?.deadline.cancel()
           if message["error"] != .null {
             let code = message["error"]["code"].string ?? "browser_failed"
             let recovery = code == "stale_snapshot"
@@ -52,19 +54,21 @@ final class BrowserRPC: @unchecked Sendable {
     let bytes = try (["jsonrpc": "2.0", "id": .string(id), "method": .string(method), "params": arguments] as JSONValue).data() + Data([10])
     return try await withTaskCancellationHandler {
       try await withCheckedThrowingContinuation { continuation in
+        let deadline = Task { [weak self] in
+          guard (try? await Task.sleep(for: .seconds(25))) != nil, let self else { return }
+          if self.lock.withLock({ self.pending[id] != nil }) { self.stop() }
+        }
         let accepted = lock.withLock {
           if closed { return false }
-          pending[id] = Pending(method: method, continuation: continuation); return true
+          pending[id] = Pending(method: method, continuation: continuation, deadline: deadline)
+          return true
         }
-        guard accepted else { continuation.resume(throwing: Failure.stopped); return }
+        guard accepted else {
+          deadline.cancel(); continuation.resume(throwing: Failure.stopped); return
+        }
         DispatchQueue.global(qos: .utility).async { [self] in
           do { try input.fileHandleForWriting.write(contentsOf: bytes) }
           catch { stop() }
-        }
-        Task { [weak self] in
-          try? await Task.sleep(for: .seconds(25))
-          guard let self else { return }
-          if self.lock.withLock({ self.pending[id] != nil }) { self.stop() }
         }
       }
     } onCancel: { self.stop() }
@@ -80,6 +84,7 @@ final class BrowserRPC: @unchecked Sendable {
     }
     guard let continuations else { return }
     for item in continuations {
+      item.deadline.cancel()
       item.continuation.resume(throwing: Failure(
         "browser_transport_unknown", "Browser helper stopped or exceeded its deadline.",
         "Open a new browser session. Re-observe state before deciding whether any prior action should be repeated.",
