@@ -103,8 +103,11 @@ struct ProjectDiscovery: Sendable {
     let listing = try await workspace.listDirectory(
       path: path, depth: 2, maxEntries: 500, includeHidden: false)
     let entries = listing["entries"].array ?? []
-    let top = Set(
-      entries.filter { $0["depth"].int == 1 }.compactMap { $0["name"].string })
+    // The depth-2 listing is depth-first and bounded, so a large early directory
+    // can exhaust it before root manifests. Read the top level on its own.
+    let rootListing = try await workspace.listDirectory(
+      path: path, depth: 1, maxEntries: 2000, includeHidden: false)
+    let top = Set((rootListing["entries"].array ?? []).compactMap { $0["name"].string })
     func relative(_ name: String) -> String { path == "." ? name : path + "/" + name }
 
     var ecosystems: [ProjectEcosystem] = []

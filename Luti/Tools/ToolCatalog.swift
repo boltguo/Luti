@@ -136,7 +136,7 @@ public enum ToolCatalog {
         "Run one discovered project task by taskId, or one explicit program + argv, under the active Project Execution Policy. Use task IDs from inspect_project when available; task program/args/cwd cannot be overridden. Full local execution uses the current user's privileges and is NOT an OS sandbox.",
         process.merging(
           [
-            "taskId": string("Exact stable task id from inspect_project taskRegistry; mutually exclusive with program/args/cwd/environment", max: 128),
+            "taskId": string("Exact stable task id from inspect_project taskRegistry; mutually exclusive with program/args/cwd/environment", max: 1024),
             "program": string("Executable name or explicit path; mutually exclusive with taskId"),
             "args": strings("Literal argv, not shell syntax; only with program", max: 128),
           ], uniquingKeysWith: { _, b in b }), required: [], readOnly: false,

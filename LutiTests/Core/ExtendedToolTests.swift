@@ -515,7 +515,7 @@ import SwiftUI
       "demo/package.json")
     XCTAssertTrue(
       result["taskRegistry"]["tasks"].array?.contains {
-        $0["id"] == "task:dev" && $0["provider"] == "node"
+        $0["id"] == "task:dev@demo" && $0["provider"] == "node"
       } == true)
     XCTAssertEqual(result["frameworks"].array, ["vite", "three"])
     XCTAssertEqual(result["entryCandidates"].array, ["demo/src/main.ts"])
@@ -550,7 +550,7 @@ import SwiftUI
     XCTAssertEqual(summary["view"], "summary")
     XCTAssertEqual(summary["taskRegistry"], full["taskRegistry"])
     XCTAssertEqual(summary["taskRegistry"]["tasks"].array?.count, 6)
-    let test = try XCTUnwrap(summary["taskRegistry"]["tasks"].array?.first { $0["id"] == "task:test" })
+    let test = try XCTUnwrap(summary["taskRegistry"]["tasks"].array?.first { $0["id"] == "task:test@demo" })
     XCTAssertEqual(test["program"], "pnpm")
     XCTAssertEqual(test["args"], ["test"])
     XCTAssertEqual(test["cwd"], "demo")
@@ -679,6 +679,35 @@ import SwiftUI
       "run_process", arguments: ["taskId": "task:missing"])
     XCTAssertTrue(missing.isError)
     XCTAssertEqual(missing.data["error"], "task_not_found")
+  }
+
+  func testSubdirectoryTaskRunsInItsOwnDirectory() async throws {
+    let f = try Fixture(); defer { f.remove() }
+    try f.write("package.json", #"{"scripts":{"test":"/bin/echo ROOT_TASK"}}"#)
+    try f.write("web/package.json", #"{"scripts":{"test":"/bin/echo WEB_TASK"}}"#)
+    let router = try f.router(execution: true)
+    addTeardownBlock { await router.stop() }
+
+    let inspected = await router.callInCurrentProject("inspect_project", arguments: ["path": "web"])
+    let ids = inspected.data["taskRegistry"]["tasks"].array?.compactMap { $0["id"].string } ?? []
+    XCTAssertEqual(ids, ["task:test@web"])
+
+    let executed = await router.callInCurrentProject(
+      "run_process", arguments: ["taskId": "task:test@web", "syncWait": 3, "timeout": 20])
+    XCTAssertFalse(executed.isError)
+    XCTAssertTrue(executed.data["stdoutTail"].string?.contains("WEB_TASK") == true)
+
+    let unscoped = await router.callInCurrentProject(
+      "run_process", arguments: ["taskId": "task:test@other"])
+    XCTAssertTrue(unscoped.isError)
+  }
+
+  func testRootManifestFoundBehindLargeDirectory() async throws {
+    let f = try Fixture(); defer { f.remove() }
+    for index in 0..<600 { try f.write("a/\(index).txt", "") }
+    try f.write("package.json", #"{"scripts":{"test":"vitest"}}"#)
+    let graph = try await ProjectInspector(workspace: f.files).graph()
+    XCTAssertEqual(graph.ecosystems, [.node])
   }
 
   func testBrowserConsentAndArguments() async throws {

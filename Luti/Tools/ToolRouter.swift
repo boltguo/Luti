@@ -552,8 +552,9 @@ public actor ToolRouter {
           throw Failure.invalid(
             "taskId cannot be combined with program, args, cwd or environment.")
         }
-        let taskID = try a.string("taskId", max: 128)
-        let graph = try await ProjectInspector(workspace: workspace).graph()
+        let taskID = try a.string("taskId", max: 1024)
+        let graph = try await ProjectInspector(workspace: workspace)
+          .graph(path: ProjectTaskRegistry.split(taskID).path)
         let task = try ProjectTaskRegistry(graph: graph).task(taskID)
         program = task.program
         args = task.args

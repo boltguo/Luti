@@ -28,7 +28,9 @@ struct ProjectTask: Sendable, Equatable {
 ///
 /// A unique semantic kind gets the short identity task:test. Mixed projects that
 /// expose the same kind from multiple providers are namespaced (task:node:test,
-/// task:rust:test) so an AI never silently switches ecosystems.
+/// task:rust:test) so an AI never silently switches ecosystems. Tasks discovered
+/// below the project root carry their directory (task:test@packages/web), so a
+/// taskId always resolves in the directory it was discovered in.
 struct ProjectTaskRegistry: Sendable {
   let tasks: [ProjectTask]
 
@@ -43,7 +45,7 @@ struct ProjectTaskRegistry: Sendable {
         : "task:\(candidate.provider):\(candidate.kind)"
       rows.append(
         ProjectTask(
-          id: baseID,
+          id: candidate.cwd == "." ? baseID : baseID + "@" + candidate.cwd,
           kind: candidate.kind,
           provider: candidate.provider,
           program: candidate.program,
@@ -64,8 +66,9 @@ struct ProjectTaskRegistry: Sendable {
       guard let index = ordered.firstIndex(where: {
         $0.source == task.source && $0.program == task.program && $0.args == task.args
       }) else { return task }
+      let (base, path) = Self.split(task.id)
       return ProjectTask(
-        id: task.id + ":" + String(index + 1),
+        id: base + ":" + String(index + 1) + (path == "." ? "" : "@" + path),
         kind: task.kind,
         provider: task.provider,
         program: task.program,
@@ -78,8 +81,14 @@ struct ProjectTaskRegistry: Sendable {
     }
   }
 
+  /// Directory a taskId was discovered in; "." for the project root.
+  static func split(_ id: String) -> (base: String, path: String) {
+    guard let at = id.firstIndex(of: "@") else { return (id, ".") }
+    return (String(id[..<at]), String(id[id.index(after: at)...]))
+  }
+
   func task(_ id: String) throws -> ProjectTask {
-    guard id.hasPrefix("task:"), !id.contains("\0"), id.utf8.count <= 128 else {
+    guard id.hasPrefix("task:"), !id.contains("\0"), id.utf8.count <= 1024 else {
       throw Failure.invalid("taskId must be a bounded task identity returned by inspect_project.")
     }
     guard let task = tasks.first(where: { $0.id == id }) else {
