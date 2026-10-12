@@ -103,8 +103,8 @@ Lutiには、プロジェクトデータを受け取るCloud Backendがありま
 ## 動作要件
 
 - macOS 14以降。
-- Core AppはApple SiliconとIntel Macで動作。
-- 現在固定しているBrowser RuntimeはApple Siliconのみで、別途Google Chromeが必要。
+- Apple Silicon Mac（arm64）。
+- Browser Runtimeには別途Google Chromeが必要。
 - ソースビルドにはXcode 26+を推奨。
 - 有効にする各Remote ProviderのAccountと設定。
 
@@ -118,7 +118,7 @@ cd Luti
 open Luti.xcodeproj
 ```
 
-主なSchemeは`Luti`と`LutiProcessHost`です。Local Debug Buildは**Sign to Run Locally**を使います。Production ReleaseはHardened Runtimeを有効にし、署名・公証済みDMGとして配布します。Sparkleは署名済みUpdateを確認しますが、自動ではインストールしません。
+主なSchemeは`Luti`と`LutiProcessHost`です。App targetは**Apple Development**で自動署名します。Signing & Capabilitiesで自分のTeamに変更するか、**Sign to Run Locally**を選択してください。Production ReleaseはHardened Runtimeを有効にし、署名・公証済みDMGとして配布します。Sparkleは署名済みUpdateを確認しますが、自動ではインストールしません。
 
 ## オープンソース
 

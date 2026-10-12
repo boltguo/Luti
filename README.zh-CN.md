@@ -103,8 +103,8 @@ Luti 没有接收项目数据的云端服务。连接到 Luti 的 AI Host 仍会
 ## 系统要求
 
 - macOS 14 或更高版本。
-- 核心应用可在 Apple Silicon 和 Intel Mac 上运行。
-- 当前固定版本的 Browser Runtime 仅支持 Apple Silicon，并要求单独安装 Google Chrome。
+- Apple Silicon Mac（arm64）。
+- Browser Runtime 需要单独安装 Google Chrome。
 - 从源码构建建议使用 Xcode 26+。
 - 每个启用的远程 Provider 都需要相应账号与配置。
 
@@ -118,7 +118,7 @@ cd Luti
 open Luti.xcodeproj
 ```
 
-主要 Scheme 是 `Luti` 和 `LutiProcessHost`。本地 Debug 构建使用 **Sign to Run Locally**。正式版本启用 Hardened Runtime，并以签名、公证后的 DMG 分发。Sparkle 会检查签名更新，但不会静默安装。
+主要 Scheme 是 `Luti` 和 `LutiProcessHost`。App target 使用 **Apple Development** 自动签名；请在 Signing & Capabilities 中改为自己的 Team，或选择 **Sign to Run Locally**。正式版本启用 Hardened Runtime，并以签名、公证后的 DMG 分发。Sparkle 会检查签名更新，但不会静默安装。
 
 ## 开源
 

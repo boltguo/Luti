@@ -119,7 +119,7 @@ cd Luti
 open Luti.xcodeproj
 ```
 
-The main schemes are `Luti` and `LutiProcessHost`. Local Debug builds use **Sign to Run Locally**. Production releases keep Hardened Runtime enabled and ship as signed, notarized DMGs. Sparkle checks for signed updates but does not install them silently.
+The main schemes are `Luti` and `LutiProcessHost`. The app target signs with **Apple Development** (automatic); set your own Team under Signing & Capabilities, or choose **Sign to Run Locally**. Production releases keep Hardened Runtime enabled and ship as signed, notarized DMGs. Sparkle checks for signed updates but does not install them silently.
 
 ## Open source
 
