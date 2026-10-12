@@ -45,7 +45,7 @@ It can read and edit files, run builds and tests, inspect Git, drive a browser a
 1. **Install Luti.** Download the signed DMG from the latest GitHub Release, or build it from source.
 2. **Add a folder.** Choose one folder in **Projects**. Luti uses Full Project Access automatically; removing it returns the page to its empty state.
 3. **Configure the OpenAI tunnel.** Save the Tunnel ID and runtime API key from OpenAI Platform. The connection starts with the runtime automatically.
-4. **Use it in ChatGPT.** Add the tunnel as an app in the associated ChatGPT workspace (Developer Mode).
+4. **Use it in ChatGPT.** In [ChatGPT Plugins](https://chatgpt.com/plugins), select **+** > **Add custom MCP server**, choose **Tunnel** and select your Tunnel ID.
 
 Select the active folder locally before starting the Runtime.
 

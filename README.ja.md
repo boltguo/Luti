@@ -45,7 +45,7 @@ flowchart TB
 1. **Lutiをインストール。** 最新のGitHub Releaseから署名済みのDMGを入手するか、ソースからビルドします。
 2. **フォルダを追加。** **Projects**でフォルダを1つ選択します。フルアクセスが自動で適用され、削除すると空の状態に戻ります。
 3. **OpenAI Tunnelを設定。** OpenAI PlatformのTunnel IDとランタイムAPIキーを保存すると、Runtimeの起動に合わせて自動で接続します。
-4. **ChatGPTで使う。** 関連付けたChatGPTワークスペース（開発者モード）でTunnelアプリを追加します。
+4. **ChatGPTで使う。** [ChatGPT Plugins](https://chatgpt.com/plugins)で **+** > **Add custom MCP server** を選び、**Tunnel** を選択してTunnel IDを指定します。
 
 Runtimeを起動する前に、ローカルでフォルダを選択します。
 
