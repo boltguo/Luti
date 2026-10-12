@@ -784,7 +784,7 @@ struct MDLoadingIndicator: View {
         Circle().fill(MDTheme.primaryContainer)
       }
 
-      if reduceMotion || !animating {
+      if reduceMotion {
         MDExpressiveLoadingShape(phase: 0)
           .fill(foreground ?? (contained ? MDTheme.onPrimaryContainer : MDTheme.primary))
       } else {
