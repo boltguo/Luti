@@ -19,12 +19,6 @@ import XCTest
   }
   func testUnifiedEditAndPathToolsPreserveAllMutationCapabilities() async throws {
     let f = try Fixture(); defer { f.remove() }
-    let checkpoints = f.contextDataRoot.appendingPathComponent("projects")
-      .appendingPathComponent(LutiPaths.projectKey(for: f.root))
-      .appendingPathComponent("checkpoints")
-    let legacyManifest = checkpoints.appendingPathComponent("chk_legacy/manifest.json")
-    let legacyBytes = Data("Invalid legacy checkpoint must not block file operations".utf8)
-    try PrivateFiles.atomicWrite(legacyBytes, to: legacyManifest)
     let router = try f.router(execution: true)
 
     let createDirectory = await router.callInCurrentProject(
@@ -92,12 +86,6 @@ import XCTest
     XCTAssertTrue(crossPath.isError)
 
     await router.stop()
-    for result in [createDirectory, create, edit, copy, move, patched, deleted] {
-      XCTAssertEqual(result.data["checkpoint"], .null)
-      XCTAssertEqual(result.data["checkpointWarning"], .null)
-    }
-    XCTAssertEqual(try PrivateFiles.names(checkpoints), ["chk_legacy"])
-    XCTAssertEqual(try PrivateFiles.read(legacyManifest, max: 4096), legacyBytes)
   }
 
   func testArchiveUsesValidatedWorkspaceTreeAndProducesZip() async throws {

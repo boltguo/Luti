@@ -63,7 +63,6 @@
 		98C17B53A642B1580C45B951 /* Luti/Platform/Security/KeychainService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19EFBDF666C6E955A9A77560 /* Luti/Platform/Security/KeychainService.swift */; };
 		98D0DDB72D2F15DCD51D3CD0 /* Luti/Resources/en.lproj in Resources */ = {isa = PBXBuildFile; fileRef = 7D3C821CAB76BB8B7F5F2708 /* Luti/Resources/en.lproj */; };
 		9DA0B6CCD94C2ECBDB01C004 /* Luti/App/AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 092C1F4AB94198ACE0512B43 /* Luti/App/AppModel.swift */; };
-		A10000000000000000000010 /* Luti/App/LegacyMigration.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000011 /* Luti/App/LegacyMigration.swift */; };
 		A10000000000000000000006 /* THIRD_PARTY_NOTICES in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000007 /* THIRD_PARTY_NOTICES */; };
 		A10000000000000000000008 /* LutiTests/Core/ReleaseReadinessTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000009 /* LutiTests/Core/ReleaseReadinessTests.swift */; };
 		A10D673B3B93B07EB53293AB /* ValidationEvidenceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CFB36497718C5A8B4E44231 /* ValidationEvidenceTests.swift */; };
@@ -143,7 +142,6 @@
 		048388C80D153A19622B2F67 /* Luti/Core/Localization/LanguageSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/Core/Localization/LanguageSettings.swift; sourceTree = SOURCE_ROOT; };
 		06F310298AA6DA037D5A0619 /* Luti/Core/Workspace/WorkspacePatch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/Core/Workspace/WorkspacePatch.swift; sourceTree = SOURCE_ROOT; };
 		092C1F4AB94198ACE0512B43 /* Luti/App/AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/App/AppModel.swift; sourceTree = SOURCE_ROOT; };
-		A10000000000000000000011 /* Luti/App/LegacyMigration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/App/LegacyMigration.swift; sourceTree = SOURCE_ROOT; };
 		099302354A4B14C2B9329555 /* Luti.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Luti.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		0B2EE6387344F5A27540B322 /* Luti/NativeSupport/native.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = Luti/NativeSupport/native.c; sourceTree = SOURCE_ROOT; };
 		0CF497942D859193C1CC59EE /* LutiTests/Core/MCPTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LutiTests/Core/MCPTests.swift; sourceTree = SOURCE_ROOT; };
@@ -323,7 +321,6 @@
 			isa = PBXGroup;
 			children = (
 				092C1F4AB94198ACE0512B43 /* Luti/App/AppModel.swift */,
-				A10000000000000000000011 /* Luti/App/LegacyMigration.swift */,
 				EB6094E59F0C6D3D84E65384 /* Luti/App/LutiApp.swift */,
 				A10000000000000000000005 /* Luti/App/AppUpdater.swift */,
 			);
@@ -842,7 +839,6 @@
 				E3A970194035461DA98E6101 /* Luti/Features/Projects/ProjectsView.swift in Sources */,
 				FE309333D9B130590844E98A /* Luti/UI/Components/MDSelectionControls.swift in Sources */,
 				9DA0B6CCD94C2ECBDB01C004 /* Luti/App/AppModel.swift in Sources */,
-				A10000000000000000000010 /* Luti/App/LegacyMigration.swift in Sources */,
 				66715A5173D7397FEFEE6CAD /* Luti/App/LutiApp.swift in Sources */,
 				A10000000000000000000004 /* Luti/App/AppUpdater.swift in Sources */,
 				F64FCE721F05DBE27F7A7393 /* Luti/Core/Artifacts/ArtifactStore.swift in Sources */,
@@ -1030,7 +1026,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 6;
+				CURRENT_PROJECT_VERSION = 7;
 				DEVELOPMENT_TEAM = 6Q5B4266TF;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_DEBUG_DYLIB = NO;
@@ -1048,7 +1044,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 1.1.1;
+				MARKETING_VERSION = 1.2.0;
 				LUTI_APP_NAME = Luti;
 				PRODUCT_BUNDLE_IDENTIFIER = com.aouos.luti;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -1064,7 +1060,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 6;
+				CURRENT_PROJECT_VERSION = 7;
 				DEVELOPMENT_TEAM = 6Q5B4266TF;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_DEBUG_DYLIB = NO;
@@ -1082,7 +1078,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 1.1.1;
+				MARKETING_VERSION = 1.2.0;
 				LUTI_APP_NAME = "Luti Dev";
 				PRODUCT_BUNDLE_IDENTIFIER = com.aouos.luti.debug;
 				PRODUCT_NAME = "$(TARGET_NAME)";

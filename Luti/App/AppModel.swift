@@ -81,9 +81,6 @@ import Observation
     let credentials = credentials ?? (defaults == .standard ? .live : .empty)
     self.credentials = credentials
     self.makeProvider = makeProvider
-    // Test fixtures use their own suites and must never touch the user's Keychain.
-    LegacyMigration.run(defaults: defaults, dataRoot: contextDataRoot, keychain: defaults == .standard,
-                        credentials: credentials)
     tunnelID = defaults.string(forKey: Self.tunnelIDKey) ?? ""
     if let data = defaults.data(forKey: Self.selectedFolderKey) {
       activeProject = try? JSONDecoder().decode(ApprovedProject.self, from: data)

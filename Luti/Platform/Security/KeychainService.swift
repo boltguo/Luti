@@ -39,23 +39,6 @@ public enum KeychainService {
     guard status == errSecSuccess else { throw failure(status) }
     return true
   }
-  /// Accounts stored under this app's service. Attribute-only; never prompts.
-  public static func accounts() throws -> [String] {
-    let context = LAContext()
-    context.interactionNotAllowed = true
-    let q: [String: Any] = [
-      kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: Identity.keychainService,
-      kSecMatchLimit as String: kSecMatchLimitAll, kSecReturnAttributes as String: true,
-      kSecUseAuthenticationContext as String: context,
-    ]
-    var items: CFTypeRef?
-    let status = SecItemCopyMatching(q as CFDictionary, &items)
-    if status == errSecItemNotFound { return [] }
-    guard status == errSecSuccess, let rows = items as? [[String: Any]] else {
-      throw failure(status)
-    }
-    return rows.compactMap { $0[kSecAttrAccount as String] as? String }
-  }
   public static func save(_ value: String, account: String = openAIAPIKey) throws {
     guard !value.isEmpty, value.utf8.count <= 8192,
       value.utf8.allSatisfy({ (33...126).contains($0) })
@@ -84,21 +67,20 @@ public enum KeychainService {
   }
 }
 
-/// Shared credential access for connection recovery and upgrade migration.
+/// Credential access for connection settings and recovery.
 /// Fixtures supply an in-memory store instead of touching the login Keychain.
 struct KeychainClient: Sendable {
   var read: @Sendable (String, Bool) throws -> String?
   var save: @Sendable (String, String) throws -> Void
   var remove: @Sendable (String) throws -> Void
   var exists: @Sendable (String) throws -> Bool
-  var accounts: @Sendable () throws -> [String]
 
   static let live = KeychainClient(
     read: { try KeychainService.read(account: $0, allowInteraction: $1) },
     save: { try KeychainService.save($0, account: $1) },
     remove: { try KeychainService.remove(account: $0) },
-    exists: { try KeychainService.exists(account: $0) }, accounts: { try KeychainService.accounts() })
+    exists: { try KeychainService.exists(account: $0) })
   static let empty = KeychainClient(
     read: { _, _ in nil }, save: { _, _ in throw Failure.invalid("No credential store configured.") },
-    remove: { _ in }, exists: { _ in false }, accounts: { [] })
+    remove: { _ in }, exists: { _ in false })
 }

@@ -2,28 +2,7 @@ import XCTest
 @testable import Luti
 
 @MainActor final class ProjectActivityTests: XCTestCase {
-  func testRuntimeWritesOnlyActivityAndIgnoresRetiredStorage() async throws {
-    let f = try Fixture(); defer { f.remove() }
-    let directory = LocalLogStore.activityDirectory(for: f.root, dataRoot: f.contextDataRoot)
-    let namespace = directory.deletingLastPathComponent()
-    let legacy = ["manifest.json", "memory.json", "sessions/broken.json", "checkpoints/broken.json"]
-    for name in legacy {
-      let file = namespace.appendingPathComponent(name)
-      try FileManager.default.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
-      try Data("old-invalid-data".utf8).write(to: file)
-    }
-    let router = try f.router(execution: true)
-    let result = await router.call("project_info", arguments: [:])
-    XCTAssertFalse(result.isError)
-    await router.stop()
-    XCTAssertFalse(LocalLogStore.recentActivities(limit: 10, directory: directory).isEmpty)
-    try LocalLogStore.clearActivities(directory: directory)
-    for name in legacy {
-      XCTAssertEqual(try String(contentsOf: namespace.appendingPathComponent(name), encoding: .utf8), "old-invalid-data")
-    }
-  }
-
-  func testNewRuntimeNeverCreatesSessionMemoryOrCheckpointStorage() async throws {
+  func testRuntimePersistsOnlyActivity() async throws {
     let f = try Fixture(); defer { f.remove() }
     let router = try f.router(execution: true)
     _ = await router.callInCurrentProject("edit_files", arguments: ["action": "create", "path": "source.txt", "content": "x"])
