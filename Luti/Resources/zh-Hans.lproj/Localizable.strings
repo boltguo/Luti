@@ -60,6 +60,7 @@
 "connection.quickSetup" = "快捷配置";
 
 /* home */
+"home.accessNotice" = "启动后，AI 可读写项目、运行命令并操作浏览器。命令使用你的 macOS 用户权限，可能访问项目外文件；工具结果会返回给已连接的 AI。";
 "home.checkingTunnelClient" = "正在检查 Tunnel 客户端。";
 "home.chooseProject" = "选择项目";
 "home.configuration" = "配置";
@@ -120,7 +121,6 @@
 "projects.selected" = "已选择";
 "projects.showFinder" = "在访达中显示";
 "projects.stopSessionSwitchRemoveProjects" = "请先停止 Luti，再修改项目设置。";
-"projects.whileRunningChatGPTSwitchOnlyBetween" = "运行时，AI 应用只能访问已添加的项目。";
 
 /* settings */
 "settings.about" = "关于";

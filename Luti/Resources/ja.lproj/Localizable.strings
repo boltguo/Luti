@@ -60,6 +60,7 @@
 "connection.quickSetup" = "クイック設定";
 
 /* home */
+"home.accessNotice" = "開始すると、接続したAIがプロジェクトの編集、コマンドの実行、ブラウザ操作を行えます。コマンドはあなたのmacOSユーザー権限で動作し、プロジェクト外のファイルにもアクセスできます。ツールの結果は接続先のAIに送信されます。";
 "home.checkingTunnelClient" = "Tunnelクライアントを確認しています。";
 "home.chooseProject" = "プロジェクトを選択";
 "home.configuration" = "設定";
@@ -120,7 +121,6 @@
 "projects.selected" = "選択中";
 "projects.showFinder" = "Finderに表示";
 "projects.stopSessionSwitchRemoveProjects" = "プロジェクトの設定を変更する前に、Lutiを停止してください。";
-"projects.whileRunningChatGPTSwitchOnlyBetween" = "Lutiの実行中、AIアプリがアクセスできるのは追加済みのプロジェクトだけです。";
 
 /* settings */
 "settings.about" = "情報";

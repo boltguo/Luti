@@ -57,6 +57,7 @@ import XCTest
         "connection.stopToEdit",
         "home.configureTunnel",
         "home.saveConnection",
+        "home.accessNotice",
         "activity.projectRoot",
         "activity.browserActionExecuted",
         "activity.browserConditionConfirmed",
@@ -105,6 +106,33 @@ import XCTest
     let ordinary = "Use project-scoped storage and run the test task."
     XCTAssertEqual(Redactor().clean(ordinary), ordinary)
     XCTAssertEqual(Redactor(known: ["fixture-opaque-value"]).clean("fixture-opaque-value"), "[REDACTED]")
+  }
+
+  func testStructuredRedactionPreservesOrdinaryValuesAndMasksCredentialFields() {
+    let marker = "fixture-private-marker"
+    let input: JSONValue = [
+      "nested": [[
+        "password": .string(marker), "access_token": .string(marker),
+        "API-Key": .string(marker), "Authorization": .string(marker),
+        "cookies": [["name": "session", "value": .string(marker)]],
+        "credentials": ["value": .string(marker)],
+        "token": 123456, "secret": .null,
+        "label": "Saved", "count": 3, "ready": true,
+        "tokenCount": 12, "passwordRequired": false,
+        "message": .string("password=" + marker),
+        "knownValue": "fixture-opaque-value",
+      ]],
+    ]
+    let cleaned = Redactor(known: ["fixture-opaque-value"]).clean(input)
+    XCTAssertFalse(cleaned.text().contains(marker))
+    XCTAssertFalse(cleaned.text().contains("fixture-opaque-value"))
+    let row = cleaned["nested"].array?.first ?? .null
+    for key in ["password", "access_token", "API-Key", "Authorization", "cookies", "credentials", "token"] {
+      XCTAssertEqual(row[key], "[REDACTED]", key)
+    }
+    for key in ["secret", "label", "count", "ready", "tokenCount", "passwordRequired"] {
+      XCTAssertEqual(row[key], input["nested"].array?.first?[key], key)
+    }
   }
 
   func testActivityRedactsBeforePersistenceAndAfterReload() async throws {

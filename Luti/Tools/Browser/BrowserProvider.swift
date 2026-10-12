@@ -125,16 +125,7 @@ actor BrowserProvider {
         ["tabId": result["tabId"], "url": result["url"], "artifact": artifact.metadata],
         content: [artifact.link])
     }
-    // Preserve structure while cleaning credential-shaped output from logs and page observations.
-    func clean(_ value: JSONValue) -> JSONValue {
-      switch value {
-      case .string(let text): .string(redactor.clean(text))
-      case .array(let rows): .array(rows.map(clean))
-      case .object(let rows): .object(rows.mapValues(clean))
-      default: value
-      }
-    }
-    return ToolOutput(clean(result))
+    return ToolOutput(redactor.clean(result))
   }
   func stop() async {
     accepting = false

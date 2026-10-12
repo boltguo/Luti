@@ -403,6 +403,12 @@ extension BrowserIntegrationTests {
     let opened = try await browser.call("browser_open", ["url": .string(url)])
     let tab = opened.data["tabId"]
     let marker = "AUDIT_DEMO_CREDENTIAL_0123456789"
+    let structured = try await browser.call("browser_evaluate", ["tabId": tab, "expression": .string(
+      "({account:{password:'\(marker)',access_token:'\(marker)'},items:[{Authorization:'\(marker)',label:'Ready'}],count:2})")])
+    XCTAssertFalse(structured.mcp.text().contains(marker))
+    XCTAssertEqual(structured.data["value"]["account"]["password"], "[REDACTED]")
+    XCTAssertEqual(structured.data["value"]["items"].array?.first?["label"], "Ready")
+    XCTAssertEqual(structured.data["value"]["count"], 2)
     let requests: [(String, JSONValue)] = [
       ("browser_evaluate", ["tabId": tab, "expression": .string("(()=>{throw new Error('access_token=\(marker)')})()")]),
       ("browser_navigate", ["tabId": tab, "url": .string(url + "/failure?access_token=" + marker)]),

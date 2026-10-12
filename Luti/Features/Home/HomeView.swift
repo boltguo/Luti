@@ -76,6 +76,14 @@ struct HomeView: View {
       .disabled(model.contextBusy || model.phase == .stopping
         || (!model.active && model.activeProject != nil && !model.canLaunch))
       .accessibilityIdentifier("runtime-toggle")
+
+      if !model.active && model.activeProject != nil {
+        Text(L10n.text("home.accessNotice"))
+          .font(.footnote)
+          .foregroundStyle(MDTheme.onSurfaceVariant)
+          .multilineTextAlignment(.center)
+          .fixedSize(horizontal: false, vertical: true)
+      }
     }
     .frame(maxWidth: .infinity)
     .padding(.horizontal, 20)
