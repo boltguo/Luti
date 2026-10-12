@@ -46,6 +46,7 @@ import SwiftUI
             } else {
               MainWindowView(
                 model: model, loginItem: LoginItemController(),
+                updater: AppUpdater(startingUpdater: false),
                 selectedTab: .constant(tab))
             }
           }
@@ -95,6 +96,7 @@ import SwiftUI
       pages.append((page.rawValue, AnyView(SettingsView(
         model: model,
         loginItem: LoginItemController(),
+        updater: AppUpdater(startingUpdater: false),
         page: .constant(page)))))
     }
     for (name, page) in pages {
@@ -915,7 +917,8 @@ import SwiftUI
     model.apiKeySaved = true
 
     let root = MainWindowView(
-      model: model, loginItem: LoginItemController(), selectedTab: .constant(.configuration)
+      model: model, loginItem: LoginItemController(), updater: AppUpdater(startingUpdater: false),
+      selectedTab: .constant(.configuration)
     )
     .frame(width: 520, height: 760)
     .environment(\.colorScheme, .light)

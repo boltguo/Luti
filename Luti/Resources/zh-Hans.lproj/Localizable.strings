@@ -90,6 +90,7 @@
 "menu.pages" = "页面";
 "menu.quitLuti" = "退出 Luti";
 "menu.runtime" = "运行";
+"menu.checkForUpdates" = "检查更新…";
 "menu.settings" = "设置…";
 "menu.start" = "启动…";
 "menu.startService" = "启动服务";
@@ -125,6 +126,8 @@
 "settings.components" = "组件版本";
 "settings.displayLanguage" = "显示语言";
 "settings.general" = "通用";
+"settings.updates" = "更新";
+"settings.automaticUpdateChecks" = "自动检查更新";
 "settings.japanese" = "日语";
 "settings.launchLogin" = "登录时打开 Luti";
 "settings.notRegistered" = "未注册";

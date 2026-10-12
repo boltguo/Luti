@@ -17,6 +17,7 @@ enum SettingsPage: String, CaseIterable {
 struct SettingsView: View {
   let model: AppModel
   let loginItem: LoginItemController
+  @ObservedObject var updater: AppUpdater
   @Binding var page: SettingsPage
   @Bindable private var language = LanguageSettings.shared
 
@@ -90,6 +91,33 @@ struct SettingsView: View {
           icon: "exclamationmark.triangle",
           color: MDTheme.error)
           .textSelection(.enabled)
+      }
+
+      MDSection(title: L10n.text("settings.updates")) {
+        MDList {
+          MDListRow(
+            title: L10n.text("settings.automaticUpdateChecks"),
+            symbol: "arrow.triangle.2.circlepath",
+            position: .first,
+            iconTone: .blue
+          ) {
+            MDSwitch(
+              isOn: Binding(
+                get: { updater.automaticallyChecksForUpdates },
+                set: { updater.setAutomaticallyChecksForUpdates($0) }),
+              label: L10n.text("settings.automaticUpdateChecks"))
+              .accessibilityIdentifier("automatic-update-checks")
+          }
+
+          MDNavigationRow(
+            title: L10n.text("menu.checkForUpdates"),
+            symbol: "arrow.down.circle",
+            position: .last,
+            iconTone: .green,
+            action: updater.checkForUpdates)
+            .disabled(!updater.canCheckForUpdates)
+            .accessibilityIdentifier("check-for-updates")
+        }
       }
 
       MDSection(title: L10n.text("settings.about")) {

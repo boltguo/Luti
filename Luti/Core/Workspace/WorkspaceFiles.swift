@@ -23,7 +23,7 @@ public struct TextEdit: Sendable {
   }
 }
 
-/// The one local folder selected by the Mac user. Lite always uses this folder
+/// The one local folder selected by the Mac user. Luti always uses this folder
 /// with full access.
 public struct ApprovedProject: Codable, Identifiable, Sendable, Equatable {
   public let id: String

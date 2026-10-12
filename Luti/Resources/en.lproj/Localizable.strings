@@ -90,6 +90,7 @@
 "menu.pages" = "Pages";
 "menu.quitLuti" = "Quit Luti";
 "menu.runtime" = "Runtime";
+"menu.checkForUpdates" = "Check for Updates…";
 "menu.settings" = "Settings…";
 "menu.start" = "Start…";
 "menu.startService" = "Start Service";
@@ -125,6 +126,8 @@
 "settings.components" = "Components";
 "settings.displayLanguage" = "Display language";
 "settings.general" = "General";
+"settings.updates" = "Updates";
+"settings.automaticUpdateChecks" = "Automatically check for updates";
 "settings.japanese" = "Japanese";
 "settings.launchLogin" = "Open Luti at Login";
 "settings.notRegistered" = "Not registered";

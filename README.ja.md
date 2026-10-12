@@ -42,7 +42,7 @@ flowchart TB
 
 ## クイックスタート
 
-1. **Luti Liteをビルド。** 以下の手順で、このブランチのソースからビルドします。
+1. **Lutiをインストール。** 最新のGitHub Releaseから署名済みのDMGを入手するか、ソースからビルドします。
 2. **フォルダを追加。** **Projects**でフォルダを1つ選択します。フルアクセスが自動で適用され、削除すると空の状態に戻ります。
 3. **OpenAI Tunnelを設定。** OpenAI PlatformのTunnel IDとランタイムAPIキーを保存すると、Runtimeの起動に合わせて自動で接続します。
 4. **ChatGPTで使う。** 関連付けたChatGPTワークスペース（開発者モード）でTunnelアプリを追加します。
@@ -55,11 +55,11 @@ Runtimeを起動する前に、ローカルでフォルダを選択します。
 |---|---|---|---|
 | **OpenAI Secure MCP Tunnel** | Tunnel ID + ランタイムAPIキー | ChatGPTワークスペースの関連付け | 公開Endpointなしで使うChatGPT |
 
-LiteのMCP接続はOpenAI Tunnelのみです。Lutiは固定バージョンでハッシュ検証済みの`tunnel-client`をダウンロードし、OpenAIへ送信方向で接続します。公開Listenerはなく、OAuthフローもありません。接続ごとの新しいCredentialだけを受け付けるLoopback専用Listenerを接続が所有します。接続障害が起きてもProject Runtimeと実行中のJobは停止せず、Runtimeを再起動せずに接続ページから再接続できます。
+LutiのMCP接続はOpenAI Tunnelのみです。Lutiは固定バージョンでハッシュ検証済みの`tunnel-client`をダウンロードし、OpenAIへ送信方向で接続します。公開Listenerはなく、OAuthフローもありません。接続ごとの新しいCredentialだけを受け付けるLoopback専用Listenerを接続が所有します。接続障害が起きてもProject Runtimeと実行中のJobは停止せず、Runtimeを再起動せずに接続ページから再接続できます。
 
 ## 機能
 
-このLiteブランチは6領域・**24個のPublic MCP Tool**を公開します。MCPはローカルで選択したフォルダを使用し、`projects`、`memory`、`skills`のToolは公開しません。
+Lutiは6領域・**24個のPublic MCP Tool**を公開します。MCPはローカルで選択したフォルダを使用し、`projects`、`memory`、`skills`のToolは公開しません。
 
 | Domain | Public Tools | 範囲 |
 |---|---|---|
@@ -84,18 +84,18 @@ Jobの結果はプロセス終了と認識したテスト結果を分け、限�
 
 ## ローカル記録
 
-Liteは容量を制限した実行履歴だけを`~/.luti/`に保存します。現在の実行で変更したファイルとJobの検証状態はメモリに保持します。Session、Memory、ファイル復元データを保存せず、プロジェクト内にもRuntimeメタデータを書き込みません。
+Lutiは容量を制限した実行履歴だけを`~/.luti/`に保存します。現在の実行で変更したファイルとJobの検証状態はメモリに保持します。Session、Memory、ファイル復元データを保存せず、プロジェクト内にもRuntimeメタデータを書き込みません。
 
 ## セキュリティとプライバシー
 
 | 境界 | 動作 |
 |---|---|
 | **Project Scope** | ファイルとProject操作を現在の承認済みProjectに限定 |
-| **Permission Mode** | Liteは選択したフォルダ内で常にフルアクセスを使用。外部操作の権限境界は維持します |
+| **Permission Mode** | Lutiは選択したフォルダ内で常にフルアクセスを使用。外部操作の権限境界は維持します |
 | **Credential** | Runtime CredentialをmacOS Keychainに保存し、機密値を永続化前にRedact |
 | **Remote Access** | 設定済みのOpenAI TunnelだけがLutiに到達。ListenerはLoopback専用でCredentialに結びつく |
 | **Git** | 公開Git Capabilityは読み取り専用 |
-| **ブラウザ自動化** | Lutiが所有するBrowser Sessionのみを操作。Liteではデスクトップ撮影やマウス・キーボード操作は提供しません |
+| **ブラウザ自動化** | Lutiが所有するBrowser Sessionのみを操作。デスクトップ撮影やマウス・キーボード操作は提供しません |
 | **Process Execution** | `fullLocal`はユーザー権限で実行され、OS Sandboxではない |
 
 Lutiには、プロジェクトデータを受け取るCloud Backendがありません。ただし、接続したAI Hostには要求したTool Resultが送られ、Source Code、Command Output、Screenshotなどが含まれる場合があります。有効にするAI HostとTunnel Providerは、いずれも信頼境界の一部です。
@@ -118,7 +118,7 @@ cd Luti
 open Luti.xcodeproj
 ```
 
-主なSchemeは`Luti`と`LutiProcessHost`です。Local Debug Buildは**Sign to Run Locally**を使います。Production ReleaseはHardened Runtimeを有効にし、署名・公証済みDMGとして配布します。Liteには自動更新機能はありません。このブランチから再ビルドしてください。
+主なSchemeは`Luti`と`LutiProcessHost`です。Local Debug Buildは**Sign to Run Locally**を使います。Production ReleaseはHardened Runtimeを有効にし、署名・公証済みDMGとして配布します。Sparkleは署名済みUpdateを確認しますが、自動ではインストールしません。
 
 ## オープンソース
 

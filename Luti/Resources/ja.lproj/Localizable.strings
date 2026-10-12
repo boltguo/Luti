@@ -90,6 +90,7 @@
 "menu.pages" = "ページ";
 "menu.quitLuti" = "Lutiを終了";
 "menu.runtime" = "ランタイム";
+"menu.checkForUpdates" = "アップデートを確認…";
 "menu.settings" = "設定…";
 "menu.start" = "開始…";
 "menu.startService" = "サービスを開始";
@@ -125,6 +126,8 @@
 "settings.components" = "コンポーネント";
 "settings.displayLanguage" = "表示言語";
 "settings.general" = "一般";
+"settings.updates" = "アップデート";
+"settings.automaticUpdateChecks" = "アップデートを自動確認";
 "settings.japanese" = "日本語";
 "settings.launchLogin" = "ログイン時にLutiを開く";
 "settings.notRegistered" = "未登録";

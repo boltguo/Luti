@@ -3,12 +3,24 @@ import XCTest
 @testable import Luti
 
 @MainActor final class ReleaseReadinessTests: XCTestCase {
-
-  func testLiteDoesNotUsePublicReleaseUpdateFeed() throws {
+  func testUpdateFeedAndSecurityDefaults() throws {
     let info = try XCTUnwrap(Bundle.main.infoDictionary)
-    XCTAssertNil(info["SUFeedURL"])
-    XCTAssertNil(info["SUPublicEDKey"])
+    XCTAssertEqual(info["SUFeedURL"] as? String,
+      "https://github.com/boltguo/Luti/releases/latest/download/appcast.xml")
+    let key = try XCTUnwrap(info["SUPublicEDKey"] as? String)
+    XCTAssertEqual(Data(base64Encoded: key)?.count, 32)
+    XCTAssertEqual(info["SUEnableAutomaticChecks"] as? Bool, true)
+    XCTAssertEqual(info["SUAutomaticallyUpdate"] as? Bool, false)
+    XCTAssertEqual(info["SUEnableSystemProfiling"] as? Bool, false)
+    XCTAssertEqual(info["SUVerifyUpdateBeforeExtraction"] as? Bool, true)
     XCTAssertEqual(Identity.version, info["CFBundleShortVersionString"] as? String)
+  }
+
+  func testUpdaterCanBeConstructedWithoutStartingNetworkChecks() {
+    let updater = AppUpdater(startingUpdater: false)
+    XCTAssertFalse(updater.canCheckForUpdates)
+    updater.checkForUpdates() // A disabled menu action is also guarded in code.
+    XCTAssertFalse(updater.canCheckForUpdates)
   }
 
   func testReleaseLabelsExistInEveryBundledLanguage() throws {
@@ -16,6 +28,9 @@ import XCTest
       let path = try XCTUnwrap(Bundle.main.path(forResource: language, ofType: "lproj"))
       let bundle = try XCTUnwrap(Bundle(path: path))
       for key in [
+        "menu.checkForUpdates",
+        "settings.updates",
+        "settings.automaticUpdateChecks",
         "projects.noProjectsYet",
         "projects.projectFolder",
         "projects.removeProject",
@@ -34,7 +49,7 @@ import XCTest
     let url = try XCTUnwrap(Bundle.main.url(forResource: "THIRD_PARTY_NOTICES", withExtension: nil))
     let notice = try String(contentsOf: url, encoding: .utf8)
     XCTAssertFalse(notice.contains("cloudflare/cloudflared"))
-    for component in ["SwiftNIO 2.103.0", "Playwright Core 1.63.0",
+    for component in ["SwiftNIO 2.103.0", "Sparkle 2.10.0", "Playwright Core 1.63.0",
                       "Node.js 24.21.0", "openai/tunnel-client v0.0.14",
                       "utilsBundle.js.LICENSE", "Swift Runtime Library Exception"] {
       XCTAssertTrue(notice.contains(component), component)

@@ -37,6 +37,8 @@
 		6435981425BB744238BABB9B /* Luti/Core/JSONValue.swift in Sources */ = {isa = PBXBuildFile; fileRef = C84FE4D9A5E55F8A29DEB628 /* Luti/Core/JSONValue.swift */; };
 		65BAAE6AB9438F1B79E0B9C0 /* Luti/Tools/Browser/BrowserProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC136B0E6BAE85314E515184 /* Luti/Tools/Browser/BrowserProvider.swift */; };
 		66715A5173D7397FEFEE6CAD /* Luti/App/LutiApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB6094E59F0C6D3D84E65384 /* Luti/App/LutiApp.swift */; };
+		A10000000000000000000001 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = A10000000000000000000002 /* Sparkle */; };
+		A10000000000000000000004 /* Luti/App/AppUpdater.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000005 /* Luti/App/AppUpdater.swift */; };
 		6A24547BC793ED558EF7C917 /* Luti/Core/Workspace/WorkspaceMutations.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A464C222D817C5BDA738047 /* Luti/Core/Workspace/WorkspaceMutations.swift */; };
 		6A51A327D346A2954492A2D6 /* Luti/Core/Workspace/WorkspaceDirectory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D3963E04D511B976F7E6C7B /* Luti/Core/Workspace/WorkspaceDirectory.swift */; };
 		6A5A6097A8FFDA967F0D5D2D /* LutiTests/Core/MCPTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CF497942D859193C1CC59EE /* LutiTests/Core/MCPTests.swift */; };
@@ -226,6 +228,7 @@
 		E7612F932AC349918F720006 /* ConnectionComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ConnectionComponents.swift; path = Luti/Features/Configuration/ConnectionComponents.swift; sourceTree = SOURCE_ROOT; };
 		E7612F932AC349918F720007 /* ConnectionProviderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ConnectionProviderTests.swift; path = LutiTests/Core/ConnectionProviderTests.swift; sourceTree = SOURCE_ROOT; };
 		EB6094E59F0C6D3D84E65384 /* Luti/App/LutiApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/App/LutiApp.swift; sourceTree = SOURCE_ROOT; };
+		A10000000000000000000005 /* Luti/App/AppUpdater.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/App/AppUpdater.swift; sourceTree = SOURCE_ROOT; };
 		F0A000000000000000000001 /* Luti/Core/Runtime/ToolGrant.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/Core/Runtime/ToolGrant.swift; sourceTree = SOURCE_ROOT; };
 		F2C0A34CEE031F42AF4743A9 /* LutiTests/Core/ExecutionPolicyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LutiTests/Core/ExecutionPolicyTests.swift; sourceTree = SOURCE_ROOT; };
 		F439AC49C1682784AAB23A28 /* Luti/Tools/Project/ProjectTaskRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/Tools/Project/ProjectTaskRegistry.swift; sourceTree = SOURCE_ROOT; };
@@ -245,6 +248,7 @@
 				E8C8052EFC3E751A63B8474D /* NIOCore in Frameworks */,
 				534AC3095778E8A954B681AD /* NIOHTTP1 in Frameworks */,
 				214A36BC4C5E450C1788102B /* NIOPosix in Frameworks */,
+				A10000000000000000000001 /* Sparkle in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -318,6 +322,7 @@
 			children = (
 				092C1F4AB94198ACE0512B43 /* Luti/App/AppModel.swift */,
 				EB6094E59F0C6D3D84E65384 /* Luti/App/LutiApp.swift */,
+				A10000000000000000000005 /* Luti/App/AppUpdater.swift */,
 			);
 			path = App;
 			sourceTree = "<group>";
@@ -689,6 +694,7 @@
 				8D3F6949966C2A73CF07CCF9 /* NIOCore */,
 				30B647A2B724C2A3210E413F /* NIOHTTP1 */,
 				CA64C5AC378C67ECFFFE6471 /* NIOPosix */,
+				A10000000000000000000002 /* Sparkle */,
 			);
 			productName = Luti;
 			productReference = 099302354A4B14C2B9329555 /* Luti.app */;
@@ -743,6 +749,7 @@
 			mainGroup = 931BAC40E0989DC841B8C1D2;
 			packageReferences = (
 				5C1B50C09D2F6824D11481D0 /* XCRemoteSwiftPackageReference "swift-nio" */,
+				A10000000000000000000003 /* XCRemoteSwiftPackageReference "Sparkle" */,
 			);
 			productRefGroup = 5151B46607EBC8890D8DFCC2 /* Products */;
 			projectDirPath = "";
@@ -833,6 +840,7 @@
 				FE309333D9B130590844E98A /* Luti/UI/Components/MDSelectionControls.swift in Sources */,
 				9DA0B6CCD94C2ECBDB01C004 /* Luti/App/AppModel.swift in Sources */,
 				66715A5173D7397FEFEE6CAD /* Luti/App/LutiApp.swift in Sources */,
+				A10000000000000000000004 /* Luti/App/AppUpdater.swift in Sources */,
 				F64FCE721F05DBE27F7A7393 /* Luti/Core/Artifacts/ArtifactStore.swift in Sources */,
 				36A2E983CE01A96A0C90590C /* Luti/Core/Artifacts/ImagePreview.swift in Sources */,
 				17281B2BFB3374449459012B /* Luti/Core/Localization/LanguageSettings.swift in Sources */,
@@ -1128,6 +1136,14 @@
 				version = 2.103.0;
 			};
 		};
+		A10000000000000000000003 /* XCRemoteSwiftPackageReference "Sparkle" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sparkle-project/Sparkle";
+			requirement = {
+				kind = exactVersion;
+				version = 2.10.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -1145,6 +1161,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 5C1B50C09D2F6824D11481D0 /* XCRemoteSwiftPackageReference "swift-nio" */;
 			productName = NIOPosix;
+		};
+		A10000000000000000000002 /* Sparkle */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A10000000000000000000003 /* XCRemoteSwiftPackageReference "Sparkle" */;
+			productName = Sparkle;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

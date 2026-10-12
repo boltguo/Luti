@@ -25,6 +25,7 @@ struct MainWindowView: View {
   @Environment(\.scenePhase) private var scenePhase
   @Bindable var model: AppModel
   let loginItem: LoginItemController
+  @ObservedObject var updater: AppUpdater
   @Binding var selectedTab: AppTab
   @State private var settingsPage = SettingsPage.root
 
@@ -42,7 +43,7 @@ struct MainWindowView: View {
         case .configuration: ConfigurationView(model: model)
         case .projects: ProjectsView(model: model)
         case .settings:
-          SettingsView(model: model, loginItem: loginItem, page: $settingsPage)
+          SettingsView(model: model, loginItem: loginItem, updater: updater, page: $settingsPage)
         }
       }.frame(maxWidth: .infinity, maxHeight: .infinity)
     }

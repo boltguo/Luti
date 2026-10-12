@@ -42,7 +42,7 @@ flowchart TB
 
 ## 快速开始
 
-1. **构建 Luti Lite。** 按下方说明从此分支的源码构建。
+1. **安装 Luti。** 从最新 GitHub Release 下载已签名的 DMG，或从源码构建。
 2. **添加文件夹。** 在 **Projects** 中选择一个文件夹，默认完全访问。移除后回到空状态，可重新添加。
 3. **配置 OpenAI Tunnel。** 保存 OpenAI Platform 中的 Tunnel ID 和运行 API Key，连接会随 Runtime 自动启动。
 4. **在 ChatGPT 中使用。** 在关联的 ChatGPT 工作区（开发者模式）中添加该 Tunnel 应用。
@@ -55,11 +55,11 @@ flowchart TB
 |---|---|---|---|
 | **OpenAI Secure MCP Tunnel** | Tunnel ID + 运行 API Key | ChatGPT 工作区关联 | ChatGPT，无需公开入口 |
 
-Lite 只通过 OpenAI Tunnel 提供 MCP 接入。Luti 下载固定版本并校验哈希的 `tunnel-client`，由它主动连接 OpenAI；本机不对外监听，也没有 OAuth 流程。连接持有一个仅回环的私有监听，只接受每次连接新生成的凭据。连接出错时，项目 Runtime 和已运行的 Job 不受影响，可在连接页单独重连，无需重启 Runtime。
+Luti 只通过 OpenAI Tunnel 提供 MCP 接入。Luti 下载固定版本并校验哈希的 `tunnel-client`，由它主动连接 OpenAI；本机不对外监听，也没有 OAuth 流程。连接持有一个仅回环的私有监听，只接受每次连接新生成的凭据。连接出错时，项目 Runtime 和已运行的 Job 不受影响，可在连接页单独重连，无需重启 Runtime。
 
 ## 能力
 
-此 Lite 分支对外暴露 **24 个 MCP Tool**，分为 6 个领域。MCP 使用本地选定的文件夹，不提供 `projects`、`memory` 或 `skills` 工具。
+Luti 对外暴露 **24 个 MCP Tool**，分为 6 个领域。MCP 使用本地选定的文件夹，不提供 `projects`、`memory` 或 `skills` 工具。
 
 | 领域 | Public Tools | 范围 |
 |---|---|---|
@@ -84,18 +84,18 @@ Job 结果区分进程完成与识别到的测试结果，并记录有限范围�
 
 ## 本地记录
 
-Lite 只保留有容量限制的执行活动，存放于 `~/.luti/`，用于排查工具调用问题。本次运行的改动文件和任务验证状态保存在内存中。不会保存会话、记忆或文件恢复数据，也不会向项目仓库写入 Runtime 元数据。
+Luti 只保留有容量限制的执行活动，存放于 `~/.luti/`，用于排查工具调用问题。本次运行的改动文件和任务验证状态保存在内存中。不会保存会话、记忆或文件恢复数据，也不会向项目仓库写入 Runtime 元数据。
 
 ## 安全与隐私
 
 | 边界 | 行为 |
 |---|---|
 | **项目范围** | 文件与项目操作限制在当前已授权项目中 |
-| **权限模式** | Lite 默认对选定文件夹使用完全访问；外部操作仍遵守原有权限边界 |
+| **权限模式** | Luti 默认对选定文件夹使用完全访问；外部操作仍遵守原有权限边界 |
 | **凭据** | Runtime 凭据存入 macOS Keychain；敏感值在持久化前脱敏 |
 | **远程访问** | 只有已配置的 OpenAI Tunnel 能访问 Luti；监听仅限回环并绑定凭据 |
 | **Git** | 对外 Git 能力只读 |
-| **浏览器自动化** | Luti 只操作自己拥有的 Browser Session；Lite 不提供桌面截图或鼠标、键盘控制 |
+| **浏览器自动化** | Luti 只操作自己拥有的 Browser Session；不提供桌面截图或鼠标、键盘控制 |
 | **进程执行** | `fullLocal` 使用当前用户权限执行，不是 OS Sandbox |
 
 Luti 没有接收项目数据的云端服务。连接到 Luti 的 AI Host 仍会收到你请求的工具结果，其中可能包含源码、命令输出、截图或其他项目数据。你启用的每个 AI Host 和 Tunnel Provider 都属于信任边界。
@@ -118,7 +118,7 @@ cd Luti
 open Luti.xcodeproj
 ```
 
-主要 Scheme 是 `Luti` 和 `LutiProcessHost`。本地 Debug 构建使用 **Sign to Run Locally**。正式版本启用 Hardened Runtime，并以签名、公证后的 DMG 分发。Lite 不包含自动更新；从此分支重新构建即可。
+主要 Scheme 是 `Luti` 和 `LutiProcessHost`。本地 Debug 构建使用 **Sign to Run Locally**。正式版本启用 Hardened Runtime，并以签名、公证后的 DMG 分发。Sparkle 会检查签名更新，但不会静默安装。
 
 ## 开源
 

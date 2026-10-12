@@ -42,8 +42,8 @@ It can read and edit files, run builds and tests, inspect Git, drive a browser a
 
 ## Get started
 
-1. **Build Luti Lite.** Build this branch from source using the instructions below.
-2. **Add a folder.** Choose one folder in **Projects**. Lite uses Full Project Access automatically; removing it returns the page to its empty state.
+1. **Install Luti.** Download the signed DMG from the latest GitHub Release, or build it from source.
+2. **Add a folder.** Choose one folder in **Projects**. Luti uses Full Project Access automatically; removing it returns the page to its empty state.
 3. **Configure the OpenAI tunnel.** Save the Tunnel ID and runtime API key from OpenAI Platform. The connection starts with the runtime automatically.
 4. **Use it in ChatGPT.** Add the tunnel as an app in the associated ChatGPT workspace (Developer Mode).
 
@@ -55,11 +55,11 @@ Select the active folder locally before starting the Runtime.
 |---|---|---|---|
 | **OpenAI Secure MCP Tunnel** | Tunnel ID + runtime API key | ChatGPT workspace association | ChatGPT, with no public endpoint |
 
-Lite exposes MCP through the OpenAI tunnel only. Luti downloads the pinned, checksum-verified `tunnel-client`, which connects outbound to OpenAI; nothing listens publicly and there is no OAuth flow. The connection owns a private loopback listener that accepts only a fresh per-connection credential. A connection failure leaves project tools and running jobs alive; reconnect from the Connections page without restarting the runtime.
+Luti exposes MCP through the OpenAI tunnel only. Luti downloads the pinned, checksum-verified `tunnel-client`, which connects outbound to OpenAI; nothing listens publicly and there is no OAuth flow. The connection owns a private loopback listener that accepts only a fresh per-connection credential. A connection failure leaves project tools and running jobs alive; reconnect from the Connections page without restarting the runtime.
 
 ## Capabilities
 
-This Lite branch exposes **24 public MCP tools** across seven domains. MCP uses the folder selected locally, with no `projects`, `memory` or `skills` tool.
+Luti exposes **24 public MCP tools** across seven domains. MCP uses the folder selected locally, with no `projects`, `memory` or `skills` tool.
 
 | Domain | Public tools | Scope |
 |---|---|---|
@@ -84,18 +84,18 @@ Job results separate process completion from recognized test results and record 
 
 ## Local records
 
-Lite keeps bounded execution activity in `~/.luti/` for diagnostics. Current-run changed paths and job validation stay in memory. It does not persist sessions, memory or file recovery data, and does not write runtime metadata into the project repository.
+Luti keeps bounded execution activity in `~/.luti/` for diagnostics. Current-run changed paths and job validation stay in memory. It does not persist sessions, memory or file recovery data, and does not write runtime metadata into the project repository.
 
 ## Security and privacy
 
 | Boundary | Behavior |
 |---|---|
 | **Project scope** | File and project operations stay inside the active approved project |
-| **Permission mode** | Lite always uses `Full Project Access` within the selected folder; external operations retain their permission boundaries |
+| **Permission mode** | Luti always uses `Full Project Access` within the selected folder; external operations retain their permission boundaries |
 | **Secrets** | Runtime credentials use macOS Keychain; sensitive values are redacted before persistence |
 | **Remote access** | Only the configured OpenAI tunnel reaches Luti; its listener is loopback-only and credential-bound |
 | **Git** | Public Git capability is read-only |
-| **Browser automation** | Luti owns its browser sessions; desktop capture and input are unavailable in Lite |
+| **Browser automation** | Luti owns its browser sessions; desktop capture and input are unavailable |
 | **Process execution** | `fullLocal` runs with your user privileges and is not an OS sandbox |
 | **Sandbox profiles** | `workspace` and `isolated` fail closed when an OS-enforced backend is unavailable |
 
@@ -119,7 +119,7 @@ cd Luti
 open Luti.xcodeproj
 ```
 
-The main schemes are `Luti` and `LutiProcessHost`. Local Debug builds use **Sign to Run Locally**. Production releases keep Hardened Runtime enabled and ship as signed, notarized DMGs. Lite has no built-in updater; rebuild it from this branch.
+The main schemes are `Luti` and `LutiProcessHost`. Local Debug builds use **Sign to Run Locally**. Production releases keep Hardened Runtime enabled and ship as signed, notarized DMGs. Sparkle checks for signed updates but does not install them silently.
 
 ## Open source
 
