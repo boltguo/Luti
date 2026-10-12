@@ -46,7 +46,9 @@ struct HomeView: View {
 
   private var runtimeSection: some View {
     VStack(spacing: 22) {
-      MDExpressiveIconSurface(symbol: runtimeSymbol, size: 92)
+      MDExpressiveIconSurface(
+        symbol: runtimeSymbol, size: 92,
+        animating: [.preparing, .starting, .stopping].contains(model.phase))
         .accessibilityElement()
         .accessibilityLabel(statusTitle)
 

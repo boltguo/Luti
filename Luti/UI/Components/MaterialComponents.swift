@@ -784,7 +784,7 @@ struct MDLoadingIndicator: View {
         Circle().fill(MDTheme.primaryContainer)
       }
 
-      if reduceMotion {
+      if reduceMotion || !animating {
         MDExpressiveLoadingShape(phase: 0)
           .fill(foreground ?? (contained ? MDTheme.onPrimaryContainer : MDTheme.primary))
       } else {
@@ -800,18 +800,19 @@ struct MDLoadingIndicator: View {
   }
 }
 
-/// Runtime hero surface: the pale M3 expressive container morphs continuously,
-/// while the semantic action/state icon stays stable in the center.
+/// Runtime hero surface: the pale M3 expressive container morphs while
+/// `animating`, while the semantic action/state icon stays stable in the center.
 struct MDExpressiveIconSurface: View {
   let symbol: String
   var size: CGFloat = 92
+  var animating = true
 
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
   @State private var startedAt = Date()
 
   var body: some View {
     ZStack {
-      if reduceMotion {
+      if reduceMotion || !animating {
         MDExpressiveLoadingShape(phase: 0)
           .fill(MDTheme.primaryContainer)
       } else {
