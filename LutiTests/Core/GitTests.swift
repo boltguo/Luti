@@ -165,6 +165,7 @@ import XCTest
     for section in [
       "[include]\npath = /private/config\n", "[filter.payload]\nclean = echo UNSAFE\n",
       "[filter \"payload\"]\nclean = echo UNSAFE\n",
+      "[remote \"origin\"]\nurl = ext::sh -c touch% UNSAFE\npromisor = true\npartialclonefilter = blob:none\n",
     ] {
       let f = try Fixture()
       defer { f.remove() }

@@ -36,7 +36,9 @@ public struct GitService: Sendable {
       text.range(
         of: #"(?im)^\s*\[\s*(?:include(?:if)?|filter)(?:\s|\.|\])"#, options: .regularExpression)
         == nil,
-      text.range(of: #"(?i)worktreeconfig"#, options: .regularExpression) == nil
+      text.range(of: #"(?i)worktreeconfig"#, options: .regularExpression) == nil,
+      // A partial clone fetches missing objects on read, through any remote helper.
+      text.range(of: #"(?i)promisor|partialclone"#, options: .regularExpression) == nil
     else {
       throw unsupported()
     }
@@ -54,7 +56,7 @@ public struct GitService: Sendable {
     var args = [
       "--no-pager", "--git-dir=" + root.appendingPathComponent(".git").path,
       "--work-tree=" + root.path, "-c", "core.fsmonitor=false", "-c",
-      "core.hooksPath=/dev/null",
+      "core.hooksPath=/dev/null", "-c", "protocol.allow=never",
       "-c", "core.untrackedCache=false", "-c", "core.pager=cat", "-c", "diff.external=",
       "-c", "color.ui=false",
     ]
@@ -313,7 +315,7 @@ public struct GitService: Sendable {
     [
       "--no-pager", "--git-dir=" + root.appendingPathComponent(".git").path,
       "--work-tree=" + root.path, "-c", "core.fsmonitor=false", "-c",
-      "core.hooksPath=/dev/null", "-c", "core.untrackedCache=false", "-c",
+      "core.hooksPath=/dev/null", "-c", "protocol.allow=never", "-c", "core.untrackedCache=false", "-c",
       "core.pager=cat", "-c", "diff.external=", "-c", "color.ui=false",
     ]
   }
@@ -331,7 +333,7 @@ public struct GitService: Sendable {
     [
       "GIT_CONFIG_NOSYSTEM": "1", "GIT_CONFIG_SYSTEM": "/dev/null",
       "GIT_CONFIG_GLOBAL": "/dev/null", "GIT_TERMINAL_PROMPT": "0",
-      "GIT_OPTIONAL_LOCKS": "0", "GIT_PAGER": "cat",
+      "GIT_OPTIONAL_LOCKS": "0", "GIT_PAGER": "cat", "GIT_NO_LAZY_FETCH": "1",
     ]
   }
 }
