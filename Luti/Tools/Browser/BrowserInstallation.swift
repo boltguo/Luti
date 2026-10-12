@@ -23,11 +23,18 @@ actor BrowserInstallation {
       && FileManager.default.fileExists(atPath: cache.appendingPathComponent("package/index.js").path)
   }
   func prepare() async throws -> URL {
-    if let preparation { return try await preparation.value }
-    let task = Task { try await Self.install() }
-    preparation = task
-    do { let result = try await task.value; preparation = nil; return result }
-    catch { preparation = nil; throw error }
+    let task: Task<URL, Error>
+    if let preparation { task = preparation } else {
+      task = Task { try await Self.install() }
+      preparation = task
+    }
+    defer { if preparation == task { preparation = nil } }
+    return try await task.value
+  }
+  /// Abandons a preparation nobody needs any more; the next open starts over.
+  func cancel() {
+    preparation?.cancel()
+    preparation = nil
   }
   private static func verifyNode(_ url: URL) throws {
     let bytes = try PrivateFiles.read(url, max: 134_217_728)
@@ -54,6 +61,7 @@ actor BrowserInstallation {
         url: URL(string: "https://nodejs.org/dist/v\(nodeVersion)/node-v\(nodeVersion)-darwin-arm64.tar.gz")!,
         allowedHosts: ["nodejs.org"]).download()
       guard Budget.sha256(try PrivateFiles.read(download, max: 67_108_864)) == archiveSHA else { throw Failure.invalid("Node archive checksum mismatch.") }
+      try Task.checkCancellation()
       let output = scratch.appendingPathComponent("node")
       try await Task.detached {
         FileManager.default.createFile(atPath: output.path, contents: nil, attributes: [.posixPermissions: 0o600])
@@ -71,6 +79,7 @@ actor BrowserInstallation {
       if !FileManager.default.fileExists(atPath: node.path) { try FileManager.default.moveItem(at: output, to: node) }
     }
     try await Task.detached { try verifyNode(node) }.value
+    try Task.checkCancellation()
     // Re-extract the exact shipped package on preparation. It cannot be substituted by a project.
     try await Task.detached { try extract(["-xzf", archive.path, "-C", cache.path]) }.value
     return node

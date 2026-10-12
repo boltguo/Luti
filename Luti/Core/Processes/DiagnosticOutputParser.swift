@@ -28,6 +28,18 @@ struct ProcessDiagnostic: Codable, Sendable, Equatable {
 enum DiagnosticOutputParser {
   static let maxItems = 100
 
+  // Compiled once; NSRegularExpression matching is thread-safe.
+  private static func regex(_ pattern: String) -> NSRegularExpression {
+    try! NSRegularExpression(pattern: pattern)
+  }
+  private static let tscParen = regex(#"^(.+)\((\d+),(\d+)\):\s*(error|warning)\s+(TS\d+):\s*(.+)$"#)
+  private static let tscPretty = regex(#"^(.+):(\d+):(\d+)\s+-\s+(error|warning)\s+(TS\d+):\s*(.+)$"#)
+  private static let pyright = regex(
+    #"^(.+):(\d+):(\d+)\s+-\s+(error|warning|information):\s+(.+?)(?:\s+\(([^()]+)\))?$"#)
+  private static let compiler = regex(#"^(.+):(\d+):(\d+):\s*(error|warning|note):\s*(.+)$"#)
+  private static let eslintRow = regex(
+    #"^\s*(\d+):(\d+)\s+(error|warning)\s+(.+?)(?:\s{2,}([@A-Za-z0-9_./-]+))?\s*$"#)
+
   static func parse(
     command: String,
     cwd: URL,
@@ -95,8 +107,7 @@ enum DiagnosticOutputParser {
           source: source))
     }
 
-    func captures(_ pattern: String, _ line: String) -> [String]? {
-      guard let regex = try? NSRegularExpression(pattern: pattern) else { return nil }
+    func captures(_ regex: NSRegularExpression, _ line: String) -> [String]? {
       let range = NSRange(line.startIndex..<line.endIndex, in: line)
       guard let match = regex.firstMatch(in: line, range: range),
             match.range.location != NSNotFound
@@ -115,16 +126,14 @@ enum DiagnosticOutputParser {
       guard !line.isEmpty else { continue }
 
       // TypeScript compiler, ordinary and pretty output.
-      if let m = captures(
-        #"^(.+)\((\d+),(\d+)\):\s*(error|warning)\s+(TS\d+):\s*(.+)$"#, line)
+      if let m = captures(tscParen, line)
       {
         add(
           rawPath: m[0], line: m[1], column: m[2], severity: m[3],
           code: m[4], message: m[5], source: "tsc")
         continue
       }
-      if let m = captures(
-        #"^(.+):(\d+):(\d+)\s+-\s+(error|warning)\s+(TS\d+):\s*(.+)$"#, line)
+      if let m = captures(tscPretty, line)
       {
         add(
           rawPath: m[0], line: m[1], column: m[2], severity: m[3],
@@ -133,9 +142,7 @@ enum DiagnosticOutputParser {
       }
 
       // Pyright / BasedPyright CLI shape.
-      if let m = captures(
-        #"^(.+):(\d+):(\d+)\s+-\s+(error|warning|information):\s+(.+?)(?:\s+\(([^()]+)\))?$"#,
-        line)
+      if let m = captures(pyright, line)
       {
         let source =
           lowerCommand.contains("basedpyright") ? "basedpyright"
@@ -147,8 +154,7 @@ enum DiagnosticOutputParser {
       }
 
       // Swift / clang-family compiler locations.
-      if let m = captures(
-        #"^(.+):(\d+):(\d+):\s*(error|warning|note):\s*(.+)$"#, line)
+      if let m = captures(compiler, line)
       {
         let extensionName = (m[0] as NSString).pathExtension.lowercased()
         let source =
@@ -167,9 +173,7 @@ enum DiagnosticOutputParser {
 
       // ESLint stylish: a file heading followed by indented line/column rows.
       if let current = eslintFile,
-         let m = captures(
-           #"^\s*(\d+):(\d+)\s+(error|warning)\s+(.+?)(?:\s{2,}([@A-Za-z0-9_./-]+))?\s*$"#,
-           rawLine)
+         let m = captures(eslintRow, rawLine)
       {
         add(
           rawPath: current, line: m[0], column: m[1], severity: m[2],

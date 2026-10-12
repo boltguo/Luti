@@ -9,6 +9,19 @@ const scratch = process.argv[3];
 const headless = process.argv[4] === '1';
 let browser;
 const tabs = new Map();
+// Downloads that browser_download imports; any other download is discarded when it ends.
+const claimed = new WeakSet();
+// Whole-frame budget, below the native 1 MiB RPC limit.
+const frameBudget = 1000000;
+const mutating = new Set([
+  'browser_open','browser_navigate','browser_click','browser_hover','browser_fill',
+  'browser_press','browser_select','browser_check','browser_upload','browser_download',
+  'browser_dialog','browser_evaluate','browser_close'
+]);
+const precondition = new Set([
+  'invalid_url','browser_capacity','tab_not_found','stale_snapshot','stale_dialog',
+  'invalid_upload','browser_dialog_pending'
+]);
 const clip = (s, n = 4096) => String(s).slice(0, n);
 function fail(code, message) { throw Object.assign(new Error(message), { code }); }
 function webURL(value) {
@@ -99,8 +112,33 @@ function registerPage(context, page) {
     for (const waiter of state.dialogWaiters) waiter(meta);
     state.dialogWaiters.clear();
   });
-  page.on('close', () => tabs.delete(id));
+  page.on('download', download => {
+    download.path().catch(() => {}).finally(() => {
+      if (!claimed.has(download)) download.delete().catch(() => {});
+    });
+  });
+  page.on('close', () => forget(state));
   return state;
+}
+// Every way a page goes away (tool close, native window close, page self-close)
+// ends here. Idempotent; the last owned page of a context closes that context.
+function forget(state) {
+  if (!tabs.delete(state.id)) return undefined;
+  const shared = [...tabs.values()].some(item => item.context === state.context);
+  return shared ? undefined : state.context.close().catch(() => {});
+}
+// Newest entries first in priority, bounded by serialized bytes rather than count.
+function recent(list, limit) {
+  const rows = [];
+  let bytes = 0;
+  for (let i = list.length - 1; i >= 0 && rows.length < limit; i--) {
+    const size = Buffer.byteLength(JSON.stringify(list[i])) + 1;
+    if (bytes + size > 524288) break;
+    rows.push(list[i]);
+    bytes += size;
+  }
+  rows.reverse();
+  return { entries: rows, truncated: rows.length < Math.min(limit, list.length) };
 }
 function nextDialog(state) {
   let active = true;
@@ -186,11 +224,8 @@ async function actionResult(state, outcome, args = {}, extra = {}) {
   };
 }
 async function closeOwnedTab(state) {
-  const context = state.context;
-  const hasSibling = [...tabs.values()].some(item => item.id !== state.id && item.context === context);
   if (!state.page.isClosed()) await state.page.close({ runBeforeUnload: false });
-  tabs.delete(state.id);
-  if (!hasSibling) await context.close();
+  await forget(state);
   return { closed: true, tabId: state.id };
 }
 async function addTab(args) {
@@ -213,7 +248,7 @@ async function addTab(args) {
     push(state.console, { level: 'browser', text: 'Popup adopted as owned tab ' + popupState.id + '.' });
   });
   try { await page.goto(webURL(args.url), { waitUntil: 'domcontentloaded' }); }
-  catch (error) { await context.close(); tabs.delete(state.id); throw error; }
+  catch (error) { tabs.delete(state.id); await context.close().catch(() => {}); throw error; }
   return { tabId: state.id, url: cleanURL(page.url()), title: clip(await page.title(), 512) };
 }
 function cleanURL(value) {
@@ -340,24 +375,27 @@ async function dispatch(method, args) {
       let download;
       try {
         [download] = await Promise.all([
-          page.waitForEvent('download', { timeout: 15000 }),
+          // Claimed synchronously on emission, before the page-level discard can run.
+          page.waitForEvent('download', { timeout: 15000, predicate: item => { claimed.add(item); return true; } }),
           locator.click()
         ]);
       } catch {
         fail('browser_outcome_unknown', 'The click did not produce a confirmed download; observe before any retry.');
       }
-      const failure = await download.failure();
-      if (failure) fail('browser_operation_failed', clip(failure, 1024));
-      const suggestedName = clip(path.basename(download.suggestedFilename() || 'download'), 255);
-      const filename = crypto.randomUUID();
-      const destination = path.join(scratch, filename);
-      await download.saveAs(destination);
-      const stat = await fs.stat(destination);
-      if (!stat.isFile() || stat.size > 33554432) {
-        await fs.rm(destination, { force: true });
-        fail('download_too_large', 'Downloaded file exceeds 32 MiB.');
+      // Playwright keeps the original until its context closes; always release it here.
+      try {
+        const failure = await download.failure();
+        if (failure) fail('browser_operation_failed', clip(failure, 1024));
+        const source = await download.path();
+        const original = await fs.stat(source);
+        if (!original.isFile() || original.size > 33554432) fail('download_too_large', 'Downloaded file exceeds 32 MiB.');
+        const suggestedName = clip(path.basename(download.suggestedFilename() || 'download'), 255);
+        const filename = crypto.randomUUID();
+        await download.saveAs(path.join(scratch, filename));
+        return { tabId: state.id, filename, suggestedName, url: cleanURL(page.url()) };
+      } finally {
+        await download.delete().catch(() => {});
       }
-      return { tabId: state.id, filename, suggestedName, url: cleanURL(page.url()) };
     }
     case 'browser_wait': {
       state.refs.clear(); state.snapshotId = null;
@@ -391,9 +429,9 @@ async function dispatch(method, args) {
         scoped: !!scoped, scopeRef: scoped ? args.scopeRef : null
       };
     }
-    case 'browser_console': return { tabId: state.id, entries: state.console.slice(-(args.limit || 100)) };
-    case 'browser_network_errors': return { tabId: state.id, entries: state.network.slice(-(args.limit || 100)) };
-    case 'browser_network': return { tabId: state.id, entries: state.requests.slice(-(args.limit || 100)) };
+    case 'browser_console': return { tabId: state.id, ...recent(state.console, args.limit || 100) };
+    case 'browser_network_errors': return { tabId: state.id, ...recent(state.network, args.limit || 100) };
+    case 'browser_network': return { tabId: state.id, ...recent(state.requests, args.limit || 100) };
     case 'browser_dialog': {
       const item = state.pendingDialogs.get(args.dialogId);
       if (!item) fail('stale_dialog', 'The dialog is no longer pending. Take a fresh browser_observe(action=snapshot) before deciding what to do next.');
@@ -431,18 +469,12 @@ input.on('line', line => {
     try {
       request = JSON.parse(line);
       const result = await dispatch(request.method, request.params || {});
-      process.stdout.write(JSON.stringify({ jsonrpc: '2.0', id: request.id, result }) + '\n');
+      const frame = JSON.stringify({ jsonrpc: '2.0', id: request.id, result });
+      // An oversized frame would close the whole session; report it as a result error instead.
+      if (Buffer.byteLength(frame) > frameBudget) fail('browser_response_too_large', 'The browser result exceeded the transport budget; request a smaller range.');
+      process.stdout.write(frame + '\n');
     } catch (error) {
       // Action errors can happen after side effects. Preserve that uncertainty explicitly.
-      const mutating = new Set([
-        'browser_open','browser_navigate','browser_click','browser_hover','browser_fill',
-        'browser_press','browser_select','browser_check','browser_upload','browser_download',
-        'browser_dialog','browser_evaluate','browser_close'
-      ]);
-      const precondition = new Set([
-        'invalid_url','browser_capacity','tab_not_found','stale_snapshot','stale_dialog',
-        'invalid_upload','browser_dialog_pending'
-      ]);
       const effect = mutating.has(request?.method) && !precondition.has(error.code) ? 'possible' : 'none';
       process.stdout.write(JSON.stringify({
         jsonrpc: '2.0', id: request?.id ?? null,

@@ -40,29 +40,6 @@ struct ProjectTaskCandidate: Sendable, Equatable {
   let source: String
   let cwd: String
   let available: Bool
-
-  var legacyJSON: JSONValue {
-    [
-      "kind": .string(kind),
-      "program": .string(program),
-      "args": .array(args.map(JSONValue.string)),
-      "source": .string(source),
-      "available": .bool(available),
-    ]
-  }
-
-  var graphJSON: JSONValue {
-    [
-      "identityHint": .string(identityHint),
-      "kind": .string(kind),
-      "provider": .string(provider),
-      "program": .string(program),
-      "args": .array(args.map(JSONValue.string)),
-      "source": .string(source),
-      "cwd": .string(cwd),
-      "available": .bool(available),
-    ]
-  }
 }
 
 struct ProjectCapabilityGraph: Sendable {
@@ -82,39 +59,12 @@ struct ProjectCapabilityGraph: Sendable {
   let truncated: Bool
   let warnings: [String]
 
-  /// Backward-compatible projection for the existing inspect_project MCP tool.
-  /// Consumers can migrate to capabilityGraph without another public tool.
-  var inspectionJSON: JSONValue {
-    let tasks = taskCandidates.map(\.legacyJSON)
-    return [
-      "view": "full",
-      "viewHint": "Use view=summary for startup discovery; full also includes legacy projections.",
-      "path": .string(path),
-      "ecosystems": .array(ecosystems.map { .string($0.rawValue) }),
-      "packageManager": packageManager.map(JSONValue.string) ?? .null,
-      "frameworks": .array(frameworks.map(JSONValue.string)),
-      "scripts": .object(scripts.mapValues(JSONValue.string)),
-      "configFiles": .array(configFiles.map(JSONValue.string)),
-      "entryCandidates": .array(entryCandidates.map(JSONValue.string)),
-      "toolchains": .array(toolchains.map(\.json)),
-      "suggestedCommands": .array(tasks),
-      "testCommands": .array(
-        taskCandidates.filter { $0.kind == "test" }.map(\.legacyJSON)),
-      "commandDiscovery": "Static only; no project command was executed.",
-      "truncated": .bool(truncated),
-      "warnings": .array(warnings.map(JSONValue.string)),
-      "capabilityGraph": graphJSON,
-      "taskRegistry": ProjectTaskRegistry(graph: self).json,
-      "instructions": instructionsJSON,
-    ]
-  }
-
   /// Startup discovery keeps each task and instruction source in one canonical
-  /// location. The typed graph remains shared with execution and the full view.
-  var summaryInspectionJSON: JSONValue {
+  /// location. The typed graph remains shared with execution.
+  var inspectionJSON: JSONValue {
     [
       "view": "summary",
-      "viewHint": "Tasks are in taskRegistry; use view=full for legacy projections and raw script declarations.",
+      "viewHint": "Tasks and instruction sources each have one canonical location.",
       "path": .string(path),
       "ecosystems": .array(ecosystems.map { .string($0.rawValue) }),
       "packageManager": packageManager.map(JSONValue.string) ?? .null,
@@ -128,26 +78,6 @@ struct ProjectCapabilityGraph: Sendable {
       "commandDiscovery": "Static only; no project command was executed.",
       "truncated": .bool(truncated),
       "warnings": .array(warnings.map(JSONValue.string)),
-    ]
-  }
-
-  var graphJSON: JSONValue {
-    [
-      "schemaVersion": .int(Self.schemaVersion),
-      "projectPath": .string(path),
-      "ecosystems": .array(ecosystems.map { .string($0.rawValue) }),
-      "manifests": .array(manifests.map(\.json)),
-      "frameworks": .array(frameworks.map(JSONValue.string)),
-      "toolchains": .array(toolchains.map(\.json)),
-      "taskCandidates": .array(taskCandidates.map(\.graphJSON)),
-      "instructions": .array(instructionSources.map(\.json)),
-      "entryCandidates": .array(entryCandidates.map(JSONValue.string)),
-      "configFiles": .array(configFiles.map(JSONValue.string)),
-      "discovery": [
-        "mode": "static",
-        "executedProjectCommands": false,
-        "truncated": .bool(truncated),
-      ],
     ]
   }
 
@@ -163,9 +93,8 @@ struct ProjectCapabilityGraph: Sendable {
   }
 }
 
-/// Static, side-effect-free project discovery. This is the internal source of
-/// truth for inspect_project today and Task Registry / Instructions / Diagnostics
-/// later. Detection reads manifests only; it never executes a project command.
+/// Static discovery shared by inspect_project and task execution.
+/// Detection reads manifests only; it never executes a project command.
 struct ProjectDiscovery: Sendable {
   let workspace: WorkspaceFiles
 

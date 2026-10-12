@@ -3,20 +3,15 @@ import LocalAuthentication
 import Security
 
 public enum KeychainService {
-  /// One account per secret. The Tunnel Token is the default because it is the
-  /// only one that existed before OAuth; a client secret gets an account derived
-  /// from its client id, so deleting a client deletes exactly its own secret.
-  public static let tunnelToken = "cloudflare-tunnel-token"
-  public static func clientSecret(_ clientID: String) -> String {
-    "oauth-client-secret:" + clientID
-  }
+  /// The OpenAI runtime API key is the only stored secret.
+  public static let openAIAPIKey = "openai-api-key"
   private static func query(_ account: String) -> [String: Any] {
     [
       kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: Identity.keychainService,
       kSecAttrAccount as String: account, kSecAttrSynchronizable as String: false,
     ]
   }
-  public static func read(account: String = tunnelToken) throws -> String? {
+  public static func read(account: String = openAIAPIKey) throws -> String? {
     var q = query(account)
     q[kSecReturnData as String] = true
     q[kSecMatchLimit as String] = kSecMatchLimitOne
@@ -28,7 +23,7 @@ public enum KeychainService {
     else { throw failure(status) }
     return text
   }
-  public static func exists(account: String = tunnelToken) -> Bool {
+  public static func exists(account: String = openAIAPIKey) -> Bool {
     var q = query(account)
     q[kSecMatchLimit as String] = kSecMatchLimitOne
     let context = LAContext()
@@ -36,7 +31,7 @@ public enum KeychainService {
     q[kSecUseAuthenticationContext as String] = context
     return SecItemCopyMatching(q as CFDictionary, nil) == errSecSuccess
   }
-  public static func save(_ value: String, account: String = tunnelToken) throws {
+  public static func save(_ value: String, account: String = openAIAPIKey) throws {
     guard !value.isEmpty, value.utf8.count <= 8192,
       value.utf8.allSatisfy({ (33...126).contains($0) })
     else { throw Failure.invalid("A stored secret must be a non-empty printable value.") }
@@ -52,7 +47,7 @@ public enum KeychainService {
       throw failure(status)
     }
   }
-  public static func remove(account: String = tunnelToken) throws {
+  public static func remove(account: String = openAIAPIKey) throws {
     let status = SecItemDelete(query(account) as CFDictionary)
     guard status == errSecSuccess || status == errSecItemNotFound else { throw failure(status) }
   }

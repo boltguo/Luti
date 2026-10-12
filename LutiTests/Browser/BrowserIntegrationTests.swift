@@ -279,13 +279,7 @@ import XCTest
       XCTAssertEqual(imported.data["effect"], "confirmed")
       XCTAssertEqual(imported.data["sha256"].string, sha256)
       XCTAssertEqual(imported.data["source"]["resource"].string, resource)
-      XCTAssertEqual(imported.data["checkpoint"]["status"], "ready")
-      let checkpointID = try XCTUnwrap(imported.data["checkpoint"]["id"].string)
-      let checkpoints = try ProjectCheckpointStore(
-        project: ApprovedProject(url: f.root), dataRoot: f.contextDataRoot)
-      let checkpoint = try XCTUnwrap(checkpoints.recent().first { $0.id == checkpointID })
-      XCTAssertEqual(checkpoint.pathAction?.sourceArtifactResource, resource)
-      XCTAssertEqual(checkpoint.pathAction?.expectedAfter.first?.sha256, sha256)
+      XCTAssertEqual(imported.data["checkpoint"], .null)
 
       let read = await router.callInCurrentProject("read_files", arguments: ["paths": ["sample.csv"]])
       XCTAssertFalse(read.isError)

@@ -26,8 +26,10 @@ import XCTest
     let (data, response) = try await URLSession.shared.data(for: request)
     XCTAssertEqual((response as? HTTPURLResponse)?.statusCode, 200)
     let tools = try JSONValue.decode(data)["result"]["tools"].array ?? []
-    XCTAssertEqual(tools.count, 27)
-    XCTAssertNotNil(tools.first { $0["name"] == "projects" })
+    XCTAssertEqual(tools.count, 24)
+    XCTAssertNil(tools.first { $0["name"] == "projects" })
+    XCTAssertNil(tools.first { $0["name"] == "memory" })
+    XCTAssertNotNil(tools.first { $0["name"] == "project_info" })
     request.setValue("https://evil.example", forHTTPHeaderField: "Origin")
     let (_, denied) = try await URLSession.shared.data(for: request)
     XCTAssertEqual((denied as? HTTPURLResponse)?.statusCode, 403)

@@ -10,90 +10,19 @@ import SwiftUI
     XCTAssertEqual(AppTab.allCases.map(\.rawValue), ["home", "configuration", "projects", "settings"])
     XCTAssertEqual(
       SettingsPage.allCases.map(\.rawValue),
-      ["root", "language", "capabilities", "components"])
-  }
-
-  func testLocalSkillBrowsingDoesNotSwitchRuntime() async throws {
-    let first = try Fixture(), second = try Fixture()
-    defer { first.remove(); second.remove() }
-    try first.write(".agents/skills/alpha/SKILL.md", "---\nname: alpha\n---\nAlpha")
-    try second.write(".codex/skills/beta/SKILL.md", "---\nname: beta\n---\nBeta")
-    let a = ApprovedProject(id: "a", name: "A", url: first.root)
-    let b = ApprovedProject(id: "b", name: "B", url: second.root)
-    let router = try ToolRouter(workspace: first.files, jobs: JobManager(helper: Fixture.helper),
-      activity: ActivityStore(),
-      executionPolicy: .readOnly, approvedProjects: [a, b], activeProjectID: a.id, helper: Fixture.helper, contextDataRoot: first.contextDataRoot)
-    let snapshot = try await ProjectSkillLibrary.scan(project: b)
-    XCTAssertEqual(snapshot.skills.map(\.name), ["beta"])
-    let beta = try XCTUnwrap(snapshot.skills.first)
-    let content = try await ProjectSkillLibrary.read(project: b, skill: beta)
-    XCTAssertTrue(content.contains("Beta"))
-    let current = await router.callInCurrentProject("projects", arguments: ["action": "current"])
-    XCTAssertEqual(current.data["project"]["id"], "a")
-    let remoteSkills = await router.callInCurrentProject("skills", arguments: ["action": "list"])
-    XCTAssertEqual(remoteSkills.data["skills"].array?.first?["name"], "alpha")
-    let stillReadable = try await first.files.text(".agents/skills/alpha/SKILL.md")
-    XCTAssertTrue(stillReadable.text.contains("Alpha"))
-    await router.stop()
-    await second.files.shutdown()
-  }
-
-  func testProjectSkillLibraryKeepsSourcesAndIgnoresNestedProjects() async throws {
-    let f = try Fixture(); defer { f.remove() }
-    for source in ProjectSkills.sources {
-      try f.write(source + "/skills/shared/SKILL.md", "---\nname: shared\ndescription: Example\n---\nRead only")
-    }
-    try f.write("nested/.agents/skills/hidden/SKILL.md", "---\nname: hidden\n---")
-    let snapshot = try await ProjectSkillLibrary.scan(project: ApprovedProject(url: f.root))
-    XCTAssertEqual(snapshot.skills.count, 3)
-    XCTAssertEqual(Set(snapshot.skills.map(\.id)).count, 3)
-    XCTAssertEqual(Set(snapshot.skills.map(\.source)), Set(ProjectSkills.sources))
-    XCTAssertTrue(snapshot.warnings.isEmpty)
-  }
-
-  func testProjectSkillReaderPreservesPathAndSizeBoundary() async throws {
-    let f = try Fixture(); defer { f.remove() }
-    try f.write(".agents/skills/large/SKILL.md", String(repeating: "x", count: 65_537))
-    try f.write(".env", "private fixture")
-    let project = ApprovedProject(url: f.root)
-    for path in ["../outside/SKILL.md", ".env", ".agents/skills/large/SKILL.md"] {
-      let skill = ProjectSkillItem(name: "invalid", description: "", source: ".agents", path: path)
-      do {
-        _ = try await ProjectSkillLibrary.read(project: project, skill: skill)
-        XCTFail("A read must not bypass the path or size boundary: " + path)
-      } catch is Failure { }
-    }
-  }
-
-  func testProjectSkillSnapshotSkipsMalformedEntriesAndSortsStably() {
-    let snapshot = ProjectSkillSnapshot(result: ["skills": [
-      ["name": "beta", "path": ".codex/skills/b/SKILL.md"],
-      ["name": "alpha", "path": ".claude/skills/a/SKILL.md"],
-      ["name": "alpha", "path": ".agents/skills/a/SKILL.md"],
-      ["description": "missing name and path"]
-    ], "warnings": ["partial discovery"]])
-    XCTAssertEqual(snapshot.skills.map(\.name), ["alpha", "alpha", "beta"])
-    XCTAssertEqual(snapshot.skills.first?.path, ".agents/skills/a/SKILL.md")
-    XCTAssertEqual(snapshot.warnings, ["partial discovery"])
+      ["root", "language", "components"])
   }
 
   func testRenderProjectFirstPages() throws {
     let fixture = try Fixture(); defer { fixture.remove() }
     let model = AppModel(contextDataRoot: fixture.contextDataRoot, defaults: fixture.defaults)
-    model.approvedProjects = [
-      ApprovedProject(id: "current", name: "Luti", path: "/Projects/Luti"),
-      ApprovedProject(id: "example", name: "Example project with a longer descriptive name", path: "/Projects/Examples/Frontend")
-    ]
-    model.activeProjectID = "current"
+    model.activeProject = ApprovedProject(id: "current", name: "Luti", path: "/Projects/Luti")
+
     model.phase = .running
-    model.connectionSnapshots[.cloudflare] = ConnectionSnapshot(
-      state: .ready, providerID: .cloudflare)
-    model.localEndpoint = URL(string: "http://127.0.0.1:49199/mcp")
-    model.publicBaseURL = "https://preview.example.com"
-    fixture.defaults.set("https://preview.example.com", forKey: "publicBaseURL")
-    model.tokenSaved = true
-    model.enabledConnectionProviders = [.cloudflare]
-    let updater = AppUpdater(startingUpdater: false)
+    model.connection = ConnectionSnapshot(state: .ready, providerID: .openAI)
+    model.tunnelID = "tunnel_preview123"
+    fixture.defaults.set("tunnel_preview123", forKey: "connection.openai.tunnelID")
+    model.apiKeySaved = true
     let repo = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
     let output = repo.appendingPathComponent("build/ui-review-previews", isDirectory: true)
     try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
@@ -109,14 +38,23 @@ import SwiftUI
       language.selection = locale
       for scheme in [ColorScheme.light, .dark] {
         for tab in AppTab.allCases {
+          let previewHeight: CGFloat = tab == .configuration ? 1450 : 736
           let name = tab.rawValue + "-" + locale.rawValue + (scheme == .light ? "-light" : "-dark")
-          let root = MainWindowView(
-            model: model, loginItem: LoginItemController(), updater: updater,
-            selectedTab: .constant(tab))
-            .frame(width: 460, height: 736).environment(\.colorScheme, scheme)
+          let root = Group {
+            if tab == .configuration {
+              ConfigurationView(model: model)
+            } else {
+              MainWindowView(
+                model: model, loginItem: LoginItemController(),
+                selectedTab: .constant(tab))
+            }
+          }
+          .frame(width: 460, height: previewHeight)
+          .background(MDTheme.surface).foregroundStyle(MDTheme.onSurface)
+          .environment(\.colorScheme, scheme)
           let hosting = NSHostingView(rootView: root)
           hosting.appearance = NSAppearance(named: scheme == .light ? .aqua : .darkAqua)
-          hosting.frame = NSRect(x: 0, y: 0, width: 460, height: 736)
+          hosting.frame = NSRect(x: 0, y: 0, width: 460, height: previewHeight)
           hosting.layoutSubtreeIfNeeded()
           RunLoop.main.run(until: Date().addingTimeInterval(0.15))
           hosting.layoutSubtreeIfNeeded()
@@ -132,25 +70,11 @@ import SwiftUI
 
   func testRenderProjectDetailsAndSettingsPages() throws {
     let f = try Fixture(); defer { f.remove() }
-    try f.write(".agents/skills/review/SKILL.md", "---\nname: Code review\ndescription: Review project changes and report actionable findings.\n---\n# Code review\nUse project-scoped tools.")
-    try f.write(".codex/skills/tests/SKILL.md", "---\nname: Test workflow\ndescription: Run the project test suite and verify outcomes.\n---\n# Tests\nRead commands before running.")
     let model = AppModel(contextDataRoot: f.contextDataRoot, defaults: f.defaults)
     let project = ApprovedProject(id: "fixture", name: "Review project", url: f.root)
-    model.approvedProjects = [project]
-    model.activeProjectID = project.id
+    model.activeProject = project
+
     model.phase = .stopped
-    let contextStore = try ProjectContextStore(project: project, dataRoot: f.contextDataRoot)
-    let runID = UUID()
-    _ = try contextStore.remember(kind: .goal, content: "Finish the project import flow", tags: [],
-      supersedes: nil, expectedRevision: nil,
-      source: MemorySource(type: "model", runId: runID, host: "Review Host", clientId: nil, transport: "loopback"))
-    let date = Date()
-    var session = SessionJournal(runId: runID, projectKey: contextStore.projectKey,
-      startedAt: date, updatedAt: date, finishedAt: date, status: "completed")
-    session.touchedFiles = ["Sources/App.swift", "assets/reference.png"]
-    try PrivateFiles.atomicWrite(ContextCoding.encode(session), to: contextStore.sessionsDirectory
-      .appendingPathComponent(runID.uuidString.lowercased() + ".json"))
-    let updater = AppUpdater(startingUpdater: false)
     let repo = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
     let output = repo.appendingPathComponent("build/ui-review-previews", isDirectory: true)
     try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
@@ -164,16 +88,13 @@ import SwiftUI
     }
     language.selection = .english
     var pages: [(String, AnyView)] = [
-      ("project-details", AnyView(ProjectsView(model: model, selectedProjectID: .constant(project.id)))),
-      ("project-resume", AnyView(ProjectContextSection(model: model, project: project,
-        openContext: { _ in }, openRecovery: {}, openClearContext: {}).padding(20))),
-      ("project-recovery", AnyView(ProjectRecoveryView(model: model, project: project, back: {})))
+      ("project-details", AnyView(ProjectsView(model: model))),
+      ("project-activity", AnyView(ProjectActivityView(model: model, project: project, back: {})))
     ]
     for page in SettingsPage.allCases where page != .root {
       pages.append((page.rawValue, AnyView(SettingsView(
         model: model,
         loginItem: LoginItemController(),
-        updater: updater,
         page: .constant(page)))))
     }
     for (name, page) in pages {
@@ -194,10 +115,7 @@ import SwiftUI
 
   func testRenderLocalFirstAndRemoteFailureStates() throws {
     let f = try Fixture(); defer { f.remove() }
-    f.defaults.set("https://mcp.example.com", forKey: "publicBaseURL")
     let model = AppModel(contextDataRoot: f.contextDataRoot, defaults: f.defaults)
-    let clients = OAuthClientModel(
-      store: OAuthStore(url: f.contextDataRoot.appendingPathComponent("oauth-preview.json")))
     let project = ApprovedProject(id: "preview", name: "Luti", url: f.root)
     let repo = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
     let output = repo.appendingPathComponent("build/ui-review-previews", isDirectory: true)
@@ -213,32 +131,29 @@ import SwiftUI
     for locale in AppLanguage.allCases where locale != .system {
       language.selection = locale
       for scheme in [ColorScheme.light, .dark] {
-        for state in ["empty", "local-only", "cloudflare-setup", "cloudflare-failed"] {
-          model.approvedProjects = state == "empty" ? [] : [project]
-          model.activeProjectID = state == "empty" ? nil : project.id
-          model.phase = ["empty", "cloudflare-setup"].contains(state) ? .stopped : .running
-          model.localEndpoint = model.phase == .running ? URL(string: "http://127.0.0.1:49199/mcp") : nil
-          model.publicBaseURL = state == "cloudflare-failed" ? "https://mcp.example.com" : ""
-          model.tokenSaved = state == "cloudflare-failed"
-          model.enabledConnectionProviders =
-            state.hasPrefix("cloudflare-") ? [.cloudflare] : []
-          model.connectionSnapshots = state == "cloudflare-failed"
-            ? [.cloudflare: ConnectionSnapshot(
-              state: .failed, message: "The remote connection is unavailable.",
-              providerID: .cloudflare)]
-            : [:]
-          if state == "cloudflare-failed" {
-            XCTAssertTrue(model.canConnectProvider(.cloudflare))
+        for state in ["empty", "project-empty", "project-details", "local-only", "connection-setup", "connection-failed"] {
+          model.activeProject = ["empty", "project-empty"].contains(state) ? nil : project
+
+          model.phase = ["empty", "project-empty", "project-details", "connection-setup"].contains(state) ? .stopped : .running
+          let failed = state == "connection-failed"
+          if failed {
+            f.defaults.set("tunnel_preview123", forKey: "connection.openai.tunnelID")
+          } else {
+            f.defaults.removeObject(forKey: "connection.openai.tunnelID")
+          }
+          model.tunnelID = failed ? "tunnel_preview123" : ""
+          model.apiKeySaved = failed
+          model.connection = failed
+            ? ConnectionSnapshot(state: .failed, message: "The remote connection is unavailable.", providerID: .openAI)
+            : .stopped
+          if failed {
+            XCTAssertTrue(model.canConnect)
           }
           let page: AnyView
-          if state.hasPrefix("cloudflare-") {
-            page = AnyView(VStack(spacing: 0) {
-              MDDetailHeader(title: "Cloudflare BYO") {}
-              CloudflareConnectionView(
-                model: model,
-                clients: clients,
-                openClient: { _ in })
-            })
+          if state.hasPrefix("connection-") {
+            page = AnyView(ConfigurationView(model: model))
+          } else if state.hasPrefix("project-") {
+            page = AnyView(ProjectsView(model: model))
           } else {
             page = AnyView(HomeView(model: model, openProjects: {}, openConnection: {}))
           }
@@ -277,130 +192,6 @@ import SwiftUI
     let limited = try await f.files.listDirectory(depth: 4, maxEntries: 1)
     XCTAssertEqual(limited["entries"].array?.count, 1)
     XCTAssertEqual(limited["truncated"], true)
-  }
-  func testApprovedProjectSwitchChangesWorkspaceSkillsAndRevokesOldHandles() async throws {
-    let first = try Fixture()
-    let second = try Fixture()
-    defer {
-      first.remove()
-      second.remove()
-    }
-    try first.write("a.txt", "alpha")
-    try first.write(
-      ".agents/skills/alpha/SKILL.md",
-      "---\nname: alpha\ndescription: First project skill\n---\n# Alpha")
-    try second.write("b.txt", "beta")
-    try second.write(
-      ".agents/skills/beta/SKILL.md",
-      "---\nname: beta\ndescription: Second project skill\n---\n# Beta")
-
-    let projects = [
-      ApprovedProject(id: "project-a", name: "Project A", url: first.root),
-      ApprovedProject(id: "project-b", name: "Project B", url: second.root),
-    ]
-    let router = try ToolRouter(
-      workspace: first.files, jobs: JobManager(helper: Fixture.helper),
-      activity: ActivityStore(), executionPolicy: .readOnly,
-      approvedProjects: projects, activeProjectID: "project-a", helper: Fixture.helper, contextDataRoot: first.contextDataRoot)
-
-    let list = await router.callInCurrentProject("projects", arguments: ["action": "list"])
-    XCTAssertFalse(list.isError)
-    XCTAssertEqual(list.data["projects"].array?.count, 2)
-    XCTAssertEqual(list.data["activeProjectId"], "project-a")
-    XCTAssertEqual(list.data["generation"], 1)
-
-    let firstSkills = await router.callInCurrentProject("skills", arguments: ["action": "list"])
-    XCTAssertEqual(firstSkills.data["skills"].array?.first?["name"], "alpha")
-
-    let artifact = await router.callInCurrentProject("export_artifact", arguments: ["path": "a.txt"])
-    XCTAssertFalse(artifact.isError)
-    let oldArtifactURI = try XCTUnwrap(artifact.data["resource"].string)
-
-    let switched = await router.callInCurrentProject(
-      "projects", arguments: ["action": "switch", "projectId": "project-b"])
-    XCTAssertFalse(switched.isError)
-    XCTAssertEqual(switched.data["changed"], true)
-    XCTAssertEqual(switched.data["generation"], 2)
-    XCTAssertEqual(switched.data["project"]["id"], "project-b")
-    XCTAssertEqual(
-      switched.data["invalidated"].array,
-      ["workspaceHandles", "jobs", "browserSessions", "artifacts"])
-
-    do {
-      _ = try await first.files.text("a.txt")
-      XCTFail("The old workspace actor must be revoked after a project switch.")
-    } catch {}
-
-    do {
-      _ = try await router.readResource(oldArtifactURI)
-      XCTFail("Artifacts from the old project must be revoked after a switch.")
-    } catch {}
-
-    let oldRead = await router.callInCurrentProject("read_files", arguments: ["paths": ["a.txt"]])
-    XCTAssertTrue(oldRead.isError)
-    let newRead = await router.callInCurrentProject("read_files", arguments: ["paths": ["b.txt"]])
-    XCTAssertFalse(newRead.isError)
-    XCTAssertEqual(newRead.data["files"].array?.first?["content"], "beta")
-
-    let secondSkills = await router.callInCurrentProject("skills", arguments: ["action": "list"])
-    XCTAssertEqual(secondSkills.data["skills"].array?.first?["name"], "beta")
-
-    let denied = await router.callInCurrentProject(
-      "projects", arguments: ["action": "switch", "projectId": "not-approved"])
-    XCTAssertTrue(denied.isError)
-    XCTAssertEqual(denied.data["error"], "project_not_approved")
-    let current = await router.callInCurrentProject("projects", arguments: ["action": "current"])
-    XCTAssertEqual(current.data["project"]["id"], "project-b")
-    XCTAssertEqual(current.data["generation"], 2)
-
-    await router.stop()
-    await second.files.shutdown()
-  }
-
-  func testProjectSwitchRefusesActiveJobs() async throws {
-    let first = try Fixture()
-    let second = try Fixture()
-    defer {
-      first.remove()
-      second.remove()
-    }
-    let projects = [
-      ApprovedProject(id: "project-a", name: "Project A", url: first.root),
-      ApprovedProject(id: "project-b", name: "Project B", url: second.root),
-    ]
-    let router = try ToolRouter(
-      workspace: first.files, jobs: JobManager(helper: Fixture.helper),
-      activity: ActivityStore(),
-      executionPolicy: .fullLocal(localApproval: true),
-      approvedProjects: projects, activeProjectID: "project-a", helper: Fixture.helper, contextDataRoot: first.contextDataRoot)
-
-    let job = await router.callInCurrentProject(
-      "run_process",
-      arguments: [
-        "program": "/bin/sleep", "args": ["5"], "cwd": ".", "syncWait": 0, "timeout": 10,
-      ])
-    XCTAssertFalse(job.isError)
-    let jobID = try XCTUnwrap(job.data["jobId"].string)
-
-    let blocked = await router.callInCurrentProject(
-      "projects", arguments: ["action": "switch", "projectId": "project-b"])
-    XCTAssertTrue(blocked.isError)
-    XCTAssertEqual(blocked.data["error"], "project_busy")
-
-    let currentBeforeStop = await router.callInCurrentProject("projects", arguments: ["action": "current"])
-    XCTAssertEqual(currentBeforeStop.data["project"]["id"], "project-a")
-
-    let stopped = await router.callInCurrentProject(
-      "job_action", arguments: ["action": "stop", "jobId": .string(jobID)])
-    XCTAssertFalse(stopped.isError)
-
-    let switched = await router.callInCurrentProject(
-      "projects", arguments: ["action": "switch", "projectId": "project-b"])
-    XCTAssertFalse(switched.isError)
-    XCTAssertEqual(switched.data["project"]["id"], "project-b")
-
-    await router.stop()
-    await second.files.shutdown()
   }
 
   func testArtifactRoundTripSnapshotAndRevocation() async throws {
@@ -500,34 +291,6 @@ import SwiftUI
     XCTAssertEqual(preview.height, 1000)
     XCTAssertEqual(preview.content["type"], "image")
     XCTAssertThrowsError(try ImagePreview.make(Data("not image".utf8)))
-  }
-  func testRootOnlySkillDiscoveryAndReading() async throws {
-    let f = try Fixture(); defer { f.remove() }
-    try f.write(".agents/skills/paint/SKILL.md", "---\nname: paint\ndescription: >\n  Paint a picture\n  with tools\n---\n# Instructions")
-    try f.write(".agents/skills/paint/references/guide.md", "guide")
-    try f.write("nested/.agents/skills/ignored/SKILL.md", "---\nname: ignored\n---")
-    let router = try f.router()
-    let list = await router.callInCurrentProject("skills", arguments: ["action": "list"])
-    XCTAssertFalse(list.isError)
-    XCTAssertEqual(list.data["skills"].array?.count, 1)
-    XCTAssertEqual(list.data["skills"].array?.first?["description"], "Paint a picture with tools")
-    let read = await router.callInCurrentProject(
-      "skills",
-      arguments: ["action": "read", "path": ".agents/skills/paint/SKILL.md"])
-    XCTAssertFalse(read.isError)
-    XCTAssertTrue(read.data["content"].string!.contains("# Instructions"))
-    XCTAssertTrue(read.data["files"].array!.contains { $0["name"] == "guide.md" })
-
-    let crossAction = await router.callInCurrentProject(
-      "skills",
-      arguments: ["action": "list", "path": ".agents/skills/paint/SKILL.md"])
-    XCTAssertTrue(crossAction.isError)
-
-    let denied = await router.callInCurrentProject(
-      "skills",
-      arguments: ["action": "read", "path": "nested/.agents/skills/ignored/SKILL.md"])
-    XCTAssertTrue(denied.isError)
-    await router.stop()
   }
   func testCodeQueryUsesBoundedSourceKitSemantics() async throws {
     #if os(macOS)
@@ -654,7 +417,7 @@ import SwiftUI
     addTeardownBlock { await router.stop() }
     let languageServiceGrant = ToolGrant.remote(RequestContext(
       transport: .loopback, clientID: "language-service", clientName: "Language service",
-      authorizationID: UUID(), scopes: [.projectRead, .processRun], resource: "http://localhost/mcp"))
+      authorizationID: UUID()))
     let symbols = await router.callInCurrentProject(
       "code_query",
       arguments: ["path": "src/app.ts", "action": "documentSymbols"], grant: languageServiceGrant)
@@ -744,25 +507,24 @@ import SwiftUI
 
     let result = try await inspector.inspect(path: "demo")
     XCTAssertEqual(result["packageManager"], "pnpm")
-    XCTAssertEqual(result["capabilityGraph"]["schemaVersion"], 1)
+    XCTAssertEqual(result["taskRegistry"]["schemaVersion"], 1)
     XCTAssertEqual(
-      result["capabilityGraph"]["manifests"].array?.first?["path"],
+      result["manifests"].array?.first?["path"],
       "demo/package.json")
     XCTAssertTrue(
-      result["capabilityGraph"]["taskCandidates"].array?.contains {
-        $0["identityHint"] == "task:dev" && $0["provider"] == "node"
+      result["taskRegistry"]["tasks"].array?.contains {
+        $0["id"] == "task:dev" && $0["provider"] == "node"
       } == true)
-    XCTAssertEqual(result["scripts"]["dev"], "vite")
     XCTAssertEqual(result["frameworks"].array, ["vite", "three"])
     XCTAssertEqual(result["entryCandidates"].array, ["demo/src/main.ts"])
     XCTAssertEqual(result["commandDiscovery"], "Static only; no project command was executed.")
     XCTAssertTrue(result["toolchains"].array?.contains { $0["name"] == "node" } == true)
     XCTAssertTrue(
-      result["suggestedCommands"].array?.contains {
+      result["taskRegistry"]["tasks"].array?.contains {
         $0["kind"] == "dev" && $0["program"] == "pnpm" && $0["args"].array == ["dev"]
       } == true)
     XCTAssertTrue(
-      result["testCommands"].array?.contains {
+      result["taskRegistry"]["tasks"].array?.contains {
         $0["kind"] == "test" && $0["program"] == "pnpm" && $0["args"].array == ["test"]
       } == true)
   }
@@ -781,7 +543,8 @@ import SwiftUI
     let summary = try await inspector.inspect(path: "demo", view: "summary")
     let full = try await inspector.inspect(path: "demo", view: "full")
     let legacy = try await inspector.inspect(path: "demo")
-    XCTAssertEqual(legacy, full, "Omitting view must preserve the full legacy projection.")
+    XCTAssertEqual(legacy, summary, "Omitting view must use the canonical compact projection.")
+    XCTAssertEqual(full, summary, "The legacy view alias has no duplicate projections.")
     XCTAssertEqual(summary["view"], "summary")
     XCTAssertEqual(summary["taskRegistry"], full["taskRegistry"])
     XCTAssertEqual(summary["taskRegistry"]["tasks"].array?.count, 6)
@@ -795,17 +558,12 @@ import SwiftUI
     for key in ["ecosystems", "packageManager", "frameworks", "configFiles", "entryCandidates", "toolchains", "warnings"] {
       XCTAssertEqual(summary[key], full[key], "Summary must preserve \(key).")
     }
-    XCTAssertEqual(summary["manifests"], full["capabilityGraph"]["manifests"])
+    XCTAssertEqual(summary["manifests"], full["manifests"])
     for duplicated in ["capabilityGraph", "scripts", "suggestedCommands", "testCommands"] {
       XCTAssertEqual(summary[duplicated], .null)
     }
     XCTAssertEqual(summary["commandDiscovery"], "Static only; no project command was executed.")
     XCTAssertFalse(FileManager.default.fileExists(atPath: f.root.appendingPathComponent("demo/must-not-run").path))
-    let summaryBytes = try summary.data().count
-    let fullBytes = try full.data().count
-    print("Project discovery Node fixture: summary=\(summaryBytes) bytes, full=\(fullBytes) bytes")
-    XCTAssertLessThan(summaryBytes, fullBytes)
-
     let router = try f.router()
     addTeardownBlock { await router.stop() }
     let routed = await router.call("inspect_project", arguments: ["path": "demo", "view": "summary"])
@@ -986,7 +744,7 @@ import SwiftUI
   }
   func testLocaleDefaultPersistenceAndFallback() throws {
     let name = "LutiTests-" + UUID().uuidString
-    let defaults = try XCTUnwrap(UserDefaults(suiteName: name)); defer { defaults.removePersistentDomain(forName: name) }
+    let defaults = try XCTUnwrap(UserDefaults(suiteName: name)); defer { removeDefaultsSuite(name) }
     let settings = LanguageSettings(defaults: defaults, preferredLanguages: ["zh-CN", "en-US"])
     XCTAssertEqual(settings.selection, .system)
     XCTAssertEqual(settings.identifier, "zh-Hans")
@@ -1011,7 +769,7 @@ import SwiftUI
     let id = await store.begin(
       tool: "run_process", targetType: "process", target: "echo secret-token", cwd: ".",
       source: ActivitySource(
-        transport: .cloudflare, clientID: "ot_cid_test", clientName: "ChatGPT",
+        transport: .openAI, clientID: "openai-tunnel", clientName: "ChatGPT",
         authorizationID: authorizationID))
     await store.finish(
       id: id, status: "ok", started: started, summary: "Job running.",
@@ -1027,8 +785,8 @@ import SwiftUI
     XCTAssertEqual(event.status, "failed")
     XCTAssertEqual(event.effect, "possible")
     XCTAssertEqual(event.errorCode, "session_interrupted")
-    XCTAssertEqual(event.source?.transport, .cloudflare)
-    XCTAssertEqual(event.source?.clientID, "ot_cid_test")
+    XCTAssertEqual(event.source?.transport, .openAI)
+    XCTAssertEqual(event.source?.clientID, "openai-tunnel")
     XCTAssertEqual(event.source?.clientName, "ChatGPT")
     XCTAssertEqual(event.source?.authorizationID, authorizationID)
     XCTAssertFalse(event.target.contains("secret-token"))
@@ -1042,8 +800,8 @@ import SwiftUI
     XCTAssertNotNil(persisted["startedAt"].string)
     XCTAssertNotEqual(persisted["durationSeconds"], .null)
     XCTAssertEqual(persisted["targetType"], "process")
-    XCTAssertEqual(persisted["source"]["transport"], "cloudflare")
-    XCTAssertEqual(persisted["source"]["clientID"], "ot_cid_test")
+    XCTAssertEqual(persisted["source"]["transport"], "openai")
+    XCTAssertEqual(persisted["source"]["clientID"], "openai-tunnel")
     XCTAssertEqual(persisted["source"]["clientName"], "ChatGPT")
     XCTAssertEqual(persisted["time"], .null)
     XCTAssertEqual(persisted["duration"], .null)
@@ -1120,19 +878,9 @@ import SwiftUI
     try f.write("sample.txt", "hello")
     let router = try f.router()
 
-    let skills = await router.callInCurrentProject("skills", arguments: ["action": "list"])
-    XCTAssertFalse(skills.isError)
-    var events = await router.activity.snapshot()
-    let skillEvent = try XCTUnwrap(events.first)
-    XCTAssertEqual(skillEvent.tool, "skills")
-    XCTAssertEqual(skillEvent.action, "list")
-    XCTAssertEqual(skillEvent.targetType, "skill")
-    XCTAssertEqual(skillEvent.target, "project skills")
-    XCTAssertNotNil(skillEvent.finishedAt)
-
     let exported = await router.callInCurrentProject("export_artifact", arguments: ["path": "sample.txt"])
     XCTAssertFalse(exported.isError)
-    events = await router.activity.snapshot()
+    let events = await router.activity.snapshot()
     let exportEvent = try XCTUnwrap(events.first)
     XCTAssertEqual(exportEvent.tool, "export_artifact")
     XCTAssertEqual(exportEvent.action, "file")
@@ -1160,19 +908,14 @@ import SwiftUI
   func testRenderConfigurationPreview() throws {
     let fixture = try Fixture(); defer { fixture.remove() }
     let model = AppModel(contextDataRoot: fixture.contextDataRoot, defaults: fixture.defaults)
-    model.approvedProjects = [
-      ApprovedProject(id: "webcodex", name: "WebCodex", path: fixture.root.appendingPathComponent("WebCodex").path),
-      ApprovedProject(id: "luti", name: "Luti", path: fixture.root.appendingPathComponent("Luti").path),
-      ApprovedProject(id: "tokyo", name: "TokyoTower", path: fixture.root.appendingPathComponent("TokyoTower").path),
-    ]
-    model.activeProjectID = "luti"
+    model.activeProject = ApprovedProject(id: "luti", name: "Luti", url: fixture.root)
     model.phase = .stopped
-    model.publicBaseURL = "https://dev.example.com"
-    model.tokenSaved = true
+    model.tunnelID = "tunnel_preview123"
+    fixture.defaults.set("tunnel_preview123", forKey: "connection.openai.tunnelID")
+    model.apiKeySaved = true
 
     let root = MainWindowView(
-      model: model, loginItem: LoginItemController(), updater: AppUpdater(startingUpdater: false),
-      selectedTab: .constant(.configuration)
+      model: model, loginItem: LoginItemController(), selectedTab: .constant(.configuration)
     )
     .frame(width: 520, height: 760)
     .environment(\.colorScheme, .light)

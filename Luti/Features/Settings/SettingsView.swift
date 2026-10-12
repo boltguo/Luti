@@ -3,13 +3,12 @@ import ServiceManagement
 import SwiftUI
 
 enum SettingsPage: String, CaseIterable {
-  case root, language, capabilities, components
+  case root, language, components
 
   @MainActor var title: String {
     switch self {
     case .root: L10n.text("common.settings")
     case .language: L10n.text("settings.displayLanguage")
-    case .capabilities: L10n.text("settings.capabilityDiagnostics")
     case .components: L10n.text("settings.thirdPartyComponents")
     }
   }
@@ -18,7 +17,6 @@ enum SettingsPage: String, CaseIterable {
 struct SettingsView: View {
   let model: AppModel
   let loginItem: LoginItemController
-  @ObservedObject var updater: AppUpdater
   @Binding var page: SettingsPage
   @Bindable private var language = LanguageSettings.shared
 
@@ -33,8 +31,6 @@ struct SettingsView: View {
         overview
       case .language:
         languageSettings
-      case .capabilities:
-        capabilityDiagnostics
       case .components:
         components
       }
@@ -56,21 +52,6 @@ struct SettingsView: View {
             page = .language
           }
           .accessibilityIdentifier("language-settings")
-
-          MDListRow(
-            title: L10n.text("settings.defaultFullProjectAccess"),
-            symbol: "folder.badge.gearshape",
-            subtitle: L10n.text("settings.defaultFullProjectAccessDescription"),
-            position: .middle,
-            iconTone: .purple
-          ) {
-            MDSwitch(
-              isOn: Binding(
-                get: { model.defaultFullProjectAccess },
-                set: { model.setDefaultFullProjectAccess($0) }),
-              label: L10n.text("settings.defaultFullProjectAccess"))
-              .accessibilityIdentifier("default-full-project-access")
-          }
 
           MDListRow(
             title: L10n.text("settings.launchLogin"),
@@ -109,71 +90,6 @@ struct SettingsView: View {
           icon: "exclamationmark.triangle",
           color: MDTheme.error)
           .textSelection(.enabled)
-      }
-
-      MDSection(title: L10n.text("settings.updates")) {
-        MDList {
-          MDListRow(
-            title: L10n.text("settings.automaticUpdateChecks"),
-            symbol: "arrow.triangle.2.circlepath",
-            position: .first,
-            iconTone: .blue
-          ) {
-            MDSwitch(
-              isOn: Binding(
-                get: { updater.automaticallyChecksForUpdates },
-                set: { updater.setAutomaticallyChecksForUpdates($0) }),
-              label: L10n.text("settings.automaticUpdateChecks"))
-              .accessibilityIdentifier("automatic-update-checks")
-          }
-
-          MDNavigationRow(
-            title: L10n.text("menu.checkForUpdates"),
-            symbol: "arrow.down.circle",
-            position: .last,
-            iconTone: .green,
-            action: updater.checkForUpdates)
-            .disabled(!updater.canCheckForUpdates)
-            .accessibilityIdentifier("check-for-updates")
-        }
-      }
-
-      MDSection(title: L10n.text("settings.diagnostics")) {
-        MDNavigationRow(
-          title: L10n.text("settings.capabilityDiagnostics"),
-          symbol: "wrench.and.screwdriver",
-          subtitle: L10n.text("settings.capabilityDiagnosticsDescription"),
-          iconTone: .orange
-        ) {
-          page = .capabilities
-        }
-        .accessibilityIdentifier("settings-capabilities")
-      }
-
-      MDSection(title: L10n.text("settings.helpAndSupport")) {
-        MDList {
-          MDNavigationRow(
-            title: L10n.text("settings.sourceCode"),
-            symbol: "chevron.left.forwardslash.chevron.right",
-            position: .first,
-            iconTone: .blue,
-            accessory: "arrow.up.right"
-          ) {
-            NSWorkspace.shared.open(URL(string: "https://github.com/boltguo/Luti")!)
-          }
-          .accessibilityIdentifier("settings-source-code")
-
-          MDNavigationRow(
-            title: L10n.text("settings.supportLuti"),
-            symbol: "cup.and.saucer",
-            position: .last,
-            iconTone: .orange,
-            accessory: "arrow.up.right"
-          ) {
-            NSWorkspace.shared.open(URL(string: "https://buymeacoffee.com/boltguo")!)
-          }
-          .accessibilityIdentifier("settings-support-luti")
-        }
       }
 
       MDSection(title: L10n.text("settings.about")) {
@@ -246,12 +162,6 @@ struct SettingsView: View {
     }
   }
 
-  private var capabilityDiagnostics: some View {
-    MDPage {
-      CapabilitiesView(model: model)
-    }
-  }
-
   private var components: some View {
     MDPage {
       MDSection(title: L10n.text("settings.thirdPartyComponents")) {
@@ -263,23 +173,11 @@ struct SettingsView: View {
             position: .first,
             tone: .blue)
           ComponentVersionRow(
-            name: "Cloudflare Tunnel",
+            name: "OpenAI tunnel-client",
             symbol: "link",
-            version: TunnelContract.version,
+            version: TunnelClientInstaller.version,
             position: .middle,
             tone: .purple)
-          ComponentVersionRow(
-            name: "OpenAI tunnel-client",
-            symbol: "lock.icloud",
-            version: ConnectionExecutables.openAIVersion,
-            position: .middle,
-            tone: .green)
-          ComponentVersionRow(
-            name: "ngrok",
-            symbol: "network",
-            version: ConnectionExecutables.ngrokVersion,
-            position: .middle,
-            tone: .blue)
           ComponentVersionRow(
             name: "SwiftNIO",
             symbol: "network",

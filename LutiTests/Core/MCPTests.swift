@@ -3,13 +3,14 @@ import XCTest
 @testable import Luti
 
 @MainActor final class MCPTests: XCTestCase {
-  private let token = String(repeating: "a", count: 64)
+  private let token = "lt_" + String(repeating: "a", count: 64)
+  private let port = 39393
   private func request(
     _ method: String, params: JSONValue = [:], modern: Bool = false, id: JSONValue? = 1,
     extra: [String: [String]] = [:]
   ) throws -> HTTPRequest {
     var headers: [String: [String]] = [
-      "Host": ["127.0.0.1:\(TunnelContract.defaultPort)"], "Authorization": ["Bearer " + token],
+      "Host": ["127.0.0.1:\(port)"], "Authorization": ["Bearer " + token],
       "Content-Type": ["application/json"], "Accept": ["application/json, text/event-stream"],
     ]
     var p = params
@@ -33,7 +34,7 @@ import XCTest
     let f = try Fixture()
     defer { f.remove() }
     let router = try f.router()
-    let endpoint = MCPDispatcher(authentication: .local(bearer: token), port: TunnelContract.defaultPort, router: router)
+    let endpoint = MCPDispatcher(authentication: .local(bearer: token), port: port, router: router)
     let initResult = await endpoint.handle(
       try request(
         "initialize",
@@ -45,8 +46,10 @@ import XCTest
     XCTAssertEqual(initResult.json["result"]["protocolVersion"], "2025-11-25")
     let list = await endpoint.handle(try request("tools/list"))
     let tools = try XCTUnwrap(list.json["result"]["tools"].array)
-    XCTAssertEqual(tools.count, 27)
-    XCTAssertNotNil(tools.first { $0["name"] == "projects" })
+    XCTAssertEqual(tools.count, 24)
+    XCTAssertNil(tools.first { $0["name"] == "projects" })
+    XCTAssertNil(tools.first { $0["name"] == "memory" })
+    XCTAssertNotNil(tools.first { $0["name"] == "project_info" })
     let readFiles = try XCTUnwrap(tools.first { $0["name"] == "read_files" })
     XCTAssertEqual(readFiles["inputSchema"]["properties"]["endLine"]["default"], .null)
     XCTAssertEqual(readFiles["inputSchema"]["properties"]["byteOffset"]["default"], 0)
@@ -77,26 +80,26 @@ import XCTest
     XCTAssertTrue(notification.body.isEmpty)
     await router.stop()
   }
-  func testDesktopToolsAreAbsentAndCannotBeCalled() async throws {
+  func testLiteDesktopToolsAreAbsentAndCannotBeCalled() async throws {
     let f = try Fixture(); defer { f.remove() }
     let router = try f.router(execution: true)
     addTeardownBlock { await router.stop() }
-    let retired = ["computer_observe", "computer_action", "computer_wait"]
-    let delegated = MCPAuthentication.delegated(
-      bearer: token, context: delegatedContext(Set(OAuthScope.allCases)))
-    for authentication in [MCPAuthentication.local(bearer: token), delegated] {
+    let desktopTools = ["computer_observe", "computer_action", "computer_wait"]
+    let remote = fixtureRemoteAuthentication(
+      bearer: token, context: delegatedContext())
+    for authentication: MCPAuthentication in [.local(bearer: token), remote] {
       let endpoint = MCPDispatcher(authentication: authentication,
-        port: TunnelContract.defaultPort, router: router)
+        port: port, router: router)
       for modern in [false, true] {
         let list = await endpoint.handle(try request("tools/list", modern: modern))
         let tools = try XCTUnwrap(list.json["result"]["tools"].array)
-        XCTAssertEqual(tools.count, 27)
-        XCTAssertFalse(tools.contains { retired.contains($0["name"].string ?? "") })
-        for name in retired {
+        XCTAssertEqual(tools.count, 24)
+        XCTAssertFalse(tools.contains { desktopTools.contains($0["name"].string ?? "") })
+        for tool in desktopTools {
           let response = await endpoint.handle(try request("tools/call",
-            params: ["name": .string(name), "arguments": [:]], modern: modern))
-          XCTAssertEqual(response.status, 400, name)
-          XCTAssertEqual(response.json["error"]["code"], -32602, name)
+            params: ["name": .string(tool), "arguments": [:]], modern: modern))
+          XCTAssertEqual(response.status, 400, tool)
+          XCTAssertEqual(response.json["error"]["code"], -32602, tool)
         }
       }
     }
@@ -104,6 +107,7 @@ import XCTest
     XCTAssertFalse(status.isError)
     XCTAssertEqual(status.data["permissions"], .null)
     XCTAssertEqual(status.data["executionPolicy"]["desktopControl"], .null)
+    XCTAssertEqual(ProjectExecutionPolicy.fullLocal(localApproval: true).statusJSON["desktopControl"], .null)
     do {
       _ = try await router.readResource("luti://image/retired")
       XCTFail("Retired desktop screenshots must not resolve")
@@ -116,7 +120,7 @@ import XCTest
     let f = try Fixture()
     defer { f.remove() }
     let router = try f.router()
-    let endpoint = MCPDispatcher(authentication: .local(bearer: token), port: TunnelContract.defaultPort, router: router)
+    let endpoint = MCPDispatcher(authentication: .local(bearer: token), port: port, router: router)
     let response = await endpoint.handle(try request("server/discover", modern: true))
     XCTAssertEqual(response.status, 200)
     XCTAssertEqual(response.json["result"]["resultType"], "complete")
@@ -124,11 +128,72 @@ import XCTest
       response.json["result"]["supportedVersions"].array?.first, .string(MCPDispatcher.modern))
     await router.stop()
   }
+  func testLiteToolsCannotDiscoverOrCallOtherProjectsMemoryOrSkills() async throws {
+    let first = try Fixture(), second = try Fixture()
+    defer { first.remove(); second.remove() }
+    let router = try ToolRouter(
+      workspace: first.files, jobs: JobManager(helper: Fixture.helper),
+      activity: ActivityStore(), executionPolicy: .readOnly,
+      project: ApprovedProject(id: "a", url: first.root), contextDataRoot: first.contextDataRoot)
+    addTeardownBlock { await router.stop() }
+    let context = delegatedContext()
+    for authentication: MCPAuthentication in [.local(bearer: token), fixtureRemoteAuthentication(bearer: token, context: context)] {
+      let endpoint = MCPDispatcher(authentication: authentication, port: port, router: router)
+      for modern in [false, true] {
+        let list = await endpoint.handle(try request("tools/list", modern: modern))
+        let tools = try XCTUnwrap(list.json["result"]["tools"].array)
+        XCTAssertEqual(tools.count, 24)
+        XCTAssertNil(tools.first { $0["name"] == "projects" })
+        XCTAssertNil(tools.first { $0["name"] == "memory" })
+        XCTAssertNil(tools.first { $0["name"] == "skills" })
+        XCTAssertFalse(JSONValue.array(tools).text().contains("memory("))
+        XCTAssertFalse(JSONValue.array(tools).text().contains("projects("))
+        let before = await endpoint.handle(try request("tools/call", params: ["name": "project_info"], modern: modern))
+        let info = before.json["result"]["structuredContent"]
+        XCTAssertEqual(info["projectId"], "a")
+        XCTAssertEqual(info["root"], .string(first.root.path))
+        XCTAssertNotNil(info["projectToken"].string)
+        XCTAssertEqual(info["approvedProjectCount"], .null)
+        XCTAssertEqual(info["enabledProjectCount"], .null)
+        XCTAssertEqual(info["context"], .null)
+        XCTAssertFalse(info.text().contains(second.root.path))
+        let disabled: [(String, JSONValue)] = [
+          ("skills", ["action": "list"]),
+          ("skills", ["action": "read", "path": ".agents/skills/fixture/SKILL.md"]),
+          ("projects", ["action": "list"]),
+          ("projects", ["action": "current"]),
+          ("projects", ["action": "switch", "projectId": "b", "projectToken": info["projectToken"]]),
+          ("memory", ["action": "recall"]),
+          ("memory", ["action": "recent"]),
+          ("memory", ["action": "sessions"]),
+          ("memory", ["action": "remember", "kind": "goal", "content": "Must not persist", "projectToken": info["projectToken"]]),
+          ("memory", ["action": "forget", "memoryId": "memory_fixture", "expectedRevision": 1, "projectToken": info["projectToken"]]),
+        ]
+        for (name, arguments) in disabled {
+          let denied = await endpoint.handle(try request("tools/call", params: [
+            "name": .string(name), "arguments": arguments,
+          ], modern: modern))
+          XCTAssertEqual(denied.status, 400, name)
+          XCTAssertEqual(denied.json["error"]["code"], -32602, name)
+        }
+        let after = await endpoint.handle(try request("tools/call", params: ["name": "project_info"], modern: modern))
+        XCTAssertEqual(after.json["result"]["structuredContent"], info)
+        let status = await endpoint.handle(try request("tools/call", params: ["name": "runtime_status"], modern: modern))
+        XCTAssertEqual(status.json["result"]["structuredContent"]["activeProject"]["id"], "a")
+        XCTAssertEqual(status.json["result"]["structuredContent"]["approvedProjectCount"], .null)
+        XCTAssertEqual(status.json["result"]["structuredContent"]["enabledProjectCount"], .null)
+        XCTAssertFalse(status.json["result"]["structuredContent"].text().contains(second.root.path))
+      }
+      await endpoint.shutdown()
+    }
+    let memory = await router.call("memory", arguments: ["action": "recall"])
+    XCTAssertTrue(memory.isError)
+  }
   func testModernHeaderMismatch() async throws {
     let f = try Fixture()
     defer { f.remove() }
     let router = try f.router()
-    let endpoint = MCPDispatcher(authentication: .local(bearer: token), port: TunnelContract.defaultPort, router: router)
+    let endpoint = MCPDispatcher(authentication: .local(bearer: token), port: port, router: router)
     let response = await endpoint.handle(
       try request(
         "tools/call", params: ["name": "project_info", "arguments": [:]], modern: true,
@@ -141,7 +206,7 @@ import XCTest
     let f = try Fixture()
     defer { f.remove() }
     let router = try f.router()
-    let endpoint = MCPDispatcher(authentication: .local(bearer: token), port: TunnelContract.defaultPort, router: router)
+    let endpoint = MCPDispatcher(authentication: .local(bearer: token), port: port, router: router)
     for (headers, status) in [
       (["Authorization": ["Bearer wrong"]], 401), (["Origin": ["https://evil.example"]], 403),
       (["Host": ["evil.example"]], 403), (["Authorization": ["x", "y"]], 400),
@@ -151,37 +216,25 @@ import XCTest
     }
     await router.stop()
   }
-  func testPublicHostnameIsAdmittedAndNeverEchoed() async throws {
+  func testDelegatedListenerAdmitsOnlyLoopbackWithoutBrowserOrigins() async throws {
     let f = try Fixture()
     defer { f.remove() }
     let router = try f.router()
     let endpoint = MCPDispatcher(
-      authentication: .remote(publicHost: "mcp.example.com",
-        oauth: LutiOAuthService(issuer: URL(string: "https://mcp.example.com")!,
-          store: OAuthStore(url: f.contextDataRoot.appendingPathComponent("oauth.json")))),
-      port: TunnelContract.defaultPort, router: router)
-    // The hostname is admitted, but the local bearer must never grant public access.
+      authentication: fixtureRemoteAuthentication(bearer: token, context: delegatedContext()),
+      port: port, router: router)
+    let admitted = await endpoint.handle(try request("tools/list"))
+    XCTAssertEqual(admitted.status, 200)
+    // Allowlisted, never echoed: no public hostname and no browser origin reaches it.
     for headers in [
-      ["Host": ["mcp.example.com"]], ["Host": ["MCP.Example.com"]],
-      ["Host": ["mcp.example.com"], "Origin": ["https://mcp.example.com"]],
-    ] {
-      let reply = await endpoint.handle(try request("tools/list", extra: headers))
-      XCTAssertEqual(reply.status, 401, headers.description)
-    }
-    // Allowlisted, never echoed: a neighbouring name and plaintext stay out.
-    for headers in [
-      ["Host": ["evil.example.com"]], ["Host": ["mcp.example.com.evil.example"]],
-      ["Host": ["mcp.example.com"], "Origin": ["http://mcp.example.com"]],
-      ["Host": ["mcp.example.com:443"]],
+      ["Host": ["mcp.example.com"]], ["Host": ["evil.example.com"]],
+      ["Origin": ["https://chatgpt.com"]], ["Origin": ["http://127.0.0.1:\(port)"]],
     ] {
       let reply = await endpoint.handle(try request("tools/list", extra: headers))
       XCTAssertEqual(reply.status, 403, headers.description)
     }
-    // A dispatcher without a published hostname keeps the tunnel out entirely.
-    let local = MCPDispatcher(authentication: .local(bearer: token), port: TunnelContract.defaultPort, router: router)
-    let reply = await local.handle(
-      try request("tools/list", extra: ["Host": ["mcp.example.com"]]))
-    XCTAssertEqual(reply.status, 403)
+    let wrong = await endpoint.handle(try request("tools/list", extra: ["Authorization": ["Bearer wrong"]]))
+    XCTAssertEqual(wrong.status, 401)
     await router.stop()
   }
   func testReadAndEditViaMCP() async throws {
@@ -189,7 +242,7 @@ import XCTest
     defer { f.remove() }
     try f.write("a.txt", "hello")
     let router = try f.router(execution: true)
-    let endpoint = MCPDispatcher(authentication: .local(bearer: token), port: TunnelContract.defaultPort, router: router)
+    let endpoint = MCPDispatcher(authentication: .local(bearer: token), port: port, router: router)
     let read = await endpoint.handle(
       try request(
         "tools/call", params: ["name": "read_files", "arguments": ["paths": ["a.txt"]]],
@@ -217,7 +270,7 @@ import XCTest
     let f = try Fixture()
     defer { f.remove() }
     let router = try f.router()
-    let endpoint = MCPDispatcher(authentication: .local(bearer: token), port: TunnelContract.defaultPort, router: router)
+    let endpoint = MCPDispatcher(authentication: .local(bearer: token), port: port, router: router)
     let result = await endpoint.handle(
       try request(
         "tools/call",
@@ -243,7 +296,7 @@ import XCTest
     let f = try Fixture()
     defer { f.remove() }
     let router = try f.router()
-    let endpoint = MCPDispatcher(authentication: .local(bearer: token), port: TunnelContract.defaultPort, router: router)
+    let endpoint = MCPDispatcher(authentication: .local(bearer: token), port: port, router: router)
     let nullID = await endpoint.handle(try request("tools/list", id: .null))
     XCTAssertEqual(nullID.status, 400)
     let unknown = await endpoint.handle(try request("not/a/method", modern: true))
@@ -268,7 +321,7 @@ import XCTest
     let f = try Fixture(); defer { f.remove() }
     try f.write("report.json", "{\"ok\":true}")
     let router = try f.router()
-    let endpoint = MCPDispatcher(authentication: .local(bearer: token), port: TunnelContract.defaultPort, router: router)
+    let endpoint = MCPDispatcher(authentication: .local(bearer: token), port: port, router: router)
     let exported = await endpoint.handle(try request("tools/call", params: ["name": "export_artifact", "arguments": ["path": "report.json"]], modern: true))
     let result = exported.json["result"]
     XCTAssertEqual(result["isError"], false)
@@ -283,108 +336,60 @@ import XCTest
     XCTAssertEqual(denied.status, 401)
     await router.stop()
   }
-
-  private func delegatedContext(_ scopes: Set<OAuthScope>) -> RequestContext {
-    RequestContext(transport: .loopback, clientID: "resource-reader", clientName: "Resource reader",
-      authorizationID: UUID(), scopes: scopes, resource: "http://localhost/mcp")
+  private func delegatedContext() -> RequestContext {
+    RequestContext(transport: .openAI, clientID: "openai-tunnel", clientName: "OpenAI Secure MCP Tunnel",
+      authorizationID: UUID())
   }
 
-  func testResourceListingAndReadingRequireTheProducingCapability() async throws {
+  func testDelegatedCallerListsAndReadsEveryRuntimeResource() async throws {
     let f = try Fixture(); defer { f.remove() }
     try f.write("report.txt", "project bytes")
     let router = try f.router(execution: true)
     addTeardownBlock { await router.stop() }
     let exported = await router.callInCurrentProject("export_artifact", arguments: ["path": "report.txt"])
     let projectURI = try XCTUnwrap(exported.data["resource"].string)
-    let job = await router.callInCurrentProject("run_process",
-      arguments: ["program": "/usr/bin/printf", "args": ["process bytes"], "syncWait": 3])
-    XCTAssertFalse(job.isError)
-    let log = await router.callInCurrentProject("job_query",
-      arguments: ["action": "logs", "jobId": job.data["jobId"], "exportFull": true])
-    let logURI = try XCTUnwrap(log.data["artifact"]["resource"].string)
     let artifacts = await router.artifacts
-    let screenshot = try await artifacts.insert(Data([1, 2]), name: "browser.png", source: .browser)
-    let download = try await artifacts.insert(Data([3, 4]), name: "download.bin", source: .browser)
-    let resources: [(scope: OAuthScope, uri: String)] = [
-      (.projectRead, projectURI), (.processRun, logURI), (.browserUse, screenshot.uri),
-      (.browserUse, download.uri),
-    ]
-    for scopes: Set<OAuthScope> in [
-      [.projectRead], [.processRun], [.browserUse], [.projectWrite],
-      [], Set(OAuthScope.allCases),
-    ] {
-      let endpoint = MCPDispatcher(authentication: .delegated(bearer: token, context: delegatedContext(scopes)),
-        port: TunnelContract.defaultPort, router: router)
-      let listed = await endpoint.handle(try request("resources/list", modern: true))
-      XCTAssertEqual(listed.status, 200)
-      let visible = Set(try XCTUnwrap(listed.json["result"]["resources"].array).compactMap { $0["uri"].string })
-      XCTAssertEqual(visible, Set(resources.filter { scopes.contains($0.scope) }.map(\.uri)))
-      for resource in resources {
-        let reply = await endpoint.handle(try request("resources/read",
-          params: ["uri": .string(resource.uri)], modern: true))
-        if scopes.contains(resource.scope) {
-          XCTAssertEqual(reply.status, 200)
-          XCTAssertNotNil(reply.json["result"]["contents"].array?.first?["blob"].string)
-        } else {
-          XCTAssertEqual(reply.json["error"]["data"]["error"], "insufficient_scope")
-          XCTAssertEqual(reply.json["result"], .null)
-        }
-      }
-      await endpoint.shutdown()
+    let screenshot = try await artifacts.insert(Data([1, 2]), name: "browser.png")
+    let endpoint = MCPDispatcher(authentication: fixtureRemoteAuthentication(bearer: token, context: delegatedContext()),
+      port: port, router: router)
+    let listed = await endpoint.handle(try request("resources/list", modern: true))
+    XCTAssertEqual(listed.status, 200)
+    let visible = Set(try XCTUnwrap(listed.json["result"]["resources"].array).compactMap { $0["uri"].string })
+    XCTAssertEqual(visible, [projectURI, screenshot.uri])
+    for uri in [projectURI, screenshot.uri] {
+      let reply = await endpoint.handle(try request("resources/read", params: ["uri": .string(uri)], modern: true))
+      XCTAssertEqual(reply.status, 200)
+      XCTAssertNotNil(reply.json["result"]["contents"].array?.first?["blob"].string)
     }
+    await endpoint.shutdown()
   }
 
-  func testBrowserUploadAndCodeQueryScopesMatchDiscoveryAndCalls() async throws {
+  func testDelegatedCodeQueryRequiresCurrentProjectBinding() async throws {
     let f = try Fixture(); defer { f.remove() }
     let router = try f.router(execution: true)
     addTeardownBlock { await router.stop() }
-    let binding = await router.projectToken
-    for scopes: Set<OAuthScope> in [[.projectRead], [.processRun], [.browserUse],
-      [.projectRead, .browserUse], [.projectRead, .processRun]] {
-      let context = delegatedContext(scopes)
-      let grant = ToolGrant.remote(context)
-      let endpoint = MCPDispatcher(authentication: .delegated(bearer: token, context: context),
-        port: TunnelContract.defaultPort, router: router)
-      let reply = await endpoint.handle(try request("tools/list"))
-      let definitions = try XCTUnwrap(reply.json["result"]["tools"].array)
-      let transfer = definitions.first { $0["name"] == "browser_transfer" }
-      if scopes.contains(.browserUse) {
-        XCTAssertEqual(transfer?["inputSchema"]["properties"]["action"]["enum"],
-          scopes.contains(.projectRead) ? ["upload", "download"] : ["download"])
-        XCTAssertNoThrow(try grant.authorize(tool: "browser_transfer", arguments: ["action": "download"]))
-      } else { XCTAssertNil(transfer) }
-      if !scopes.isSuperset(of: [.projectRead, .browserUse]) {
-        let denied = await router.callInCurrentProject("browser_transfer", arguments: [
-          "action": "upload", "path": "file.txt", "tabId": "tab", "snapshotId": "snapshot", "ref": "ref",
-        ], grant: grant)
-        XCTAssertEqual(denied.data["error"], "insufficient_scope")
-      } else {
-        XCTAssertNoThrow(try grant.authorize(tool: "browser_transfer", arguments: ["action": "upload"]))
-      }
-      let code = definitions.first { $0["name"] == "code_query" }
-      if scopes.isSuperset(of: [.projectRead, .processRun]) {
-        let definition = try XCTUnwrap(code)
-        XCTAssertTrue(definition["inputSchema"]["required"].array?.contains("projectToken") == true)
-        XCTAssertEqual(definition["annotations"]["readOnlyHint"], false)
-        XCTAssertEqual(definition["annotations"]["idempotentHint"], false)
-        XCTAssertEqual(definition["annotations"]["openWorldHint"], true)
-        let missing = await router.call("code_query", arguments: ["action": "documentSymbols", "path": "file.txt"], grant: grant)
-        XCTAssertEqual(missing.data["error"], "project_binding_required")
-        let stale = await router.call("code_query", arguments: ["action": "documentSymbols",
-          "path": "file.txt", "projectToken": "old-project"], grant: grant)
-        XCTAssertEqual(stale.data["error"], "project_binding_mismatch")
-      } else {
-        XCTAssertNil(code)
-        let denied = await router.call("code_query", arguments: ["action": "documentSymbols",
-          "path": "file.txt", "projectToken": .string(binding)], grant: grant)
-        XCTAssertEqual(denied.data["error"], "insufficient_scope")
-      }
-      await endpoint.shutdown()
-    }
+    let grant = ToolGrant.remote(delegatedContext())
+    let endpoint = MCPDispatcher(authentication: fixtureRemoteAuthentication(bearer: token, context: delegatedContext()),
+      port: port, router: router)
+    let reply = await endpoint.handle(try request("tools/list"))
+    let definitions = try XCTUnwrap(reply.json["result"]["tools"].array)
+    let transfer = try XCTUnwrap(definitions.first { $0["name"] == "browser_transfer" })
+    XCTAssertEqual(transfer["inputSchema"]["properties"]["action"]["enum"], ["upload", "download"])
+    let definition = try XCTUnwrap(definitions.first { $0["name"] == "code_query" })
+    XCTAssertTrue(definition["inputSchema"]["required"].array?.contains("projectToken") == true)
+    XCTAssertEqual(definition["annotations"]["readOnlyHint"], false)
+    XCTAssertEqual(definition["annotations"]["idempotentHint"], false)
+    XCTAssertEqual(definition["annotations"]["openWorldHint"], true)
+    let missing = await router.call("code_query", arguments: ["action": "documentSymbols", "path": "file.txt"], grant: grant)
+    XCTAssertEqual(missing.data["error"], "project_binding_required")
+    let stale = await router.call("code_query", arguments: ["action": "documentSymbols",
+      "path": "file.txt", "projectToken": "old-project"], grant: grant)
+    XCTAssertEqual(stale.data["error"], "project_binding_mismatch")
+    await endpoint.shutdown()
   }
   func testActionSchemasShareBoundariesAndNeverInjectForeignDefaults() throws {
-    XCTAssertEqual(ToolCatalog.names.count, 27)
-    for (name, contracts) in ActionContracts.rules {
+    XCTAssertEqual(ToolCatalog.names.count, 24)
+    for (name, contracts) in ActionContracts.rules where ToolCatalog.names.contains(name) {
       let definition = try XCTUnwrap(ToolCatalog.definitions.first { $0["name"].string == name })
       let schema = definition["inputSchema"]
       let properties = try XCTUnwrap(schema["properties"].object)
@@ -445,16 +450,12 @@ import XCTest
     XCTAssertEqual(try BrowserArguments.validate("browser_wait", ["tabId": "tab"])["state"], "load")
   }
 
-  func testInvalidActionArgumentsFailBeforeMemoryBrowserOrJobEffects() async throws {
+  func testInvalidActionArgumentsFailBeforeBrowserOrJobEffects() async throws {
     let f = try Fixture(); defer { f.remove() }
     let router = try f.router(execution: true)
     addTeardownBlock { await router.stop() }
     let target: JSONValue = ["action": "click", "tabId": "tab", "snapshotId": "snapshot", "ref": "e1"]
     let cases: [(String, JSONValue)] = [
-      ("memory", ["action": "recent", "limit": 10]),
-      ("memory", ["action": "recall", "limit": .null]),
-      ("memory", ["action": "sessions", "runId": .string(UUID().uuidString), "offset": 0]),
-      ("memory", ["action": "remember", "kind": "goal", "content": "Must not be saved", "supersedes": "memory_old"]),
       ("projects", ["action": "current", "projectId": "unused"]),
       ("job_query", ["action": "list", "waitMs": 0]),
       ("job_query", ["action": "status"]),
@@ -481,65 +482,26 @@ import XCTest
     XCTAssertTrue(events.allSatisfy { $0.effect == "none" })
     let jobs = await router.jobList()
     XCTAssertTrue(jobs.isEmpty)
-    let recent = await router.call("memory", arguments: ["action": "recent"])
-    XCTAssertFalse(recent.isError)
-    XCTAssertEqual(recent.data["memoryCount"], 0)
-  }
-
-  func testAuthorizedActionSchemasTrimFieldsRequiredBindingsAndRiskHints() async throws {
-    let f = try Fixture(); defer { f.remove() }
-    let router = try f.router()
-    addTeardownBlock { await router.stop() }
-    for scopes: Set<OAuthScope> in [[], [.projectRead], [.projectWrite], [.processRun], [.browserUse],
-      [.projectRead, .projectWrite], [.projectRead, .browserUse], Set(OAuthScope.allCases)] {
-      let context = delegatedContext(scopes)
-      let grant = ToolGrant.remote(context)
-      let endpoint = MCPDispatcher(authentication: .delegated(bearer: token, context: context),
-        port: TunnelContract.defaultPort, router: router)
-      let response = await endpoint.handle(try request("tools/list"))
-      let tools = try XCTUnwrap(response.json["result"]["tools"].array)
-      for (name, contracts) in ActionContracts.rules {
-        let allowed = contracts.filter { action, _ in
-          (try? grant.authorize(tool: name, arguments: ["action": .string(action)])) != nil
-        }
-        let visible = tools.first { $0["name"].string == name }
-        if allowed.isEmpty { XCTAssertNil(visible); continue }
-        let definition = try XCTUnwrap(visible)
-        let schema = definition["inputSchema"]
-        let expectedFields = allowed.values.reduce(Set(["projectToken"])) { $0.union($1.fields) }
-        XCTAssertEqual(Set(schema["properties"].object!.keys), expectedFields)
-        XCTAssertEqual(Set(schema["properties"]["action"]["enum"].array!.compactMap(\.string)), Set(allowed.keys))
-        let description = schema["properties"]["action"]["description"].string ?? ""
-        for hidden in Set(contracts.keys).subtracting(allowed.keys) {
-          XCTAssertFalse(description.split(separator: "\n").contains { $0.hasPrefix(hidden + ":") })
-        }
-        let readOnly = allowed.values.allSatisfy(\.readOnly)
-        XCTAssertEqual(definition["annotations"]["readOnlyHint"], .bool(readOnly))
-        XCTAssertEqual(definition["annotations"]["idempotentHint"], .bool(readOnly))
-        let needsBinding = allowed.keys.allSatisfy {
-          ProjectBindingContract.requiresToken(name, arguments: ["action": .string($0)])
-        }
-        XCTAssertEqual(schema["required"].array!.contains("projectToken"), needsBinding)
-      }
-      await endpoint.shutdown()
-    }
+    let status = await router.call("runtime_status", arguments: [:])
+    XCTAssertFalse(status.isError)
   }
 
   func testInitializeRecommendsCompactDiscoveryWithoutAddingTools() async throws {
     let f = try Fixture(); defer { f.remove() }
     let router = try f.router()
     addTeardownBlock { await router.stop() }
-    let endpoint = MCPDispatcher(authentication: .local(bearer: token), port: TunnelContract.defaultPort, router: router)
+    let endpoint = MCPDispatcher(authentication: .local(bearer: token), port: port, router: router)
     let response = await endpoint.handle(try request("initialize", params: [
       "protocolVersion": "2025-11-25", "capabilities": [:], "clientInfo": ["name": "tests", "version": "1"],
     ]))
     let instructions = try XCTUnwrap(response.json["result"]["instructions"].string)
-    XCTAssertTrue(instructions.contains("memory(action=recent)"))
+    XCTAssertTrue(instructions.contains("Start with project_info"))
+    XCTAssertFalse(instructions.contains("memory("))
+    XCTAssertFalse(instructions.contains("projects("))
     XCTAssertTrue(instructions.contains("inspect_project(view=summary)"))
     XCTAssertTrue(instructions.contains("omit unused fields instead of null"))
     XCTAssertFalse(ToolCatalog.names.contains("agent_start"))
     XCTAssertFalse(ToolCatalog.names.contains("resume_project"))
   }
-
 
 }

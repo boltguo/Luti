@@ -13,8 +13,6 @@ enum ProjectBindingContract {
 
   static func requiresToken(_ name: String, arguments: JSONValue) -> Bool {
     requiredTools.contains(name)
-      || (name == "projects" && arguments["action"] == "switch")
-      || (name == "memory" && ["remember", "forget"].contains(arguments["action"].string ?? ""))
       || (name == "job_action" && arguments["action"] == "input")
   }
 }
@@ -59,7 +57,7 @@ public enum ToolCatalog {
       "inputSchema": object(
         ProjectBindingContract.acceptsToken(name)
           ? properties.merging([
-            "projectToken": string("Current binding from memory(recent) or projects(current). Refresh on mismatch; never automatically replay effects.", max: 80)
+            "projectToken": string("Current binding from project_info. Refresh on mismatch; never automatically replay effects.", max: 80)
           ], uniquingKeysWith: { _, new in new }) : properties,
         required + (ProjectBindingContract.requiredTools.contains(name) ? ["projectToken"] : [])),
       "annotations": [
@@ -81,7 +79,7 @@ public enum ToolCatalog {
       "terminalMode": [
         "type": "string", "enum": .array(["pipe", "pty"].map(JSONValue.string)),
         "default": "pipe",
-        "description": "pipe uses ordinary stdin/stdout pipes. pty allocates a real macOS pseudo-terminal for the child and requires interactive=true.",
+        "description": "pipe uses ordinary stdin/stdout pipes. pty allocates a pseudo-terminal for the child and requires interactive=true.",
       ],
       "idempotencyKey": string(
         "Optional retry key, retained with this instance's last 64 jobs. Same key/input returns the same job.",
@@ -90,16 +88,8 @@ public enum ToolCatalog {
     ]
     let base: [JSONValue] = [
       tool(
-        "projects",
-        "List enabled, locally approved project roots, inspect the current project, or switch to another enabled project. current returns projectToken; without project:read, callers with project:write, process:run or browser:use receive only the current project ID and binding. list requires project:read; switch requires project:read and project:write. Only one workspace is active at a time. Remote callers cannot add projects or provide filesystem paths. Switching revokes old workspace/job/browser/artifact handles and is refused while another project call or Job is active.",
-        [
-          "action": enumeration(["list", "current", "switch"]),
-          "projectId": string("Exact approved project ID returned by action=list", max: 80),
-        ],
-        required: ["action"], readOnly: false),
-      tool(
         "project_info",
-        "Inspect the active locally approved workspace, top-level files and active safety boundaries."),
+        "Start here for the current locally selected workspace and projectToken. Includes top-level files and safety boundaries."),
       tool(
         "runtime_status",
         "Inspect real permissions, running jobs and last successful tool call. Tunnel readiness is not proof of ChatGPT use."
@@ -143,7 +133,7 @@ public enum ToolCatalog {
         ], required: ["action"], readOnly: false),
       tool(
         "run_process",
-        "Run one discovered project task by taskId, or one explicit program + argv, under the active Project Execution Policy. Use task IDs from inspect_project when available; task program/args/cwd cannot be overridden. Full local execution uses macOS user privileges and is NOT an OS sandbox.",
+        "Run one discovered project task by taskId, or one explicit program + argv, under the active Project Execution Policy. Use task IDs from inspect_project when available; task program/args/cwd cannot be overridden. Full local execution uses the current user's privileges and is NOT an OS sandbox.",
         process.merging(
           [
             "taskId": string("Exact stable task id from inspect_project taskRegistry; mutually exclusive with program/args/cwd/environment", max: 128),
@@ -192,8 +182,9 @@ public enum ToolCatalog {
           "startLine": integer(1, 1_000_000, 1),
           "endLine": integer(1, 1_000_000),
         ], required: ["action"]),
+
     ]
-    return (base + additions + [memoryDefinition]).map { ActionContracts.present($0) }
+    return (base + additions).map { ActionContracts.present($0) }
       .sorted { $0["name"].string! < $1["name"].string! }
   }()
   public static let names = Set(definitions.compactMap { $0["name"].string })

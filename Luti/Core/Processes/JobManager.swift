@@ -150,10 +150,7 @@ public actor JobManager {
         "job_not_found", "The job does not exist.", "Use a Job ID returned by this runtime.")
     }
     job.process.requestStop()
-    let until = ContinuousClock.now.advanced(by: .seconds(3))
-    while !job.process.finished && ContinuousClock.now < until {
-      try? await Task.sleep(for: .milliseconds(30))
-    }
+    await Self.awaitExit([job.process], seconds: 3)
     return await snapshot(id)
   }
   func fullLog(_ id: String) throws -> Data? {
@@ -173,13 +170,14 @@ public actor JobManager {
   }
   public func activeCount() -> Int { jobs.values.filter { !$0.process.finished }.count }
   public func stopActive() async -> Int {
-    let active = jobs.values.filter { !$0.process.finished }
-    for job in active { job.process.requestStop() }
-    let until = ContinuousClock.now.advanced(by: .seconds(3))
-    while jobs.values.contains(where: { !$0.process.finished }) && ContinuousClock.now < until {
-      try? await Task.sleep(for: .milliseconds(30))
-    }
+    let active = jobs.values.filter { !$0.process.finished }.map(\.process)
+    for process in active { process.requestStop() }
+    await Self.awaitExit(active, seconds: 3)
     return active.count
+  }
+  /// Lifecycle rows only; cheap enough for native polling.
+  public func lifecycles() -> [JSONValue] {
+    order.reversed().compactMap { id in jobs[id]?.process.lifecycle(id: id) }
   }
   public func list(refreshInputs: Bool = true) async -> [JSONValue] {
     var values: [JSONValue] = []
@@ -220,11 +218,11 @@ public actor JobManager {
         status: result["status"].string ?? "running", terminal: false, outputComplete: false,
         observedAt: ISO8601DateFormatter().date(from: result["startedAt"].string ?? "") ?? before.observedAt)
       evidence.taskId = request.taskID
-      evidence.input = ValidationInputEvidence(scope: "session-touched-files-and-manifests",
+      evidence.input = ValidationInputEvidence(scope: "run-touched-files-and-manifests",
         scopeComplete: request.scopeComplete, before: before,
         consistency: "unknown", freshness: "unknown")
     }
-    result = result.adding("validation", (try? ContextCoding.json(evidence)) ?? .null)
+    result = result.adding("validation", (try? JSONCoding.json(evidence)) ?? .null)
     if let tests = evidence.tests { result = result.adding("testSummary", tests.json) }
     return result
   }
@@ -243,12 +241,12 @@ public actor JobManager {
   private static func completedEvidence(_ result: JSONValue, request: ValidationScopeRequest,
                                         before: ValidationScopeSnapshot,
                                         reportBefore: ValidationFileDigest?) async -> ValidationEvidence {
-    var evidence = (try? ContextCoding.decode(ValidationEvidence.self, result["validation"].data()))
+    var evidence = (try? JSONCoding.decode(ValidationEvidence.self, result["validation"].data()))
       ?? ValidationEvidence.process(command: "", stdout: "", stderr: "",
         status: result["status"].string ?? "failed", terminal: true, outputComplete: false, observedAt: Date())
     evidence.taskId = request.taskID
     let after = await ValidationScopeSnapshot.capture(files: request.files, paths: request.paths)
-    evidence.input = ValidationInputEvidence(scope: "session-touched-files-and-manifests",
+    evidence.input = ValidationInputEvidence(scope: "run-touched-files-and-manifests",
       scopeComplete: request.scopeComplete, before: before, after: after, current: after,
       consistency: "unknown", freshness: "unknown")
     evidence.input?.assess()
@@ -280,10 +278,17 @@ public actor JobManager {
 
   public func shutdown() async {
     open = false
-    for job in jobs.values { job.process.requestStop() }
-    let until = ContinuousClock.now.advanced(by: .seconds(4))
-    while jobs.values.contains(where: { !$0.process.finished }) && ContinuousClock.now < until {
-      try? await Task.sleep(for: .milliseconds(30))
+    let processes = jobs.values.map(\.process)
+    for process in processes { process.requestStop() }
+    await Self.awaitExit(processes, seconds: 4)
+  }
+
+  /// Bounded wait for processes to finish. Each pause runs in its own task, so a
+  /// cancelled caller keeps the 30 ms pacing instead of spinning until the deadline.
+  private static func awaitExit(_ processes: [OwnedProcess], seconds: Int) async {
+    let until = ContinuousClock.now.advanced(by: .seconds(seconds))
+    while processes.contains(where: { !$0.finished }) && ContinuousClock.now < until {
+      _ = await Task.detached { try? await Task.sleep(for: .milliseconds(30)) }.value
     }
   }
 }

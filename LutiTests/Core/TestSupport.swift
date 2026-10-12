@@ -29,7 +29,7 @@ struct Fixture {
     files = try WorkspaceFiles(root: root)
   }
   func remove() {
-    defaults.removePersistentDomain(forName: defaultsSuite)
+    removeDefaultsSuite(defaultsSuite)
     try? FileManager.default.removeItem(at: root)
   }
   func write(_ path: String, _ text: String) throws {
@@ -38,18 +38,25 @@ struct Fixture {
       at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
     try Data(text.utf8).write(to: url)
   }
-  func router(
-    execution: Bool = false,
-    permissionMode: ProjectPermissionMode = .fullProjectAccess,
-    operationApprovals: OperationApprovalBroker? = nil
-  ) throws -> ToolRouter {
-    let project = ApprovedProject(url: root, permissionMode: permissionMode)
-    return try ToolRouter(
+  func router(execution: Bool = false) throws -> ToolRouter {
+    try ToolRouter(
       workspace: files, jobs: JobManager(helper: Self.helper),
       activity: ActivityStore(),
       executionPolicy: execution ? .fullLocal(localApproval: true) : .readOnly,
-      operationApprovals: operationApprovals,
-      approvedProjects: [project], activeProjectID: project.id,
-      contextDataRoot: contextDataRoot)
+      project: ApprovedProject(url: root), helper: Self.helper, contextDataRoot: contextDataRoot)
   }
+}
+
+/// The listener a delegated tunnel connection uses, attributed to `context`.
+func fixtureRemoteAuthentication(bearer: String, context: RequestContext) -> MCPAuthentication {
+  .delegated(bearer: bearer, context: context)
+}
+
+/// Clearing a suite's domain leaves its plist behind; delete the file too so test
+/// runs do not accumulate files in ~/Library/Preferences.
+func removeDefaultsSuite(_ name: String) {
+  UserDefaults.standard.removePersistentDomain(forName: name)
+  try? FileManager.default.removeItem(
+    at: FileManager.default.homeDirectoryForCurrentUser
+      .appendingPathComponent("Library/Preferences/\(name).plist"))
 }

@@ -40,7 +40,6 @@ public struct ActivityEvent: Identifiable, Codable, Sendable {
   public let cwd: String?
   public let jobID: String?
   public let artifactURI: String?
-  public let checkpointID: String?
   public let errorCode: String?
   public let recovery: String?
   public let durationSeconds: Double
@@ -52,7 +51,7 @@ public struct ActivityEvent: Identifiable, Codable, Sendable {
     targetType: String? = nil, target: String, status: String,
     operationState: String? = nil, effect: String? = nil, summary: String,
     cwd: String? = nil, jobID: String? = nil, artifactURI: String? = nil,
-    checkpointID: String? = nil, errorCode: String? = nil, recovery: String? = nil,
+    errorCode: String? = nil, recovery: String? = nil,
     durationSeconds: Double,
     source: ActivitySource? = nil
   ) {
@@ -72,7 +71,6 @@ public struct ActivityEvent: Identifiable, Codable, Sendable {
     self.cwd = cwd
     self.jobID = jobID
     self.artifactURI = artifactURI
-    self.checkpointID = checkpointID
     self.errorCode = errorCode
     self.recovery = recovery
     self.durationSeconds = durationSeconds
@@ -85,6 +83,18 @@ public struct ActivityEvent: Identifiable, Codable, Sendable {
 enum LocalLogStore {
   private static let lock = NSLock()
   private static let maxBytes: Int64 = 4_194_304
+
+  static func activityDirectory(for project: URL, dataRoot: URL = LutiPaths.root) -> URL {
+    dataRoot.appendingPathComponent("projects")
+      .appendingPathComponent(LutiPaths.projectKey(for: project)).appendingPathComponent("activity")
+  }
+
+  static func clearActivities(directory: URL) throws {
+    try lock.withLock {
+      try prepare(directory)
+      try PrivateFiles.clearDirectory(directory)
+    }
+  }
 
   static var runtimeLogDirectory: URL { LutiPaths.logs }
 
@@ -179,7 +189,7 @@ public actor ActivityStore {
         operationState: "interrupted", effect: "possible",
         summary: "The previous runtime ended before this operation recorded a terminal state.",
         cwd: event.cwd, jobID: event.jobID, artifactURI: event.artifactURI,
-        checkpointID: event.checkpointID, errorCode: "session_interrupted",
+        errorCode: "session_interrupted",
         recovery: "Inspect the current project or application state before intentionally starting new work.",
         durationSeconds: event.durationSeconds, source: event.source)
     }
@@ -212,7 +222,7 @@ public actor ActivityStore {
 
   @discardableResult public func finish(
     id: UUID, status: String, started: Date, summary: String = "", cwd: String? = nil,
-    jobID: String? = nil, artifactURI: String? = nil, checkpointID: String? = nil,
+    jobID: String? = nil, artifactURI: String? = nil,
     effect: String? = nil, operationState: String? = nil, errorCode: String? = nil,
     recovery: String? = nil
   ) -> ActivityEvent {
@@ -232,7 +242,6 @@ public actor ActivityStore {
       summary: Budget.prefix(redactor.clean(summary), bytes: 512),
       cwd: (cwd ?? original?.cwd).map { Budget.prefix(redactor.clean($0), bytes: 512) },
       jobID: jobID, artifactURI: artifactURI,
-      checkpointID: checkpointID.map { Budget.prefix(redactor.clean($0), bytes: 80) },
       errorCode: errorCode.map { Budget.prefix($0, bytes: 128) },
       recovery: recovery.map { Budget.prefix(redactor.clean($0), bytes: 512) },
       durationSeconds: max(0, now.timeIntervalSince(started)),
@@ -240,7 +249,7 @@ public actor ActivityStore {
       source: original?.source)
 
     let directory = owned?.directory ?? persistenceDirectory
-    // Persist to the owner captured at begin, never to whichever project is now active.
+    // Persist the destination captured when this call began.
     if directory == persistenceDirectory {
       if let index = records.firstIndex(where: { $0.id == id }) { records[index] = event }
       else { records.append(event) }
@@ -296,7 +305,7 @@ public actor ActivityStore {
           ? (["failed", "timed_out", "stopped"].contains(state) ? "possible" : "confirmed")
           : "submitted",
         summary: summary, cwd: event.cwd, jobID: event.jobID,
-        artifactURI: event.artifactURI, checkpointID: event.checkpointID,
+        artifactURI: event.artifactURI,
         errorCode: failure["error"].string,
         recovery: failure["recovery"].string ?? event.recovery,
         durationSeconds: job["durationSeconds"].double ?? event.durationSeconds,
@@ -308,15 +317,6 @@ public actor ActivityStore {
       }
     }
     if changed { publish() }
-  }
-
-  /// Switch persistence with the Active Project. Existing in-memory records are
-  /// intentionally replaced so the Activity UI never mixes two project namespaces.
-  public func setPersistenceDirectory(_ directory: URL?) {
-    persistenceDirectory = directory
-    let restored = directory.map { LocalLogStore.recentActivities(limit: 200, directory: $0) } ?? []
-    records = Self.markInterrupted(restored)
-    publish()
   }
 
   public func snapshot() -> [ActivityEvent] { records.reversed() }

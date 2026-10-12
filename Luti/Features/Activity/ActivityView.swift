@@ -227,10 +227,7 @@ private struct ActivityEventRow: View {
 
   private func transportTitle(_ transport: TransportProviderID) -> String {
     switch transport {
-    case .cloudflare: "Cloudflare BYO"
     case .openAI: "OpenAI Tunnel"
-    case .ngrok: "ngrok"
-    case .quick: "Quick Tunnel"
     case .loopback: "Local"
     }
   }

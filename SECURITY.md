@@ -30,9 +30,9 @@ Security issues in scope include:
 - Failures or bypasses involving authorization, OAuth, tokens, or Keychain
 - Bypasses of approval or permission checks
 - Command execution outside the selected policy
-- Secret leakage through logs, memory, sessions, activity, or artifacts
+- Secret leakage through logs, activity, or artifacts
 - Execution of unverified downloaded or bundled code
-- Update-signing or release-integrity failures
+- Release-integrity failures
 
 Use GitHub Issues for general support and feature requests. Report third-party vulnerabilities to the relevant upstream project unless they have a specific impact on Luti.
 

@@ -1,63 +1,8 @@
-/* Semantic localization keys. Add languages by providing the same keys in another .lproj. */
-
 /* Project context */
-"context.title" = "Project context";
-"context.memory" = "Memory";
-"context.sessions" = "Sessions";
 "context.activity" = "Activity";
-"context.all" = "All context";
-"context.refresh" = "Refresh";
-"context.counts" = "%ld memories · %ld sessions";
-"context.unavailable" = "Context unavailable";
-"context.memoryDescription" = "Project decisions and conventions";
-"context.sessionsDescription" = "Run history and validation";
 "context.activityDescription" = "Tool calls and diagnostics";
 "context.clearSelection" = "Clear %@";
-"context.clear" = "Clear Context";
-"context.stopBeforeClear" = "Stop the runtime before clearing context.";
-"context.clearKeepsProject" = "Only context is cleared. Project files remain.";
 "context.clearConfirmation" = "Permanently delete %@ for “%@”. This can’t be undone.";
-"context.sessionDetails" = "Session details";
-"context.search" = "Search project memories";
-"context.includeHistory" = "Include superseded facts";
-"context.revision" = "Source revision %ld";
-"context.updated" = "Updated %@";
-"context.noMemories" = "No matching project memories";
-"context.loadMore" = "Load more";
-"context.noSessions" = "No sessions yet";
-"context.sessionCounts" = "%ld calls · %ld changed paths · %ld failures";
-"context.supersedes" = "Supersedes %@";
-"context.omitted" = "%ld older detail records omitted by the storage budget.";
-"context.tools" = "Tools";
-"context.touchedFiles" = "Changed paths";
-"context.readFiles" = "Read files";
-"context.jobs" = "Commands and Jobs";
-"context.testCounts" = "%ld passed · %ld failed · %ld skipped";
-"context.failures" = "Failures and recovery";
-"context.diagnostics" = "Diagnostics";
-"context.artifacts" = "Artifacts (metadata only)";
-"context.checkpoints" = "Recovery checkpoints (IDs only)";
-"context.journalPrivacy" = "Only execution metadata and diagnostics are stored. Conversations, file contents, raw output, and screenshots are not. A successful command does not prove correctness.";
-"context.kind.architecture" = "Architecture";
-"context.kind.decision" = "Decision";
-"context.kind.convention" = "Convention";
-"context.kind.constraint" = "Constraint";
-"context.kind.security" = "Security";
-"context.kind.pitfall" = "Pitfall";
-"context.kind.goal" = "Goal";
-"context.kind.rationale" = "Rationale";
-"context.state.running" = "Running";
-"context.state.stopping" = "Stopping";
-"context.state.paused" = "Paused";
-"context.state.completed" = "Completed";
-"context.state.interrupted" = "Interrupted";
-"context.state.active" = "Active";
-"context.state.superseded" = "Superseded";
-"context.state.forgotten" = "Forgotten";
-"context.state.ok" = "OK";
-"context.state.failed" = "Failed";
-"context.state.timed_out" = "Timed out";
-"context.state.stopped" = "Stopped";
 
 /* activity */
 "activity.activityFilter" = "Activity filter";
@@ -83,97 +28,7 @@
 "activity.tryAnotherToolNameKeyword" = "Try another keyword.";
 
 /* app */
-"app.chooseProjectsLutiEdit" = "Choose projects Luti can edit";
-"app.enterTunnelTokenSaving" = "Enter a Tunnel Token before saving.";
-
-/* approval */
-"approval.accessRemainsLimitedCurrentProjectTool" = "Access is limited by the current project, tool policy, and system permissions. Revoke it in Connection.";
-"approval.allow" = "Allow";
-"approval.allowConnection" = "Allow connection?";
-"approval.deny" = "Deny";
-"approval.moreRequestsWaiting" = "%d more requests waiting";
-"approval.receivePermissions" = "Will receive these permissions";
-"approval.requestingAccessMac" = "%@ is requesting access to this Mac.";
-"approval.dynamicClientDetected" = "Dynamically registered · callback domain recognized as %@";
-"approval.dynamicClientUnverified" = "Dynamic registration · app unrecognized; check the callback URL";
-
-/* operation approval */
-"operationApproval.title" = "Allow this operation?";
-"operationApproval.command" = "Command";
-"operationApproval.project" = "Active project";
-"operationApproval.allowOnce" = "Allow once";
-
-/* capability */
-"capability.browserAutomation" = "Browser automation";
-"capability.chromeRequired" = "Chrome required";
-"capability.commandExecution" = "Command execution";
-"capability.preparesFirstUse" = "Prepares on first use";
-"capability.projectFiles" = "Project files";
-"capability.retryNeeded" = "Retry needed";
-"capability.fullLocalNotSandboxed" = "Full local · not sandboxed";
-"capability.readOnly" = "Read only";
-"capability.sandboxPending" = "Sandbox backend required";
-"capability.startRequired" = "Start required";
-"capability.starting" = "Starting";
-
-/* clients */
-"clients.add" = "Add";
-"clients.addCallbackURL" = "Add callback URL";
-"clients.aiAppShowCallbackURLPaste" = "Paste the callback URL from the AI app";
-"clients.clientSecretAuthentication" = "Client Secret authentication";
-"clients.clientSecretAuthenticationHint" = "On: Client Secret · Off: PKCE only";
-"clients.authorizationURL" = "Authorization URL";
-"clients.authorized" = "Authorized %@";
-"clients.authorizedConnections" = "Authorized connections";
-"clients.authorizedConnectionsCount" = "%d authorized connections";
-"clients.callbackURLRequired" = "Callback missing";
-"clients.callbackURLs" = "Callback URLs";
-"clients.clientAuthentication" = "Client authentication";
-"clients.copy" = "Copy %@";
-"clients.enterAIApp" = "Enter in the AI app";
-"clients.noAuthorizations" = "No authorizations";
-"clients.notConnected" = "Not connected";
-"clients.openToConfigure" = "Not configured";
-"clients.readyToEnable" = "Configured";
-"clients.remoteAccessFor" = "%@ remote access";
-"clients.removeCallbackURL" = "Remove callback URL";
-"clients.resetClientSecret" = "Reset Client Secret";
-"clients.revoke" = "Revoke";
-"clients.scopes" = "Scopes";
-"clients.tokenURL" = "Token URL";
-"clients.authentication" = "Authentication";
-"clients.callbackURL" = "Callback URL";
-"clients.chatGPTCallbackHint" = "Paste ChatGPT’s Callback URL";
-"clients.claudeCallbackHint" = "Fixed callback · prefilled";
-"clients.claudeCredentialsHint" = "Use the Client ID / Secret below";
-"clients.copyScopesBelow" = "Copy Scopes below";
-"clients.copyValueBelow" = "Copy value below";
-"clients.credentials" = "Client credentials";
-"clients.customHost" = "Other app";
-"clients.customSetupHint" = "Enter OAuth details and a callback URL";
-"clients.geminiCredentialsHint" = "Use the Client ID / Secret below";
-"clients.geminiRedirectHint" = "Paste Gemini’s Redirect URI";
-"clients.grokCallbackHint" = "Paste Grok’s callback URL";
-"clients.hostSetup" = "App setup";
-"clients.oauthClient" = "OAuth client";
-"clients.redirectURI" = "Redirect URI";
-"clients.registrationMethod" = "Registration method";
-"clients.secretOneTime" = "Secret is shown only after creation or reset";
-"clients.accessControl" = "Access control";
-"clients.approvedUnknownPlatform" = "Connected · platform not recognized";
-"clients.clientNoLongerExists" = "This OAuth client no longer exists.";
-"clients.connectionIdentity" = "Client Identity";
-"clients.dcrClientsAppearAfterApproval" = "Dynamically registered AI apps appear here after approval on this Mac.";
-"clients.deleteClient" = "Delete client";
-"clients.deleteClientConfirm" = "Delete this OAuth client?";
-"clients.deleteClientMessage" = "Deleting immediately revokes this client's tokens. Connecting again requires registration and approval.";
-"clients.detectedPlatformReady" = "Recognized as %@ · connected";
-"clients.noApprovedClients" = "No connected AI apps";
-"clients.platform" = "Platform";
-"clients.platformDetected" = "Identified by callback domain";
-"clients.platformUnverified" = "Platform unrecognized; name supplied by the client";
-"clients.remoteAccess" = "Remote access";
-"clients.remoteAccessDisabled" = "Paused";
+"app.chooseProjectsLutiEdit" = "Choose a folder for Luti";
 
 /* common */
 "common.back" = "Back";
@@ -195,62 +50,13 @@
 "common.stopping" = "Stopping";
 
 /* connection */
-"connection.aiApps" = "AI apps";
-"connection.cnameProxied" = "CNAME, proxied";
-"connection.configureCloudflare" = "Configure in Cloudflare";
-"connection.manageTunnel" = "Cloudflare Tunnels";
-"connection.pasteCloudflareTunnelToken" = "Paste Cloudflare Tunnel Token";
-"connection.pasteTokenAgainStartingCloudflareTunnel" = "Paste the Token again before starting Cloudflare Tunnel next time.";
-"connection.publicURL" = "Public URL";
-"connection.publishedHostname" = "Published hostname";
-"connection.removeSavedTunnelToken" = "Remove saved Tunnel Token?";
-"connection.removeToken" = "Remove Token";
 "connection.saveConfiguration" = "Save";
-"connection.savedLeaveBlankKeepCurrentToken" = "Saved · leave blank to keep the current Token";
-"connection.service" = "Service";
+"connection.savedLeaveBlankKeepCurrentToken" = "Saved · leave blank to keep the current key";
 "connection.stopSessionEditConnection" = "Stop the session to edit the connection.";
-"connection.tokenStoredMacKeychain" = "Token stored in this Mac's Keychain";
 "connection.copied" = "Copied";
-"connection.dcrAutomatic" = "Dynamic registration";
-"connection.mcpServerURL" = "MCP Server URL";
-"connection.mcpServerURLHint" = "Use this complete URL in ChatGPT or another AI app; the /mcp path is required. The Public URL alone is only the OAuth issuer / Tunnel host.";
-"connection.copyMCPURL" = "Copy MCP URL";
 "connection.quickSetup" = "Quick setup";
-"connection.enterPublicURLFirst" = "Enter a valid Public URL to generate this value";
-
-/* Connection Providers */
-"provider.credentialRequired" = "Save the connection credentials first.";
-"provider.openai.guide" = "Create a Tunnel and runtime API key in OpenAI Platform, then enter the Tunnel ID and API key above.";
-"provider.ngrok.guide" = "Get an Authtoken and HTTPS domain from ngrok, then enter them above.";
-"provider.openDocumentation" = "View documentation";
-"provider.openDashboard" = "Open ngrok Domains";
-"provider.openAuthtoken" = "Open ngrok Authtoken";
-"provider.openTunnelSettings" = "Open Tunnel Settings";
-"provider.openAPIKeys" = "Open API Keys";
-"provider.openai.step1.title" = "Turn on ChatGPT Developer Mode";
-"provider.openai.step1.detail" = "In ChatGPT, open Settings > Apps > Advanced Settings and turn on Developer Mode. If it isn’t available, contact your workspace admin.";
-"provider.openai.step2.title" = "Create a Secure MCP Tunnel";
-"provider.openai.step2.detail" = "In OpenAI Platform Tunnel settings, create a Tunnel and associate the ChatGPT workspace that will use it. Creating or editing a Tunnel requires Tunnels Read + Manage.";
-"provider.openai.step3.title" = "Create a runtime API key";
-"provider.openai.step3.detail" = "Create an API key for tunnel-client. Running the connection requires Tunnels Read + Use.";
-"provider.openai.step4.title" = "Finish setup in Luti";
-"provider.openai.step4.detail" = "Enter the Tunnel ID and Runtime API Key above, save, then enable this connection.";
-"provider.doctor" = "Connection Doctor";
-"provider.doctorBoundary" = "Checks tunnel and authentication settings only, not AI app connections or tool calls.";
-"provider.checking" = "Checking…";
-"provider.runDoctor" = "Run checks";
-"doctor.reachable" = "Public endpoint is reachable without redirects";
-"doctor.resource" = "Protected-resource metadata matches this MCP URL";
-"doctor.issuer" = "OAuth issuer, endpoints and S256 configuration match";
-"doctor.challenge" = "Unauthenticated MCP returns the correct OAuth challenge";
-"doctor.originGuard" = "Untrusted browser origins are rejected";
-"doctor.transport" = "Private tunnel reports ready";
-"doctor.privateEndpoint" = "Private MCP health check accepts its own credential";
-"doctor.privateCredential" = "Private ingress rejects unauthenticated requests";
 
 /* home */
-"home.addProjectGetStarted" = "Add a project to get started.";
-"home.checkErrorDetailsTryingAgain" = "Review the error and try again.";
 "home.checkingTunnelClient" = "Checking the Tunnel client.";
 "home.chooseProject" = "Choose Project";
 "home.configuration" = "Configuration";
@@ -260,13 +66,10 @@
 "home.connectionChangesNotSavedDescription" = "Your connection changes are not saved.";
 "home.connectionWasInterruptedAttemptingReconnect" = "The connection was interrupted. Attempting to reconnect.";
 "home.disconnected" = "Disconnected";
-"home.disconnectingStoppingSessionsTasks" = "Disconnecting and stopping this session’s tasks.";
 "home.inactive" = "Inactive";
-"home.localService" = "Local service";
 "home.noWorkingProjectSelected" = "No working project selected";
 "home.notConnect" = "Could not connect";
 "home.notRunning" = "Not running";
-"home.publicURLTokenNotConfigured" = "Public URL and Token not configured";
 "home.readyStart" = "Ready to start";
 "home.reconnecting" = "Reconnecting";
 "home.setUpConnectionStarting" = "Set up your connection before starting.";
@@ -276,7 +79,6 @@
 "home.stop" = "Stop";
 "home.stopAllTasks" = "Stop All Tasks";
 "home.toolStatus" = "Tool status";
-"home.tunnelTokenMissing" = "Tunnel Token missing";
 
 /* login */
 "login.error" = "Could not update login item: %@";
@@ -294,88 +96,35 @@
 "menu.stopLuti" = "Stop Luti";
 "menu.stopRunningTasks" = "Stop Running Tasks (%ld)";
 "menu.stopService" = "Stop Service";
-"menu.tunnelConnecting" = "Tunnel connecting";
-"menu.tunnelConnectionFailed" = "Tunnel connection failed";
-"menu.tunnelReady" = "Tunnel connected";
-"menu.tunnelReconnecting" = "Tunnel reconnecting";
-"menu.tunnelStopped" = "Tunnel stopped";
-"menu.tunnelStopping" = "Tunnel stopping";
 
 /* navigation */
-"navigation.allowLocalExecution" = "Start Luti";
-"navigation.allowStart" = "Start";
-"navigation.fileToolsAccessOnlySelectedProject" = "Luti only works with files and paths inside the current project.";
 "navigation.home" = "Home";
 "navigation.pageNavigation" = "Page navigation";
-"navigation.screenshotsClipboardAccessUIActionsMay" = "Some features request macOS permissions separately.";
-"permissionMode.title" = "Full Project Access";
-"permissionMode.ask" = "Ask First";
-"permissionMode.askDescription" = "Ask before sensitive operations in this project.";
-"permissionMode.fullProjectAccess" = "Full Project Access";
-"permissionMode.fullProjectAccessDescription" = "Run operations in this project without repeated confirmation.";
-
-/* oauth */
-"oauth.changeProject" = "Change project";
-"oauth.readProject" = "Read project";
-"oauth.runCommands" = "Run commands";
-"oauth.useBrowser" = "Use browser";
-
-/* recovery */
-"recovery.title" = "File Recovery";
-"recovery.empty" = "No recovery checkpoints";
-"recovery.loading" = "Loading recovery checkpoints…";
-"recovery.checkpointSummary" = "%ld files · %@";
-"recovery.restore" = "Restore";
-"recovery.restoreConfirmation" = "Restore this checkpoint?";
-"recovery.restoreMessage" = "Restore %ld files to their verified state before this AI edit. If any file changed afterwards, Luti refuses the restore instead of overwriting it.";
-"recovery.reviewSummary" = "Restore %ld files to before the AI edit";
-"recovery.previewVerified" = "Files were checked and will be checked again before restore.";
-"recovery.previewTruncated" = "Preview truncated. Some changes are not shown.";
-"recovery.metadataOnly" = "Permission changes, large files, and non-UTF-8 files show metadata only.";
-"recovery.stopBeforeRestore" = "Stop Luti before restoring.";
-"recovery.state.ready" = "Ready";
-"recovery.state.restored" = "Restored";
-"recovery.state.uncertain" = "Needs inspection";
-"recovery.state.prepared" = "Preparing";
 
 /* projects */
-"projects.addProject" = "Add Projects";
+"projects.addProject" = "Add Folder";
+"projects.chooseFolder" = "Choose Folder";
 "projects.chooseLocalFolderProjectWorkspace" = "Choose a local folder for this project.";
-"projects.loadingSkills" = "Loading Skills…";
-"projects.noMatchingProjects" = "No matching projects";
-"projects.noMatchingSkills" = "No matching Skills";
-"projects.noProjectSkillsFound" = "No project Skills found";
-"projects.noProjectsYet" = "No projects yet";
-"projects.onlyRemovesProjectListFilesDisk" = "Removes this project from the list. Its files and context remain.";
+"projects.noProjectsYet" = "No folder added";
 "projects.projectAccess" = "Project access";
 "projects.projectActions" = "Project Actions";
 "projects.projectFolder" = "Project folder";
 "projects.refresh" = "Refresh";
-"projects.removeProject" = "Remove Project";
-"projects.removeProjectConfirmation" = "Remove this project?";
-"projects.scansAgentsSkillsClaudeSkillsCodex" = "Scans .agents/skills, .claude/skills and .codex/skills at the project root.";
-"projects.searchProjects" = "Search projects";
-"projects.searchSkills" = "Search Skills";
+"projects.removeProject" = "Remove Folder";
 "projects.selected" = "Selected";
-"projects.setCurrent" = "Set as current";
 "projects.showFinder" = "Show in Finder";
-"projects.stopSessionAddProjects" = "Stop the session to add projects.";
 "projects.stopSessionSwitchRemoveProjects" = "Stop Luti before changing project settings.";
-"projects.viewProjectDetails" = "View project details";
 "projects.whileRunningChatGPTSwitchOnlyBetween" = "While Luti is running, AI apps can access only projects you’ve added.";
 
 /* settings */
 "settings.about" = "About";
 "settings.activity" = "Activity";
+"settings.allow" = "Allow";
 "settings.allowLutiSystemSettingsLoginItems" = "Allow Luti in System Settings > General > Login Items.";
 "settings.awaitingApproval" = "Waiting for system permission";
 "settings.components" = "Components";
-"settings.defaultFullProjectAccess" = "Full Project Access by Default";
-"settings.defaultFullProjectAccessDescription" = "Affects only newly added projects.";
 "settings.displayLanguage" = "Display language";
 "settings.general" = "General";
-"settings.updates" = "Updates";
-"settings.automaticUpdateChecks" = "Automatically check for updates";
 "settings.japanese" = "Japanese";
 "settings.launchLogin" = "Open Luti at Login";
 "settings.notRegistered" = "Not registered";
@@ -393,16 +142,7 @@
 
 "connection.connectAI" = "Connect AI";
 "connection.needsAttention" = "Needs attention";
-"connection.localAndRemote" = "Cloud AI connected";
-"connection.localAvailable" = "Mac runtime ready · Connect cloud AI";
-"connection.localFirst" = "Connect cloud AI to this Mac";
 "connection.runtimeFailed" = "Could not start";
-"connection.preparingLocal" = "Preparing Luti…";
-"connection.startingLocal" = "Starting Luti…";
-"home.capabilitiesPermissions" = "Capabilities & permissions";
-"connection.copyLocalSetup" = "Copy";
-"connection.localCredentialHint" = "Includes a run-specific key. Use only with trusted local apps.";
-"connection.startLocalHint" = "After Luti starts, local MCP clients can also use the same project context.";
 "connection.optionalRemote" = "Remote connection";
 "connection.remoteAccess" = "Remote access";
 "connection.disconnect" = "Disconnect";
@@ -419,8 +159,6 @@
 "connection.state.stopping" = "Disconnecting…";
 "connection.state.failed" = "Connection failed";
 
-"projects.enabledCount" = "%d enabled";
-
 "common.starting" = "Starting";
 "connection.copyFailed" = "Copy failed. Make sure Luti is running.";
 "connection.setupHelp" = "Setup help";
@@ -429,63 +167,22 @@
 "home.currentTask" = "Current Task";
 "home.idle" = "Idle";
 
-"projects.noProjectsEnabled" = "No project enabled";
-"projects.enableProjectFromProjects" = "Enable a project in Projects.";
-"projects.stopRuntimeToEditProject" = "Stop Luti before changing project permissions or removing this project.";
+"projects.stopRuntimeToEditProject" = "Stop Luti before removing this folder.";
 
-"connection.noEnabledProvider" = "No connection enabled";
-"connection.enableProviderFromConnection" = "Set up and enable a connection in Connection.";
 "connection.tunnelProviders" = "Connection Methods";
-"connection.providerEnabled" = "Enable this connection";
-"connection.localRuntime" = "Local Service";
-"connection.localCompatibilityHint" = "Start Luti to copy the local MCP configuration.";
-"connection.providerSetupRequired" = "Setup required";
 "connection.setupGuide" = "Setup Guide";
-"connection.changeOriginOrCredentials" = "Save these changes?";
-"connection.authorizationResetMessage" = "AI apps will need to authorize again.";
-"connection.saveAndResetAuthorizations" = "Save";
-"connection.removeCredentialAuthorizationMessage" = "Removing this disables the connection. Connected AI apps will need to authorize again.";
 "connection.clearConfigurationConfirmation" = "Clear this configuration?";
-"connection.clearConfigurationMessage" = "Remove the saved address and credentials and disable this connection. AI apps will need to authorize again.";
+"connection.clearConfigurationMessage" = "Remove the saved Tunnel ID and API key. ChatGPT loses access until you set them up again.";
 "connection.clearConfiguration" = "Clear Configuration";
 "connection.providerStatus" = "Connection status";
-"connection.authorizationOriginNote" = "Changing the connection address or credentials requires AI apps to authorize again.";
-"connection.noAIAppsAuthorized" = "No AI apps authorized";
-"connection.authorizeAfterProviderReady" = "Connect from your AI app to authorize.";
 "connection.providerActions" = "Connection Actions";
-"connection.cloudflareStep1" = "Open Cloudflare Tunnel";
-"connection.cloudflareStep1Description" = "Create or select a Tunnel and set a public hostname.";
-"connection.cloudflareStep2" = "Publish the local service";
-"connection.cloudflareStep3" = "Save connection details";
 
-"quick.sectionTitle" = "Quick Test";
-"quick.rowSubtitle" = "Temporary connection";
-"quick.temporaryNotice" = "For temporary testing. Stopping invalidates the URL; reconnect and authorize again.";
-"quick.runtimeRequired" = "Start Luti first.";
-"quick.start" = "Start Quick Tunnel";
-"quick.stop" = "Stop Quick Tunnel";
-"quick.statusTitle" = "Temporary connection";
-"quick.readySummary" = "Copy the MCP URL to start testing.";
-"quick.reconnectingSummary" = "Reconnecting. The URL is unchanged.";
-"quick.startingSummary" = "Creating a temporary URL.";
-
-"settings.diagnostics" = "Diagnostics";
 "settings.activityDescription" = "View recent tool calls and activity.";
-"settings.capabilityDiagnostics" = "Capability Diagnostics";
-"settings.capabilityDiagnosticsDescription" = "Check project and browser capabilities.";
-"settings.helpAndSupport" = "Help & Support";
-"settings.sourceCode" = "Source Code";
-"settings.supportLuti" = "Support Development";
 "settings.aboutLuti" = "About Luti";
 "settings.versionAndComponents" = "Version and third-party components";
 "settings.thirdPartyComponents" = "Third-party Components";
 
-"menu.checkForUpdates" = "Check for Updates…";
-"projects.skills" = "Skills";
-"connection.tunnelToken" = "Tunnel Token";
-
 // Project continuation and validation evidence
-"context.resumeCounts" = "%d changed files · %d validation records";
 "validation.kind.running" = "Validation is running";
 "validation.kind.incomplete" = "Incomplete validation evidence";
 "validation.kind.no_tests" = "No test cases found";
@@ -495,3 +192,19 @@
 "validation.observedFiles" = "Observed input files: %d";
 "validation.stale" = "Inputs changed. Run validation again.";
 "validation.scopeNotice" = "Only observed files were checked; this does not prove the entire project is correct.";
+
+"connection.notConfigured" = "Not configured";
+
+/* OpenAI Secure MCP Tunnel */
+"connection.enterAPIKey" = "Enter the Runtime API Key before saving.";
+"connection.pasteAPIKey" = "Paste the OpenAI runtime API key";
+"provider.openTunnelSettings" = "Open Tunnel Settings";
+"provider.openAPIKeys" = "Open API Keys";
+"provider.openai.step1.title" = "Turn on ChatGPT Developer Mode";
+"provider.openai.step1.detail" = "In ChatGPT, open Settings > Apps > Advanced Settings and turn on Developer Mode. If it isn’t available, contact your workspace admin.";
+"provider.openai.step2.title" = "Create a Secure MCP Tunnel";
+"provider.openai.step2.detail" = "In OpenAI Platform Tunnel settings, create a Tunnel and associate the ChatGPT workspace that will use it. Creating or editing a Tunnel requires Tunnels Read + Manage.";
+"provider.openai.step3.title" = "Create a runtime API key";
+"provider.openai.step3.detail" = "Create an API key for tunnel-client. Running the connection requires Tunnels Read + Use.";
+"provider.openai.step4.title" = "Finish setup in Luti";
+"provider.openai.step4.detail" = "Enter the Tunnel ID and Runtime API Key above and save. Luti connects whenever it is running.";

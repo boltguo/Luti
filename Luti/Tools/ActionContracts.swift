@@ -28,19 +28,6 @@ enum ActionContracts {
   private static let scopeNote = "scopeSnapshotId and scopeRef must be supplied together."
 
   static let rules: [String: [String: Rule]] = [
-    "projects": [
-      "list": Rule(readOnly: true), "current": Rule(readOnly: true),
-      "switch": Rule(["projectId"]),
-    ],
-    "memory": [
-      "recent": Rule(readOnly: true),
-      "recall": Rule([], ["query", "kind", "tags", "memoryId", "includeHistory", "limit", "offset"], readOnly: true),
-      "remember": Rule(["kind", "content"], ["tags", "supersedes", "expectedRevision"],
-        note: "supersedes requires expectedRevision."),
-      "forget": Rule(["memoryId"], ["expectedRevision"]),
-      "sessions": Rule([], ["runId", "limit", "offset"], readOnly: true,
-        note: "runId excludes limit and offset."),
-    ],
     "job_query": [
       "list": Rule(readOnly: true),
       "status": Rule(["jobId"], ["waitMs", "knownStatus"], readOnly: true),
@@ -99,13 +86,6 @@ enum ActionContracts {
     }
     guard !(value.object ?? [:]).values.contains(.null) else {
       throw Failure.invalid("Omit unused arguments instead of supplying null.")
-    }
-    if tool == "memory", action == "sessions", arguments.has("runId"),
-       arguments.has("limit") || arguments.has("offset") {
-      throw Failure.invalid("runId cannot be combined with limit or offset.")
-    }
-    if tool == "memory", action == "remember", arguments.has("supersedes"), !arguments.has("expectedRevision") {
-      throw Failure.invalid("supersedes requires expectedRevision from the current project memory.")
     }
     if tool == "job_query", action == "logs" {
       guard arguments.has("stdoutOffset") == arguments.has("stderrOffset") else {

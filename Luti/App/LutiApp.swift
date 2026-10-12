@@ -22,7 +22,6 @@ import SwiftUI
 @main @MainActor struct LutiApp: App {
   @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
   @State private var model = AppModel()
-  @StateObject private var updater = AppUpdater()
   @State private var language = LanguageSettings.shared
   @State private var loginItem = LoginItemController()
   @State private var selectedTab = AppTab.home
@@ -30,7 +29,7 @@ import SwiftUI
   var body: some Scene {
     // A Window has one instance. Every menu and Dock reopen returns to this window.
     Window("Luti", id: "main") {
-      MainWindowView(model: model, loginItem: loginItem, updater: updater, selectedTab: $selectedTab)
+      MainWindowView(model: model, loginItem: loginItem, selectedTab: $selectedTab)
         .environment(\.locale, language.locale)
         .onAppear {
           delegate.model = model
@@ -42,7 +41,7 @@ import SwiftUI
     // Content min == max, so .contentSize makes the window non-resizable.
     .defaultSize(width: 460, height: 736)
     .windowResizability(.contentSize)
-    .commands { AppCommands(model: model, updater: updater, selectedTab: $selectedTab) }
+    .commands { AppCommands(model: model, selectedTab: $selectedTab) }
     MenuBarExtra {
       RuntimeMenu(model: model, selectedTab: $selectedTab)
         .environment(\.locale, language.locale)
@@ -78,14 +77,9 @@ private extension LutiApp {
 private struct AppCommands: Commands {
   @Environment(\.openWindow) private var openWindow
   let model: AppModel
-  @ObservedObject var updater: AppUpdater
   @Binding var selectedTab: AppTab
 
   var body: some Commands {
-    CommandGroup(after: .appInfo) {
-      Button(L10n.text("menu.checkForUpdates"), action: updater.checkForUpdates)
-        .disabled(!updater.canCheckForUpdates)
-    }
     CommandGroup(replacing: .newItem) {}
     CommandGroup(replacing: .appSettings) {
       Button(L10n.text("menu.settings")) {
@@ -248,11 +242,7 @@ private struct RuntimeMenu: View {
   }
 
   private var connectionStatus: String {
-    if model.phase == .running {
-      return model.readyRemoteConnectionCount > 0
-        ? L10n.text("connection.localAndRemote") : L10n.text("connection.localAvailable")
-    }
-    return L10n.text("connection.localFirst")
+    L10n.text(model.connectionStatusKey)
   }
 
   private var projectPath: String {

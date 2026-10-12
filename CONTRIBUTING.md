@@ -37,7 +37,7 @@ xcodebuild test \
   CODE_SIGNING_REQUIRED=NO
 ```
 
-Add or update tests whenever behavior changes. Work involving permissions, authentication, project boundaries, process execution, downloads, browser control, persistence, or recovery must cover failure paths as well as successful ones.
+Add or update tests whenever behavior changes. Work involving permissions, authentication, project boundaries, process execution, downloads, browser or computer control, persistence, or recovery must cover failure paths as well as successful ones.
 
 Features that depend on macOS permissions, external providers, code signing, notarization, or the packaged app also need manual verification. Record those checks in the pull request.
 

@@ -106,7 +106,7 @@ struct ValidationTestEvidence: Codable, Sendable, Equatable {
   let errors: Int
   let source: String
 
-  var json: JSONValue { (try? ContextCoding.json(self)) ?? .null }
+  var json: JSONValue { (try? JSONCoding.json(self)) ?? .null }
 }
 
 struct ValidationReportEvidence: Codable, Sendable, Equatable {

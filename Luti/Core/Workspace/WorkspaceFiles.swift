@@ -23,72 +23,35 @@ public struct TextEdit: Sendable {
   }
 }
 
-public enum ProjectPermissionMode: String, CaseIterable, Sendable, Codable {
-  case ask
-  case fullProjectAccess
-
-  public var asksForSensitiveProjectOperations: Bool { self == .ask }
-}
-
-/// A project directory explicitly approved by the local Mac user. Remote tools may
-/// switch only between these records; they never accept an arbitrary filesystem path.
+/// The one local folder selected by the Mac user. Lite always uses this folder
+/// with full access.
 public struct ApprovedProject: Codable, Identifiable, Sendable, Equatable {
   public let id: String
   public let name: String
   public let path: String
-  public let enabled: Bool
-  public let permissionMode: ProjectPermissionMode
 
-  public init(
-    id: String = UUID().uuidString.lowercased(),
-    name: String? = nil,
-    path: String,
-    enabled: Bool = true,
-    permissionMode: ProjectPermissionMode = .ask
-  ) {
+  public init(id: String = UUID().uuidString.lowercased(), name: String? = nil, path: String) {
     let url = URL(fileURLWithPath: path, isDirectory: true)
       .standardizedFileURL.resolvingSymlinksInPath()
     self.id = id
     self.name = name ?? url.lastPathComponent
     self.path = url.path
-    self.enabled = enabled
-    self.permissionMode = permissionMode
   }
 
-  public init(
-    id: String = UUID().uuidString.lowercased(),
-    name: String? = nil,
-    url: URL,
-    enabled: Bool = true,
-    permissionMode: ProjectPermissionMode = .ask
-  ) {
-    self.init(
-      id: id, name: name, path: url.path, enabled: enabled, permissionMode: permissionMode)
+  public init(id: String = UUID().uuidString.lowercased(), name: String? = nil, url: URL) {
+    self.init(id: id, name: name, path: url.path)
   }
 
-  private enum CodingKeys: String, CodingKey { case id, name, path, enabled, permissionMode }
+  private enum CodingKeys: String, CodingKey { case id, name, path }
 
   public init(from decoder: Decoder) throws {
     let values = try decoder.container(keyedBy: CodingKeys.self)
-    self.init(
-      id: try values.decode(String.self, forKey: .id),
-      name: try values.decode(String.self, forKey: .name),
-      path: try values.decode(String.self, forKey: .path),
-      enabled: try values.decodeIfPresent(Bool.self, forKey: .enabled) ?? true,
-      permissionMode: try values.decodeIfPresent(ProjectPermissionMode.self, forKey: .permissionMode) ?? .ask)
+    self.init(id: try values.decode(String.self, forKey: .id),
+              name: try values.decode(String.self, forKey: .name),
+              path: try values.decode(String.self, forKey: .path))
   }
 
   public var url: URL { URL(fileURLWithPath: path, isDirectory: true) }
-
-  public func withEnabled(_ enabled: Bool) -> ApprovedProject {
-    ApprovedProject(
-      id: id, name: name, path: path, enabled: enabled, permissionMode: permissionMode)
-  }
-
-  public func withPermissionMode(_ permissionMode: ProjectPermissionMode) -> ApprovedProject {
-    ApprovedProject(
-      id: id, name: name, path: path, enabled: enabled, permissionMode: permissionMode)
-  }
 }
 
 public actor WorkspaceFiles {
