@@ -35,15 +35,6 @@ jobs:
       - name: Run tests
         run: |
           # Hosted runners isolate the production identity used by Release tests.
-          tests=()
-          if [[ "${{ matrix.configuration }}" == "Release" ]]; then
-            tests+=(
-              -only-testing:LutiTests/ProjectEnablementTests
-              -only-testing:LutiTests/ConnectionProviderTests
-              -only-testing:LutiTests/ConnectionRuntimeTests
-              -only-testing:LutiTests/ReleaseReadinessTests
-            )
-          fi
           xcodebuild test \
             -project Luti.xcodeproj \
             -scheme Luti \
@@ -52,7 +43,6 @@ jobs:
             -derivedDataPath .build/DerivedData \
             -clonedSourcePackagesDirPath .build/SourcePackages \
             -onlyUsePackageVersionsFromResolvedFile \
-            "${tests[@]}" \
             ENABLE_TESTABILITY=YES \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO
