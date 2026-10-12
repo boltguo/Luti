@@ -49,14 +49,98 @@ public struct ProcessRequest: Sendable {
   }
 }
 public enum ProcessPolicy {
+  static let fixedPATH = "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+  /// The user's login-shell PATH (nvm, mise, rustup, …) ahead of the fixed
+  /// directories. Resolved once per launch; a slow or broken shell falls back.
+  static let developerPATH = mergePATH(loginShellPATH(), fixed: fixedPATH)
+
   public static var baseEnvironment: [String: String] {
     [
-      "PATH": "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+      "PATH": developerPATH,
       "HOME": FileManager.default.homeDirectoryForCurrentUser.path,
       "TMPDIR": FileManager.default.temporaryDirectory.path, "LANG": "en_US.UTF-8",
       "LC_ALL": "en_US.UTF-8", "TERM": "dumb", "NO_COLOR": "1",
     ]
   }
+  /// Absolute, de-duplicated login entries first; the fixed directories always remain.
+  static func mergePATH(_ login: String?, fixed: String) -> String {
+    var seen = Set<String>()
+    let fixedEntries = fixed.split(separator: ":").map(String.init)
+    let loginEntries = (login ?? "").split(separator: ":").map(String.init)
+      .filter { $0.hasPrefix("/") && $0.utf8.count <= 1024 && !fixedEntries.contains($0) }
+      .filter { seen.insert($0).inserted }
+    return (loginEntries.prefix(48) + fixedEntries).joined(separator: ":")
+  }
+
+  /// Runs the user's shell as an interactive login shell once, so version managers
+  /// initialised in .zprofile/.zshrc/.bashrc are visible. Only PATH is taken.
+  /// The shell leads its own process group; on timeout the whole group is killed
+  /// and reaped, because an interactive shell may ignore SIGTERM.
+  private static func loginShellPATH() -> String? {
+    #if canImport(Darwin)
+      var shell = "/bin/zsh"
+      if let entry = getpwuid(getuid()), let raw = entry.pointee.pw_shell {
+        let candidate = String(cString: raw)
+        if ["zsh", "bash"].contains(URL(fileURLWithPath: candidate).lastPathComponent) { shell = candidate }
+      }
+      let files = FileManager.default
+      let home = files.homeDirectoryForCurrentUser.path
+      let output = files.temporaryDirectory.appendingPathComponent("luti-path-" + UUID().uuidString)
+      guard files.createFile(atPath: output.path, contents: nil, attributes: [.posixPermissions: 0o600]),
+        let handle = try? FileHandle(forWritingTo: output)
+      else { return nil }
+      defer { try? handle.close(); try? files.removeItem(at: output) }
+
+      let marker = "__LUTI_PATH__"
+      let environment = [
+        "HOME": home, "USER": NSUserName(), "LOGNAME": NSUserName(), "SHELL": shell,
+        "TERM": "dumb", "LANG": "en_US.UTF-8",
+      ]
+      let argv = [shell, "-ilc", "printf '\(marker)%s\(marker)' \"$PATH\""].map { strdup($0) } + [nil]
+      let envp = environment.map { strdup($0.key + "=" + $0.value) } + [nil]
+      defer { (argv + envp).forEach { free($0) } }
+
+      var actions: posix_spawn_file_actions_t?
+      posix_spawn_file_actions_init(&actions)
+      defer { posix_spawn_file_actions_destroy(&actions) }
+      posix_spawn_file_actions_addopen(&actions, 0, "/dev/null", O_RDONLY, 0)
+      // A file, not a pipe: a daemon started by a startup file cannot hold the read open.
+      posix_spawn_file_actions_adddup2(&actions, handle.fileDescriptor, 1)
+      posix_spawn_file_actions_addopen(&actions, 2, "/dev/null", O_WRONLY, 0)
+      posix_spawn_file_actions_addchdir_np(&actions, home)
+      var attributes: posix_spawnattr_t?
+      posix_spawnattr_init(&attributes)
+      defer { posix_spawnattr_destroy(&attributes) }
+      posix_spawnattr_setflags(&attributes, Int16(POSIX_SPAWN_SETPGROUP | POSIX_SPAWN_CLOEXEC_DEFAULT))
+      posix_spawnattr_setpgroup(&attributes, 0)
+
+      var pid = pid_t()
+      guard posix_spawn(&pid, shell, &actions, &attributes, argv, envp) == 0 else { return nil }
+      let deadline = Date().addingTimeInterval(5)
+      var status: Int32 = 0
+      while true {
+        let result = waitpid(pid, &status, WNOHANG)
+        if result == pid { break }
+        if result == -1 && errno != EINTR { return nil }
+        guard Date() < deadline else {
+          kill(-pid, SIGKILL)
+          while waitpid(pid, &status, 0) == -1 && errno == EINTR {}
+          return nil
+        }
+        usleep(50_000)
+      }
+
+      guard let data = try? PrivateFiles.read(output, max: 1_048_576),
+        let text = String(data: data, encoding: .utf8),
+        let start = text.range(of: marker),
+        let end = text.range(of: marker, range: start.upperBound..<text.endIndex)
+      else { return nil }
+      return String(text[start.upperBound..<end.lowerBound])
+    #else
+      return nil
+    #endif
+  }
+
   public static func validate(_ request: ProcessRequest) throws {
     guard !request.program.isEmpty, request.program.utf8.count <= 4096,
       !request.program.contains("\0"),

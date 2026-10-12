@@ -5,6 +5,15 @@ import Darwin
 
 @MainActor final class ExecutionPolicyTests: XCTestCase {
 
+  func testDeveloperPATHPrefersLoginShellAndKeepsFixedDirectories() {
+    let fixed = ProcessPolicy.fixedPATH
+    XCTAssertEqual(ProcessPolicy.mergePATH(nil, fixed: fixed), fixed)
+    XCTAssertEqual(
+      ProcessPolicy.mergePATH("/Users/u/.nvm/versions/node/v22/bin:relative:/usr/bin:/Users/u/.cargo/bin:/Users/u/.cargo/bin", fixed: fixed),
+      "/Users/u/.nvm/versions/node/v22/bin:/Users/u/.cargo/bin:" + fixed)
+    XCTAssertTrue(ProcessPolicy.baseEnvironment["PATH"]!.hasSuffix(fixed))
+  }
+
   func testReadOnlyPolicyAllowsProjectReadsButBlocksMutationAndExecution() async throws {
     let f = try Fixture(); defer { f.remove() }
     try f.write("source.txt", "hello")

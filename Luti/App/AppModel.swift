@@ -278,7 +278,9 @@ import Observation
         // RuntimeCore restores stored activity from disk; build it off the main actor.
         let helper = Self.processHelper, dataRoot = self.contextDataRoot
         let runtime = try await Task.detached(priority: .userInitiated) {
-          try RuntimeCore(
+          // Resolving the login-shell PATH may take seconds; never on the main actor.
+          _ = ProcessPolicy.developerPATH
+          return try RuntimeCore(
             root: root, helper: helper, executionPolicy: policy,
             project: selectedProject, contextDataRoot: dataRoot)
         }.value
