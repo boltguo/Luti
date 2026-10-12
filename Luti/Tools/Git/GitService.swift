@@ -21,7 +21,7 @@ public struct GitService: Sendable {
         throw unsupported()
       }
     }
-    for path in ["commondir", "objects/info/alternates", "objects/info/http-alternates"] {
+    for path in ["commondir", "config.worktree", "objects/info/alternates", "objects/info/http-alternates"] {
       if FileManager.default.fileExists(atPath: git.appendingPathComponent(path).path) {
         throw unsupported()
       }
@@ -29,11 +29,15 @@ public struct GitService: Sendable {
     let config = git.appendingPathComponent("config")
     let size = (try? config.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
     guard size <= 262_144 else { throw unsupported() }
-    if let text = try? String(contentsOf: config, encoding: .utf8),
+    guard FileManager.default.fileExists(atPath: config.path) else { return }
+    // Fail closed: a config Luti cannot read is one it cannot vouch for, and Git
+    // would still apply it.
+    guard let text = try? String(contentsOf: config, encoding: .utf8),
       text.range(
         of: #"(?im)^\s*\[\s*(?:include(?:if)?|filter)(?:\s|\.|\])"#, options: .regularExpression)
-        != nil
-    {
+        == nil,
+      text.range(of: #"(?i)worktreeconfig"#, options: .regularExpression) == nil
+    else {
       throw unsupported()
     }
   }

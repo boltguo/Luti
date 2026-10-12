@@ -180,6 +180,31 @@ import XCTest
       await jobs.shutdown()
     }
   }
+  /// Config the check cannot read, and per-worktree config Git reads separately,
+  /// must not slip a filter past the read-only tools.
+  func testUnreadableAndWorktreeConfigRejected() async throws {
+    for variant in ["binary", "worktree"] {
+      let f = try Fixture()
+      defer { f.remove() }
+      let jobs = JobManager(helper: Fixture.helper)
+      try await git(["init", "-q"], fixture: f, jobs: jobs)
+      let config = f.root.appendingPathComponent(".git/config")
+      var bytes = try Data(contentsOf: config)
+      if variant == "binary" {
+        bytes.append(contentsOf: Array("\n# ".utf8) + [0xFF, 0xFE] + Array("\n".utf8))
+      } else {
+        bytes.append(contentsOf: Array("\n[extensions]\nworktreeConfig = true\n".utf8))
+        try Data("[filter \"payload\"]\nclean = echo UNSAFE\n".utf8)
+          .write(to: f.root.appendingPathComponent(".git/config.worktree"))
+      }
+      try bytes.write(to: config)
+      do {
+        _ = try await GitService(workspace: f.files, jobs: jobs).run(diff: true)
+        XCTFail("\(variant) config must be denied.")
+      } catch let e as Failure { XCTAssertEqual(e.code, "git_layout_unsupported") }
+      await jobs.shutdown()
+    }
+  }
   func testNestedRepositoryPath() async throws {
     let f = try Fixture(); defer { f.remove() }
     let jobs = JobManager(helper: Fixture.helper)
