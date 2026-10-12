@@ -96,7 +96,8 @@ public enum ProcessPolicy {
         "HOME": home, "USER": NSUserName(), "LOGNAME": NSUserName(), "SHELL": shell,
         "TERM": "dumb", "LANG": "en_US.UTF-8",
       ]
-      let argv = [shell, "-ilc", "printf '\(marker)%s\(marker)' \"$PATH\""].map { strdup($0) } + [nil]
+      let arguments: [String] = [shell, "-ilc", "printf '\(marker)%s\(marker)' \"$PATH\""]
+      let argv = arguments.map { strdup($0) } + [nil]
       let envp = environment.map { strdup($0.key + "=" + $0.value) } + [nil]
       defer { (argv + envp).forEach { free($0) } }
 
