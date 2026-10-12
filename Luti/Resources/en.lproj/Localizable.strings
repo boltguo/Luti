@@ -60,6 +60,7 @@
 "connection.quickSetup" = "Quick setup";
 
 /* home */
+"home.accessNotice" = "Starting lets the connected AI edit project files, run commands and use the browser. Commands use your macOS user permissions and can access files outside the project. Tool results are shared with the connected AI.";
 "home.checkingTunnelClient" = "Checking the Tunnel client.";
 "home.chooseProject" = "Choose Project";
 "home.configuration" = "Configuration";
@@ -120,7 +121,6 @@
 "projects.selected" = "Selected";
 "projects.showFinder" = "Show in Finder";
 "projects.stopSessionSwitchRemoveProjects" = "Stop Luti before changing project settings.";
-"projects.whileRunningChatGPTSwitchOnlyBetween" = "While Luti is running, AI apps can access only projects you’ve added.";
 
 /* settings */
 "settings.about" = "About";

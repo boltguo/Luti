@@ -110,6 +110,25 @@ public struct Redactor: Sendable {
     return value
   }
 
+  /// Keep structured browser results usable while retaining the field-name
+  /// context that is lost when only individual string values are cleaned.
+  public func clean(_ source: JSONValue) -> JSONValue {
+    switch source {
+    case .string(let text): return .string(clean(text))
+    case .array(let values): return .array(values.map { clean($0) })
+    case .object(let fields):
+      var result: [String: JSONValue] = [:]
+      for (key, value) in fields {
+        let sensitive = key.range(
+          of: #"(?i)^(?:authorization|proxy-authorization|cookies?|set-cookie|api[_-]?key|(?:access[_-]?|refresh[_-]?|client[_-]?|id[_-]?|auth[_-]?|tunnel[_-]?)?(?:secrets?|password|token|credentials?))$"#,
+          options: .regularExpression) != nil
+        result[key] = sensitive && value != .null ? .string("[REDACTED]") : clean(value)
+      }
+      return .object(result)
+    default: return source
+    }
+  }
+
   /// Sorted, merged byte ranges `clean` would hide. Matching keeps Unicode
   /// semantics; each UTF-16 unit maps back to the byte offset of its scalar, and an
   /// invalid byte sequence becomes one U+FFFD covering exactly those bytes.
