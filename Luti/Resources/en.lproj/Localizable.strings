@@ -24,6 +24,7 @@
 "activity.repeatedObservationsCollapsed" = "Repeated observations collapsed";
 "activity.searchToolsTargetsResults" = "Search tools, targets or results";
 "activity.success" = "Success";
+"activity.projectRoot" = "Project root";
 "activity.timedOut" = "Timed out";
 "activity.tryAnotherToolNameKeyword" = "Try another keyword.";
 

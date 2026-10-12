@@ -24,6 +24,7 @@
 "activity.repeatedObservationsCollapsed" = "繰り返しの観測はまとめて表示";
 "activity.searchToolsTargetsResults" = "ツール、対象、結果を検索";
 "activity.success" = "成功";
+"activity.projectRoot" = "プロジェクトのルート";
 "activity.timedOut" = "タイムアウト";
 "activity.tryAnotherToolNameKeyword" = "別のキーワードをお試しください。";
 

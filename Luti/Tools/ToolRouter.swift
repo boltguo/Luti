@@ -183,9 +183,9 @@ public actor ToolRouter {
 
     switch name {
     case "project_info":
-      return ActivityDescriptor(action: nil, targetType: "project", target: ".")
+      return ActivityDescriptor(action: nil, targetType: "project", target: "")
     case "runtime_status":
-      return ActivityDescriptor(action: nil, targetType: "runtime", target: "runtime")
+      return ActivityDescriptor(action: nil, targetType: "runtime", target: "")
     case "read_files":
       let paths = (value["paths"].array ?? []).compactMap(\.string)
       return ActivityDescriptor(
@@ -194,7 +194,7 @@ public actor ToolRouter {
     case "search_project":
       return ActivityDescriptor(
         action: value["mode"].string ?? "literal", targetType: "query",
-        target: "project search")
+        target: value["query"].string ?? "")
     case "list_directory":
       return ActivityDescriptor(
         action: nil, targetType: "directory", target: value["path"].string ?? ".")
@@ -206,7 +206,7 @@ public actor ToolRouter {
     case "edit_files":
       return ActivityDescriptor(
         action: action, targetType: action == "patch" ? "project" : "file",
-        target: action == "patch" ? "unified patch" : (value["path"].string ?? "file"))
+        target: action == "patch" ? "" : (value["path"].string ?? ""))
     case "path_action":
       let target: String
       if ["copy", "move"].contains(action ?? "") {
@@ -234,13 +234,15 @@ public actor ToolRouter {
       return ActivityDescriptor(
         action: value["taskId"].string == nil ? nil : "task",
         targetType: value["taskId"].string == nil ? "process" : "task",
-        target: value["taskId"].string ?? value["program"].string ?? "process")
+        target: value["taskId"].string
+          ?? ([value["program"].string ?? ""] + (value["args"].array ?? []).compactMap(\.string))
+            .joined(separator: " "))
     case "run_shell":
-      return ActivityDescriptor(action: nil, targetType: "shell", target: "shell command")
+      return ActivityDescriptor(action: nil, targetType: "shell", target: value["command"].string ?? "")
     case "job_query", "job_action":
       return ActivityDescriptor(
         action: action, targetType: "job",
-        target: value["jobId"].string ?? "jobs")
+        target: value["jobId"].string ?? "")
     case "git_query":
       return ActivityDescriptor(
         action: action, targetType: "repository", target: value["path"].string ?? ".")
@@ -249,17 +251,17 @@ public actor ToolRouter {
         return ActivityDescriptor(action: action, targetType: "origin", target: browserOrigin())
       }
       return ActivityDescriptor(
-        action: action, targetType: "tab", target: value["tabId"].string ?? "tab")
+        action: action, targetType: "tab", target: value["tabId"].string ?? "")
     case "browser_observe":
       return ActivityDescriptor(
         action: action, targetType: action == "tabs" ? "browser" : "tab",
-        target: action == "tabs" ? "owned tabs" : (value["tabId"].string ?? "tab"))
+        target: action == "tabs" ? "" : (value["tabId"].string ?? ""))
     case "browser_action", "browser_transfer", "browser_inspect", "browser_dialog":
       return ActivityDescriptor(
-        action: action, targetType: "tab", target: value["tabId"].string ?? "tab")
+        action: action, targetType: "tab", target: value["tabId"].string ?? "")
     case "browser_evaluate":
       return ActivityDescriptor(
-        action: nil, targetType: "tab", target: value["tabId"].string ?? "tab")
+        action: nil, targetType: "tab", target: value["tabId"].string ?? "")
     default:
       return ActivityDescriptor(
         action: action, targetType: nil,

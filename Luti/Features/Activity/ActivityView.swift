@@ -149,19 +149,20 @@ private struct ActivityEventRow: View {
             .background(MDTheme.containerHigh, in: Capsule())
             .help(L10n.text("activity.repeatedObservationsCollapsed"))
         }
-        Spacer()
-        Text(statusTitle).font(.system(size: 11, weight: .medium)).foregroundStyle(statusColor)
+        Spacer(minLength: 8)
+        // Success is already carried by the green check; only other states need words.
+        if !succeeded {
+          Text(statusTitle).font(.system(size: 11, weight: .medium)).foregroundStyle(statusColor)
+        }
+        Text(timing)
+          .font(.system(size: 11).monospacedDigit())
+          .foregroundStyle(MDTheme.secondary)
+          .help(event.startedAt.formatted(date: .complete, time: .standard))
       }
 
-      HStack(alignment: .firstTextBaseline, spacing: 8) {
-        if let targetType = event.targetType, !targetType.isEmpty {
-          Text(targetType)
-            .font(.system(size: 10, weight: .semibold, design: .monospaced))
-            .foregroundStyle(MDTheme.secondary)
-            .padding(.horizontal, 6).padding(.vertical, 2)
-            .background(MDTheme.containerHigh, in: Capsule())
-        }
-        Text(event.target).font(.system(size: 12, design: .monospaced)).textSelection(.enabled)
+      if let target = displayTarget {
+        Text(target).font(.system(size: 12, design: .monospaced)).textSelection(.enabled)
+          .lineLimit(3)
           .fixedSize(horizontal: false, vertical: true)
       }
 
@@ -188,12 +189,12 @@ private struct ActivityEventRow: View {
           .textSelection(.enabled)
       }
 
-      if let cwd = event.cwd {
+      if let cwd = event.cwd, !["", "."].contains(cwd) {
         Label(cwd, systemImage: "folder").font(.system(size: 11, design: .monospaced))
           .foregroundStyle(MDTheme.secondary).textSelection(.enabled)
       }
 
-      if let job = event.jobID {
+      if let job = event.jobID, job != event.target {
         Label(job, systemImage: "terminal")
           .font(.system(size: 11, design: .monospaced))
           .foregroundStyle(MDTheme.secondary).textSelection(.enabled)
@@ -204,17 +205,37 @@ private struct ActivityEventRow: View {
           .font(.system(size: 11)).foregroundStyle(MDTheme.primary)
           .help(artifactURI)
       }
-
-      HStack {
-        Text(event.startedAt.formatted(date: .abbreviated, time: .shortened))
-        Spacer()
-        if event.status != "running" {
-          Text("\(event.durationSeconds, format: .number.precision(.fractionLength(2))) s")
-        }
-      }
-      .font(.system(size: 11).monospacedDigit())
-      .foregroundStyle(MDTheme.secondary)
     }
+  }
+
+  /// Placeholders written by earlier versions carry no information.
+  private static let placeholderTargets: Set<String> = [
+    "runtime", "project search", "unified patch", "shell command", "process", "jobs",
+    "tab", "owned tabs",
+  ]
+
+  private var displayTarget: String? {
+    let target = event.target
+    if target.isEmpty || Self.placeholderTargets.contains(target)
+      || (event.tool == "project_info" && target == ".")
+    {
+      return nil
+    }
+    return target == "." ? L10n.text("activity.projectRoot") : target
+  }
+
+  private var succeeded: Bool {
+    statusSymbol == "checkmark.circle"
+  }
+
+  /// Time of day for today, the date otherwise; duration only when it is noticeable.
+  private var timing: String {
+    let started = Calendar.current.isDateInToday(event.startedAt)
+      ? event.startedAt.formatted(date: .omitted, time: .shortened)
+      : event.startedAt.formatted(date: .abbreviated, time: .shortened)
+    guard event.status != "running", event.durationSeconds >= 0.1 else { return started }
+    let duration = event.durationSeconds.formatted(.number.precision(.fractionLength(1)))
+    return started + " · " + duration + " s"
   }
 
   private var statusSymbol: String {

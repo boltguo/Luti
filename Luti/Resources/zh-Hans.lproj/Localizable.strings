@@ -24,6 +24,7 @@
 "activity.repeatedObservationsCollapsed" = "连续观察已折叠";
 "activity.searchToolsTargetsResults" = "搜索工具、目标或结果";
 "activity.success" = "成功";
+"activity.projectRoot" = "项目根目录";
 "activity.timedOut" = "已超时";
 "activity.tryAnotherToolNameKeyword" = "试试其他关键词。";
 
