@@ -74,8 +74,13 @@ public final class OwnedProcess: @unchecked Sendable {
     process.standardOutput = out
     process.standardError = err
     let inputPipe: Pipe? = (request.input != nil || request.interactive) ? Pipe() : nil
-    // A child that exits before reading must surface EPIPE, not kill Luti with SIGPIPE.
-    if let inputPipe { _ = fcntl(inputPipe.fileHandleForWriting.fileDescriptor, F_SETNOSIGPIPE, 1) }
+    // A child that exits before reading must surface EPIPE, not kill Luti with SIGPIPE;
+    // non-blocking writes let every stdin write honour its deadline.
+    if let inputPipe {
+      let fd = inputPipe.fileHandleForWriting.fileDescriptor
+      _ = fcntl(fd, F_SETNOSIGPIPE, 1)
+      _ = fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK)
+    }
     process.standardInput = inputPipe.map { $0 as Any } ?? FileHandle.nullDevice
 
     stdoutRead = out.fileHandleForReading
@@ -106,13 +111,16 @@ public final class OwnedProcess: @unchecked Sendable {
       stdinHandle = inputPipe.fileHandleForWriting
     }
     if let inputPipe, let text = request.input {
-      DispatchQueue.global(qos: .utility).async {
-        if request.interactive {
-          try? inputPipe.fileHandleForWriting.write(contentsOf: Data(text.utf8))
-        } else {
-          defer { try? inputPipe.fileHandleForWriting.close() }
-          try? inputPipe.fileHandleForWriting.write(contentsOf: Data(text.utf8))
-        }
+      // Initial input shares the writer lock with job_action input and stdin close.
+      let handle = inputPipe.fileHandleForWriting
+      let deadline = Date().addingTimeInterval(TimeInterval(max(request.timeout, 1)))
+      let keepOpen = request.interactive
+      DispatchQueue.global(qos: .utility).async { [self] in
+        inputWriteLock.lock()
+        defer { inputWriteLock.unlock() }
+        guard !inputAbandoned() else { return }
+        try? Self.write(Data(text.utf8), to: handle.fileDescriptor, until: deadline, abandoned: inputAbandoned)
+        if !keepOpen { try? handle.close() }
       }
     }
   }
@@ -153,7 +161,13 @@ public final class OwnedProcess: @unchecked Sendable {
       if !stdoutOpen && !stderrOpen { finalizeLocked() }
       return ended == nil
     }
-    try? input?.close()
+    // Close only once no writer holds the raw descriptor, so a reused FD number
+    // can never receive this job's input. Writers abandon promptly after exit.
+    if let input {
+      DispatchQueue.global(qos: .utility).async { [inputWriteLock] in
+        inputWriteLock.withLock { try? input.close() }
+      }
+    }
 
     // An intentionally daemonized descendant can keep inherited pipe FDs open.
     // Give ordinary readers a bounded chance to drain, then publish termination
@@ -321,8 +335,15 @@ public final class OwnedProcess: @unchecked Sendable {
     let deadline = Date().addingTimeInterval(5)
     guard inputWriteLock.lock(before: deadline) else { throw Self.stalled(written: 0) }
     defer { inputWriteLock.unlock() }
+    guard !inputAbandoned() else {
+      throw Failure(
+        "job_stdin_closed", "The job no longer accepts stdin.",
+        "Observe the job status; start a new interactive job only if new execution is intended.")
+    }
     do {
-      if !text.isEmpty { try Self.write(Data(text.utf8), to: handle.fileDescriptor, until: deadline) }
+      if !text.isEmpty {
+        try Self.write(Data(text.utf8), to: handle.fileDescriptor, until: deadline, abandoned: inputAbandoned)
+      }
       if close {
         lock.withLock { stdinHandle = nil }
         try handle.close()
@@ -338,6 +359,9 @@ public final class OwnedProcess: @unchecked Sendable {
 
   private struct InputStalled: Error { let written: Int }
 
+  /// The child exited: stop writing so stdin can be closed.
+  private func inputAbandoned() -> Bool { lock.withLock { exit != nil } }
+
   private static func stalled(written: Int) -> Failure {
     Failure(
       "job_stdin_backpressure", "The job is not reading stdin; the write stopped at its deadline.",
@@ -345,13 +369,16 @@ public final class OwnedProcess: @unchecked Sendable {
       effect: written > 0 ? "possible" : "none")
   }
 
-  /// A pipe write of at most PIPE_BUF bytes cannot block once poll reports POLLOUT,
-  /// so a child that stops reading yields a bounded error instead of a stuck caller.
-  private static func write(_ data: Data, to fd: Int32, until deadline: Date) throws {
+  /// The descriptor is non-blocking, so a child that stops reading yields a
+  /// bounded error at the deadline instead of a stuck writer.
+  private static func write(
+    _ data: Data, to fd: Int32, until deadline: Date, abandoned: () -> Bool
+  ) throws {
     try data.withUnsafeBytes { (raw: UnsafeRawBufferPointer) in
       guard let base = raw.baseAddress else { return }
       var written = 0
       while written < raw.count {
+        guard !abandoned() else { throw POSIXError(.EPIPE) }
         let remaining = deadline.timeIntervalSinceNow
         guard remaining > 0 else { throw InputStalled(written: written) }
         var ready = pollfd(fd: fd, events: Int16(POLLOUT), revents: 0)
