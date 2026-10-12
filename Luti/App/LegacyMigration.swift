@@ -34,7 +34,7 @@ enum LegacyMigration {
             throw Failure.invalid("Credential migration could not verify the copied key.")
           }
         }
-        for retired in credentials.accounts() where retired != account {
+        for retired in try credentials.accounts() where retired != account {
           try credentials.remove(retired)
         }
         defaults.set(true, forKey: credentialsCompletedKey)

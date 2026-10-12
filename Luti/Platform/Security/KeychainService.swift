@@ -28,16 +28,19 @@ public enum KeychainService {
     else { throw failure(status) }
     return text
   }
-  public static func exists(account: String = openAIAPIKey) -> Bool {
+  public static func exists(account: String = openAIAPIKey) throws -> Bool {
     var q = query(account)
     q[kSecMatchLimit as String] = kSecMatchLimitOne
     let context = LAContext()
     context.interactionNotAllowed = true
     q[kSecUseAuthenticationContext as String] = context
-    return SecItemCopyMatching(q as CFDictionary, nil) == errSecSuccess
+    let status = SecItemCopyMatching(q as CFDictionary, nil)
+    if status == errSecItemNotFound { return false }
+    guard status == errSecSuccess else { throw failure(status) }
+    return true
   }
   /// Accounts stored under this app's service. Attribute-only; never prompts.
-  public static func accounts() -> [String] {
+  public static func accounts() throws -> [String] {
     let context = LAContext()
     context.interactionNotAllowed = true
     let q: [String: Any] = [
@@ -46,9 +49,11 @@ public enum KeychainService {
       kSecUseAuthenticationContext as String: context,
     ]
     var items: CFTypeRef?
-    guard SecItemCopyMatching(q as CFDictionary, &items) == errSecSuccess,
-      let rows = items as? [[String: Any]]
-    else { return [] }
+    let status = SecItemCopyMatching(q as CFDictionary, &items)
+    if status == errSecItemNotFound { return [] }
+    guard status == errSecSuccess, let rows = items as? [[String: Any]] else {
+      throw failure(status)
+    }
     return rows.compactMap { $0[kSecAttrAccount as String] as? String }
   }
   public static func save(_ value: String, account: String = openAIAPIKey) throws {
@@ -85,14 +90,14 @@ struct KeychainClient: Sendable {
   var read: @Sendable (String, Bool) throws -> String?
   var save: @Sendable (String, String) throws -> Void
   var remove: @Sendable (String) throws -> Void
-  var exists: @Sendable (String) -> Bool
-  var accounts: @Sendable () -> [String]
+  var exists: @Sendable (String) throws -> Bool
+  var accounts: @Sendable () throws -> [String]
 
   static let live = KeychainClient(
     read: { try KeychainService.read(account: $0, allowInteraction: $1) },
     save: { try KeychainService.save($0, account: $1) },
     remove: { try KeychainService.remove(account: $0) },
-    exists: { KeychainService.exists(account: $0) }, accounts: { KeychainService.accounts() })
+    exists: { try KeychainService.exists(account: $0) }, accounts: { try KeychainService.accounts() })
   static let empty = KeychainClient(
     read: { _, _ in nil }, save: { _, _ in throw Failure.invalid("No credential store configured.") },
     remove: { _ in }, exists: { _ in false }, accounts: { [] })

@@ -224,6 +224,66 @@ private actor FixtureProvider: ConnectionProvider {
 }
 
 extension ConnectionProviderTests {
+  func testSavedRuntimeResumesAfterUnavailableKeychainProbeAndRead() async throws {
+    let f = try Fixture()
+    let key = "sk-" + String(repeating: "a", count: 40)
+    let store = FixtureKeychain(values: [KeychainService.openAIAPIKey: key],
+      failedReads: [KeychainService.openAIAPIKey: 1], failedProbes: 1)
+    let provider = FixtureProvider()
+    let selected = ApprovedProject(url: f.root)
+    let tunnel = "tunnel_0123456789abcdef0123456789abcdef"
+    f.defaults.set(try JSONEncoder().encode(selected), forKey: "selectedFolder")
+    f.defaults.set(tunnel, forKey: "connection.openai.tunnelID")
+    f.defaults.set(true, forKey: "runtime.resumeOnLaunch")
+    let model = AppModel(contextDataRoot: f.contextDataRoot, defaults: f.defaults,
+      credentials: store.client, makeProvider: { id, credential, _ in
+        guard id == tunnel, credential == key else { throw Failure.invalid("Saved configuration changed.") }
+        return provider
+      })
+    addTeardownBlock { await model.stop(); f.remove() }
+    for _ in 0..<200 {
+      if model.connection.state == .failed && !model.connectionBusy { break }
+      try await Task.sleep(for: .milliseconds(25))
+    }
+    XCTAssertEqual(model.phase, .running)
+    XCTAssertEqual(model.connection.state, .failed)
+    let run = try XCTUnwrap(model.currentRunID)
+    for _ in 0..<240 {
+      if model.connection.state == .ready { break }
+      try await Task.sleep(for: .milliseconds(50))
+    }
+    XCTAssertEqual(model.connection.state, .ready)
+    XCTAssertEqual(model.currentRunID, run)
+    XCTAssertEqual(model.activeProject, selected)
+    XCTAssertEqual(model.savedTunnelID, tunnel)
+    XCTAssertEqual(store.value(KeychainService.openAIAPIKey), key)
+    XCTAssertEqual(store.readInteractions, [true, false])
+    await model.stop()
+
+    let reopened = AppModel(contextDataRoot: f.contextDataRoot, defaults: f.defaults, credentials: store.client)
+    addTeardownBlock { await reopened.stop() }
+    await Task.yield()
+    XCTAssertEqual(reopened.phase, .stopped, "Explicit Stop prevents launch recovery.")
+    XCTAssertFalse(f.defaults.bool(forKey: "runtime.resumeOnLaunch"))
+    XCTAssertEqual(reopened.activeProject, selected)
+    XCTAssertEqual(reopened.savedTunnelID, tunnel)
+  }
+
+  func testSavedRuntimeDoesNotResumeWhenCredentialIsConfirmedMissing() async throws {
+    let f = try Fixture()
+    f.defaults.set(try JSONEncoder().encode(ApprovedProject(url: f.root)), forKey: "selectedFolder")
+    f.defaults.set("tunnel_0123456789abcdef0123456789abcdef", forKey: "connection.openai.tunnelID")
+    f.defaults.set(true, forKey: "runtime.resumeOnLaunch")
+    let store = FixtureKeychain()
+    let model = AppModel(contextDataRoot: f.contextDataRoot, defaults: f.defaults, credentials: store.client)
+    addTeardownBlock { await model.stop(); f.remove() }
+    await Task.yield()
+    XCTAssertEqual(model.phase, .stopped)
+    XCTAssertFalse(model.apiKeySaved)
+    XCTAssertFalse(model.canLaunch)
+    XCTAssertTrue(store.readInteractions.isEmpty)
+  }
+
   func testPreparationFailureRetriesWithoutRestartingRuntimeOrPromptingAgain() async throws {
     let f = try Fixture(); defer { f.remove() }
     let store = FixtureKeychain(values: [KeychainService.openAIAPIKey: "synthetic-key"],
