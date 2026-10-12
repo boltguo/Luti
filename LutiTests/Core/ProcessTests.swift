@@ -468,6 +468,37 @@ import XCTest
     await jobs.shutdown()
   }
 
+  /// Every page boundary, including one inside the key, the value or a multibyte
+  /// character, stays redacted.
+  func testLogPagesNeverSplitSecretsOutOfRedaction() async throws {
+    let f = try Fixture(); defer { f.remove() }
+    let jobs = JobManager(helper: Fixture.helper)
+    var result = try await jobs.submit(
+      ProcessRequest(
+        program: "/bin/echo",
+        args: ["before api_key=DEMO_CREDENTIAL_0123456789 password=你好DEMO_CREDENTIAL_0123456789 after"],
+        cwd: f.root, syncWait: 3))
+    let id = try XCTUnwrap(result["jobId"].string)
+    for _ in 0..<100 where result["terminal"] != true {
+      result = try await jobs.status(id, waitMilliseconds: 100)
+    }
+    for size in [1, 7, 512] {
+      var offset = 0, pages = ""
+      while true {
+        let delta = try await jobs.logs(id, stdoutOffset: offset, stderrOffset: 0, maxBytes: size)
+        pages += delta["delta"]["stdout"]["text"].string ?? ""
+        let next = delta["delta"]["stdout"]["nextOffset"].int ?? offset
+        if next == offset { break }
+        offset = next
+      }
+      for fragment in ["DEMO", "CRED", "0123", "6789"] {
+        XCTAssertFalse(pages.contains(fragment), "maxBytes \(size): \(pages)")
+      }
+      XCTAssertTrue(pages.contains("before") && pages.contains("after"), pages)
+    }
+    await jobs.shutdown()
+  }
+
   func testChangedEnvironmentRejectsIdempotentReplay() async throws {
     let f = try Fixture(); defer { f.remove() }
     let jobs = JobManager(helper: Fixture.helper)

@@ -252,6 +252,26 @@ public final class OwnedProcess: @unchecked Sendable {
     let suffix = Data(clean.utf8.suffix(tailLimit))
     return String(decoding: suffix, as: UTF8.self)
   }
+  /// Bytes `from..<end` of `buffer` with secrets replaced. Secrets are found in the
+  /// surrounding context, so a page boundary cannot split one out of recognition;
+  /// offsets stay raw byte positions.
+  private func masked(_ buffer: Data, from: Int, to end: Int) -> String {
+    let context = 16_384
+    let low = max(0, from - context), high = min(buffer.count, end + context)
+    let base = buffer.startIndex
+    let ranges = redactor.sensitiveRanges(buffer.subdata(in: base + low..<base + high))
+    var output = Data()
+    var cursor = from
+    for range in ranges {
+      let lower = range.lowerBound + low, upper = range.upperBound + low
+      guard upper > from, lower < end else { continue }
+      if lower > cursor { output.append(buffer.subdata(in: base + cursor..<base + lower)) }
+      output.append(contentsOf: Array("[REDACTED]".utf8))
+      cursor = max(cursor, min(upper, end))
+    }
+    if cursor < end { output.append(buffer.subdata(in: base + cursor..<base + end)) }
+    return String(decoding: output, as: UTF8.self)
+  }
   func fullLog() -> Data? {
     lock.withLock {
       guard stdoutCount <= fullLimit, stderrCount <= fullLimit else { return nil }
@@ -277,14 +297,16 @@ public final class OwnedProcess: @unchecked Sendable {
           ]
         }
 
-        let bytes: Data
+        let text: String
+        let consumed: Int
         let from: Int
         var expired = false
         var skipped = 0
         if offset < full.count {
           from = offset
           let end = min(full.count, offset + maxBytes)
-          bytes = full.subdata(in: full.startIndex + offset..<full.startIndex + end)
+          text = masked(full, from: offset, to: end)
+          consumed = end - offset
         } else {
           let availableFrom = max(0, total - tail.count)
           let effective: Int
@@ -298,12 +320,13 @@ public final class OwnedProcess: @unchecked Sendable {
           from = effective
           let local = effective - availableFrom
           let end = min(tail.count, local + maxBytes)
-          bytes = tail.subdata(in: tail.startIndex + local..<tail.startIndex + end)
+          text = masked(tail, from: local, to: end)
+          consumed = end - local
         }
-        let next = from + bytes.count
+        let next = from + consumed
         var result: JSONValue = [
           "fromOffset": .int(from), "nextOffset": .int(next), "totalBytes": .int(total),
-          "text": .string(Budget.prefix(redactor.clean(String(decoding: bytes, as: UTF8.self)), bytes: maxBytes)),
+          "text": .string(text),
           "moreAvailable": .bool(next < total),
         ]
         if expired {
@@ -329,18 +352,12 @@ public final class OwnedProcess: @unchecked Sendable {
       throw Failure.invalid(
         "job_action input requires an interactive job, bounded text and/or close=true.")
     }
-    let handle = try lock.withLock { () throws -> FileHandle in
-      guard ended == nil, let stdinHandle else {
-        throw Failure(
-          "job_stdin_closed", "The job no longer accepts stdin.",
-          "Observe the job status; start a new interactive job only if new execution is intended.")
-      }
-      return stdinHandle
-    }
     let deadline = Date().addingTimeInterval(5)
     guard inputWriteLock.lock(before: deadline) else { throw Self.stalled(written: 0) }
     defer { inputWriteLock.unlock() }
-    guard !inputAbandoned() else {
+    // Take the handle only while holding the writer lock: a concurrent close=true
+    // may have closed it while this call waited.
+    guard !inputAbandoned(), let handle = lock.withLock({ ended == nil ? stdinHandle : nil }) else {
       throw Failure(
         "job_stdin_closed", "The job no longer accepts stdin.",
         "Observe the job status; start a new interactive job only if new execution is intended.")

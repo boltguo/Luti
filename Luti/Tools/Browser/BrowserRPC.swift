@@ -20,6 +20,8 @@ final class BrowserRPC: @unchecked Sendable {
     process.currentDirectoryURL = scratch
     process.standardInput = input; process.standardOutput = output
     process.standardError = FileHandle.nullDevice
+    // A helper that exits mid-write must surface EPIPE (and stop()), not kill Luti.
+    _ = fcntl(input.fileHandleForWriting.fileDescriptor, F_SETNOSIGPIPE, 1)
     try process.run()
     try? input.fileHandleForReading.close(); try? output.fileHandleForWriting.close()
     DispatchQueue.global(qos: .utility).async { [self] in
