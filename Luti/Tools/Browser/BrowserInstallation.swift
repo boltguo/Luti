@@ -39,7 +39,7 @@ actor BrowserInstallation {
   private static func verifyNode(_ url: URL) throws {
     let bytes = try PrivateFiles.read(url, max: 134_217_728)
     let hash = SHA256.hash(data: bytes).map { String(format: "%02x", $0) }.joined()
-    guard hash == binarySHA else { throw Failure("browser_integrity", "Browser runtime checksum mismatch.", "Remove the app-owned browser cache and prepare it again.") }
+    guard hash == binarySHA else { throw Failure("browser_integrity", "Browser runtime checksum mismatch.", "Open the browser again to download a fresh runtime.") }
   }
   private static func install() async throws -> URL {
     #if !arch(arm64)
@@ -52,6 +52,11 @@ actor BrowserInstallation {
     }
     let archive = helper.appendingPathComponent("playwright-core.tgz")
     guard Budget.sha256(try PrivateFiles.read(archive, max: 16_777_216)) == playwrightSHA else { throw Failure.invalid("Bundled Playwright package checksum mismatch.") }
+    if FileManager.default.fileExists(atPath: node.path),
+       (try? await Task.detached { try verifyNode(node) }.value) == nil {
+      // A damaged or replaced runtime is downloaded again, never executed.
+      try FileManager.default.removeItem(at: node)
+    }
     if !FileManager.default.fileExists(atPath: node.path) || !FileManager.default.fileExists(atPath: cache.appendingPathComponent("Node-LICENSE").path) {
       let scratch = cache.appendingPathComponent("install-" + UUID().uuidString)
       try PrivateFiles.directory(scratch)

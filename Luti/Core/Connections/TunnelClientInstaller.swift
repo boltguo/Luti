@@ -43,8 +43,11 @@ enum TunnelClientInstaller {
     try PrivateFiles.directory(cache)
     let binary = cache.appendingPathComponent("tunnel-client")
     if FileManager.default.fileExists(atPath: binary.path) {
-      try await Task.detached(priority: .utility) { try verifyBinary(binary, build: build) }.value
-      return binary
+      if (try? await Task.detached(priority: .utility) { try verifyBinary(binary, build: build) }.value) != nil {
+        return binary
+      }
+      // A damaged or replaced cache is downloaded again, never executed.
+      try FileManager.default.removeItem(at: binary)
     }
 
     let scratch = cache.appendingPathComponent("download-" + UUID().uuidString, isDirectory: true)
@@ -81,7 +84,7 @@ enum TunnelClientInstaller {
     guard Budget.sha256(data) == build.binarySHA else {
       throw Failure(
         "openai_binary_mismatch", "The cached OpenAI tunnel-client is not the reviewed \(version) binary.",
-        "Remove the affected app-owned cache and reconnect. Do not execute an unverified client.")
+        "Reconnect to download it again. Do not execute an unverified client.")
     }
   }
 

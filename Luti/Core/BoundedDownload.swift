@@ -14,8 +14,9 @@ final class BoundedDownload: NSObject, URLSessionDownloadDelegate, @unchecked Se
   }
   func download() async throws {
     let configuration = URLSessionConfiguration.ephemeral
-    configuration.timeoutIntervalForRequest = 30
-    configuration.timeoutIntervalForResource = 120
+    // Slow links must still finish a ~50 MB pinned archive; stalls fail per request.
+    configuration.timeoutIntervalForRequest = 60
+    configuration.timeoutIntervalForResource = 900
     configuration.httpShouldSetCookies = false
     configuration.urlCache = nil
     let session = URLSession(configuration: configuration, delegate: self, delegateQueue: nil)
