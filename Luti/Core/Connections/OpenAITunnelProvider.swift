@@ -12,6 +12,8 @@ public actor OpenAITunnelProvider: ConnectionProvider {
   private let process = ProviderProcess()
   private var health: URL?
   private var logs: URL?
+  private var metrics: URL?
+  private var lastMetricsCheck: ContinuousClock.Instant?
   private var logSeq = 0
   /// Set once this client instance has authenticated to the control plane.
   private var controlPlaneReached = false
@@ -55,6 +57,7 @@ public actor OpenAITunnelProvider: ConnectionProvider {
           let text = String(data: data, encoding: .utf8), let base = Self.healthBase(text) {
           health = base.appendingPathComponent("readyz")
           logs = URL(string: "api/logs?limit=100", relativeTo: base)?.absoluteURL
+          metrics = base.appendingPathComponent("metrics")
         }
         if let health, await ConnectionProbe.ready(health) {
           await readLogs()
@@ -109,10 +112,14 @@ public actor OpenAITunnelProvider: ConnectionProvider {
 
   /// tunnel-client's local readiness ignores the control plane, so follow its
   /// own log: metadata fetch proves the key, poll failure/recovery the network.
+  /// When the log cannot settle the state (missed events, or no metadata line),
+  /// its poll metrics do.
   private func readLogs() async {
     guard let logs, let response = try? await ConnectionProbe.request(logs, limit: 262_144),
       response.status == 200, let events = response.json["events"].array
     else { return }
+    let firstNew = events.compactMap { $0["seq"].int }.filter { $0 > logSeq }.min()
+    let missedEvents = logSeq > 0 && (firstNew ?? 0) > logSeq + 1
     for event in events {
       guard let seq = event["seq"].int, seq > logSeq else { continue }
       logSeq = seq
@@ -122,12 +129,34 @@ public actor OpenAITunnelProvider: ConnectionProvider {
       case "poller recovered; polling operational":
         controlPlaneReached = true
         pollError = nil
-      case "poll failed; backing off":
-        pollError = Self.pollReason(event["attrs"]["error"].string ?? "")
+      case "poll failed; backing off", "poll timed out; backing off":
+        pollError = Self.pollReason(event["attrs"]["error"].string ?? "poll timed out")
       default:
         break
       }
     }
+    guard missedEvents || !controlPlaneReached, let last = await lastSuccessfulPoll() else { return }
+    controlPlaneReached = true
+    // A success within one long-poll window (30 s plus guardrail) means polling works now.
+    if missedEvents, Date().timeIntervalSince1970 - last < 40 { pollError = nil }
+  }
+
+  /// Unix time of this client's latest successful poll; at most one ~200 KB read per 2 s.
+  private func lastSuccessfulPoll() async -> Double? {
+    if let lastMetricsCheck, lastMetricsCheck.duration(to: .now) < .seconds(2) { return nil }
+    lastMetricsCheck = .now
+    guard let metrics, let response = try? await ConnectionProbe.request(metrics, limit: 1_048_576),
+      response.status == 200
+    else { return nil }
+    return Self.lastSuccessfulPoll(String(decoding: response.body, as: UTF8.self))
+  }
+
+  static func lastSuccessfulPoll(_ metrics: String) -> Double? {
+    for line in metrics.split(separator: "\n")
+    where line.hasPrefix("commands_poll_last_successful_timestamp_seconds") {
+      if let value = line.split(separator: " ").last.flatMap({ Double($0) }), value > 0 { return value }
+    }
+    return nil
   }
 
   /// Drops the request line (`Get "https://…": `) and keeps a bounded cause.
@@ -153,7 +182,7 @@ public actor OpenAITunnelProvider: ConnectionProvider {
 
   private var notReadyMessage: String {
     if let pollError {
-      return "Cannot reach OpenAI (\(pollError)). Retrying automatically; check the network or proxy."
+      return "Cannot reach OpenAI (\(pollError)). Retrying automatically; check the network or proxy. After changing proxy settings, stop and start Luti."
     }
     return controlPlaneReached
       ? "OpenAI Tunnel is not ready. Retrying automatically."
@@ -165,6 +194,7 @@ public actor OpenAITunnelProvider: ConnectionProvider {
     apiKey = nil
     health = nil
     logs = nil
+    metrics = nil
     await process.stop()
   }
 

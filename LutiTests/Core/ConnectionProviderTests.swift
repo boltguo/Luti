@@ -179,6 +179,16 @@ private actor FixtureProvider: ConnectionProvider {
     XCTAssertLessThanOrEqual(OpenAITunnelProvider.pollReason(String(repeating: "x", count: 500)).utf8.count, 200)
   }
 
+  func testLastSuccessfulPollReadsTunnelClientMetrics() {
+    let metrics = """
+      # HELP commands_poll_last_successful_timestamp_seconds Unix timestamp in seconds of the last successful poll.
+      commands_poll_last_successful_timestamp_seconds{otel_scope_name="controlplane"} 1.791769889e+09
+      """
+    XCTAssertEqual(OpenAITunnelProvider.lastSuccessfulPoll(metrics), 1_791_769_889)
+    XCTAssertNil(OpenAITunnelProvider.lastSuccessfulPoll(
+      #"commands_poll_last_successful_timestamp_seconds{otel_scope_name="controlplane"} 0"#))
+  }
+
   func testStaleRunDirectoriesAreRemovedAtLaunch() throws {
     let f = try Fixture(); defer { f.remove() }
     let stale = f.contextDataRoot.appendingPathComponent("runs/connection-stale", isDirectory: true)

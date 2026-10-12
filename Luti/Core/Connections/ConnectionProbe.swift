@@ -13,6 +13,7 @@ private final class ProviderNoRedirect: NSObject, URLSessionTaskDelegate, @unche
 enum ConnectionProbe {
   struct Response: Sendable {
     let status: Int
+    let body: Data
     let json: JSONValue
     let challenge: String?
   }
@@ -43,7 +44,7 @@ enum ConnectionProbe {
       guard data.count < limit else { throw Failure.invalid("The connection probe exceeded its response bound.") }
       data.append(byte)
     }
-    return Response(status: http.statusCode, json: (try? JSONValue.decode(data)) ?? .null,
+    return Response(status: http.statusCode, body: data, json: (try? JSONValue.decode(data)) ?? .null,
                     challenge: http.value(forHTTPHeaderField: "WWW-Authenticate"))
   }
 
