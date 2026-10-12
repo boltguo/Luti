@@ -109,3 +109,39 @@ import XCTest
     XCTAssertTrue(FileManager.default.fileExists(atPath: auth.path))
   }
 }
+
+extension ProjectEnablementTests {
+  func testCredentialMigrationRetriesReadsAndWritesAfterPreferencesAreRetired() throws {
+    let old = "connection-openai-credential", current = KeychainService.openAIAPIKey
+    for failWrite in [false, true] {
+      let f = try Fixture(); defer { f.remove() }
+      let store = FixtureKeychain(values: [old: "synthetic-key"],
+        failedReads: failWrite ? [:] : [old: 1], failedSaves: failWrite ? 1 : 0)
+      let tunnel = "tunnel_0123456789abcdef0123456789abcdef"
+      f.defaults.set(tunnel, forKey: "connection.openai.address")
+      f.defaults.set(try JSONEncoder().encode([ApprovedProject(url: f.root)]), forKey: "approvedProjects")
+      LegacyMigration.run(defaults: f.defaults, dataRoot: f.contextDataRoot, keychain: true, credentials: store.client)
+      XCTAssertTrue(f.defaults.bool(forKey: LegacyMigration.completedKey))
+      XCTAssertFalse(f.defaults.bool(forKey: LegacyMigration.credentialsCompletedKey))
+      XCTAssertNil(f.defaults.object(forKey: "connection.openai.address"))
+      XCTAssertEqual(store.value(old), "synthetic-key")
+      XCTAssertNil(store.value(current))
+      LegacyMigration.run(defaults: f.defaults, dataRoot: f.contextDataRoot, keychain: true, credentials: store.client)
+      XCTAssertTrue(f.defaults.bool(forKey: LegacyMigration.credentialsCompletedKey))
+      XCTAssertEqual(store.value(current), "synthetic-key")
+      XCTAssertNil(store.value(old))
+      XCTAssertEqual(f.defaults.string(forKey: "connection.openai.tunnelID"), tunnel)
+      XCTAssertNotNil(f.defaults.data(forKey: "selectedFolder"))
+      XCTAssertTrue(store.readInteractions.allSatisfy { !$0 })
+    }
+  }
+
+  func testCredentialMigrationRecoversAnAlreadyMarkedLegacyUpgrade() throws {
+    let f = try Fixture(); defer { f.remove() }
+    f.defaults.set(true, forKey: LegacyMigration.completedKey)
+    let store = FixtureKeychain(values: ["connection-openai-credential": "preserved-key"])
+    LegacyMigration.run(defaults: f.defaults, dataRoot: f.contextDataRoot, keychain: true, credentials: store.client)
+    XCTAssertEqual(store.value(KeychainService.openAIAPIKey), "preserved-key")
+    XCTAssertTrue(f.defaults.bool(forKey: LegacyMigration.credentialsCompletedKey))
+  }
+}

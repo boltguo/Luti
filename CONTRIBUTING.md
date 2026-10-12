@@ -20,6 +20,8 @@ open Luti.xcodeproj
 
 The shared `Luti` scheme builds the app and runs its tests. `Package.resolved` locks Swift Package Manager versions, so unrelated changes should leave it untouched.
 
+Debug builds appear as **Luti Dev** (`com.aouos.luti.debug`), with separate preferences, Keychain service, and data under `~/.luti/development`. They do not run the production updater. Configure a development connection separately; production settings and credentials are not copied. Release builds keep the existing `com.aouos.luti` identity and `~/.luti` data.
+
 ## Build and Test
 
 Run the full test suite without requiring a signing identity:
@@ -40,6 +42,10 @@ xcodebuild test \
 Add or update tests whenever behavior changes. Work involving permissions, authentication, project boundaries, process execution, downloads, browser or computer control, persistence, or recovery must cover failure paths as well as successful ones.
 
 Features that depend on macOS permissions, external providers, code signing, notarization, or the packaged app also need manual verification. Record those checks in the pull request.
+
+For browser launch changes, test with App Management disabled and inspect the macOS system log for denied app-bundle operations. Opening, closing, and reopening Luti-owned Chrome sessions should not require this permission. The helper disables Chrome's `MacAppCodeSignClone` update mechanism while preserving Playwright's other launch defaults and the Chromium sandbox. When updating Playwright, keep the helper's pinned disabled-feature list in sync with `chromiumSwitches.ts`.
+
+For permission or release checks, use a signed Release package in a separate macOS test account or VM. Unsigned Release tests reuse the production bundle ID and must not run in a user's normal account. Verify fresh launch, restart, and upgrade with the same signing identity; record the installed version and app path along with the result.
 
 ## Design and Implementation
 

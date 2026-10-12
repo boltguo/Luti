@@ -28,6 +28,9 @@ extension WorkspaceFiles {
       } else {
         let read = try data(file.path)
         original = read.0; info = read.1
+        guard !changes.contains(where: { $0.info?.device == read.1.device && $0.info?.inode == read.1.inode }) else {
+          throw Failure.invalid("Patch paths refer to the same file: " + file.path)
+        }
       }
       guard let text = String(data: original ?? Data(), encoding: .utf8), !text.contains("\0") else { throw Failure.invalid("Patch target is not UTF-8 text: " + file.path) }
       let output = Data(try file.apply(to: text).utf8)

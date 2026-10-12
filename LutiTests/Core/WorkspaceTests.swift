@@ -250,3 +250,29 @@ import XCTest
     } catch let e as Failure { XCTAssertEqual(e.code, "runtime_stopped") }
   }
 }
+
+extension WorkspaceTests {
+  func testSlowRegexHonorsDeadlineAndReleasesFileService() async throws {
+    let f = try Fixture(); defer { f.remove() }
+    try f.write("slow.txt", String(repeating: "a", count: 2048))
+    let started = ContinuousClock.now
+    let result = try await f.files.search(query: "a{0,16}a{0,16}a+b", glob: "slow.txt", caseSensitive: true, mode: "regex")
+    XCTAssertLessThan(started.duration(to: .now), .seconds(5))
+    XCTAssertEqual(result["truncated"], true)
+    let readable = try await f.files.text("slow.txt")
+    XCTAssertEqual(readable.text.count, 2048)
+  }
+
+  func testSlowRegexCanBeCancelledDuringSingleMatch() async throws {
+    let f = try Fixture(); defer { f.remove() }
+    try f.write("slow.txt", String(repeating: "a", count: 2048))
+    let search = Task { try await f.files.search(query: "a{0,16}a{0,16}a+b", mode: "regex") }
+    try await Task.sleep(for: .milliseconds(100))
+    let cancelled = ContinuousClock.now
+    search.cancel()
+    do { _ = try await search.value; XCTFail("Expected cancellation") }
+    catch { XCTAssertTrue(error is CancellationError) }
+    await f.files.shutdown()
+    XCTAssertLessThan(cancelled.duration(to: .now), .seconds(1))
+  }
+}

@@ -133,8 +133,8 @@ extension WorkspaceFiles {
   }
   nonisolated static func diff(_ before: String, _ after: String, path: String) -> String {
     if before == after { return "" }
-    let a = before.components(separatedBy: "\n")
-    let b = after.components(separatedBy: "\n")
+    let a = UnifiedPatch.lines(before)
+    let b = UnifiedPatch.lines(after)
     var prefix = 0
     var suffix = 0
     while prefix < min(a.count, b.count), a[prefix] == b[prefix] { prefix += 1 }
@@ -145,7 +145,10 @@ extension WorkspaceFiles {
     let new = b[prefix..<(b.count - suffix)]
     let oldStart = old.isEmpty ? prefix : prefix + 1
     let newStart = new.isEmpty ? prefix : prefix + 1
+    func render(_ lines: ArraySlice<String>, mark: String) -> String {
+      lines.map { mark + $0 + ($0.hasSuffix("\n") ? "" : "\n\\ No newline at end of file\n") }.joined()
+    }
     return
       "--- a/\(path)\n+++ b/\(path)\n@@ -\(oldStart),\(old.count) +\(newStart),\(new.count) @@\n"
-      + old.map { "-" + $0 + "\n" }.joined() + new.map { "+" + $0 + "\n" }.joined()
+      + render(old, mark: "-") + render(new, mark: "+")
   }}

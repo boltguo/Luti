@@ -16,7 +16,7 @@ import Sparkle
       || NSClassFromString("XCTestCase") != nil
       || environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1"
     controller = SPUStandardUpdaterController(
-      startingUpdater: startingUpdater ?? !isTestOrPreview,
+      startingUpdater: !Identity.isDevelopmentBuild && (startingUpdater ?? !isTestOrPreview),
       updaterDelegate: nil,
       userDriverDelegate: nil)
     controller.updater.publisher(for: \.canCheckForUpdates)

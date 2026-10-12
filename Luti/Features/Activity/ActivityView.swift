@@ -1,5 +1,17 @@
 import SwiftUI
 
+extension ActivityEvent {
+  /// Submission is protocol information, not a pending verification task.
+  /// A confirmed stop also needs no extra warning unless stopping failed.
+  var effectWarning: String? {
+    guard let effect, ["possible", "partial"].contains(effect) else { return nil }
+    if effect == "possible", operationState == "stopped", status == "stopped", errorCode == nil {
+      return nil
+    }
+    return effect
+  }
+}
+
 private enum ActivityFilter { case all, errors, current, currentErrors }
 
 private struct ActivityDisplayRow: Identifiable {
@@ -166,15 +178,15 @@ private struct ActivityEventRow: View {
           .fixedSize(horizontal: false, vertical: true)
       }
 
-      if !event.summary.isEmpty {
-        Text(event.summary).font(.system(size: 12)).foregroundStyle(MDTheme.secondary)
+      if !displaySummary.isEmpty {
+        Text(displaySummary).font(.system(size: 12)).foregroundStyle(MDTheme.secondary)
           .textSelection(.enabled)
       }
 
-      if let effect = event.effect, ["submitted", "possible", "partial"].contains(effect) {
-        Label(effectTitle(effect), systemImage: effect == "submitted" ? "eye" : "exclamationmark.triangle")
+      if let effect = event.effectWarning {
+        Label(effectTitle(effect), systemImage: "exclamationmark.triangle")
           .font(.system(size: 11, weight: .medium))
-          .foregroundStyle(effect == "submitted" ? MDTheme.primary : MDTheme.warning)
+          .foregroundStyle(MDTheme.warning)
       }
 
       if let error = event.errorCode {
@@ -225,7 +237,24 @@ private struct ActivityEventRow: View {
   }
 
   private var succeeded: Bool {
-    statusSymbol == "checkmark.circle"
+    statusSymbol == "checkmark.circle" && event.status != "stopped" && event.operationState != "stopped"
+  }
+
+  private var displaySummary: String {
+    if event.summary == "Job stopped.", event.operationState == "stopped" { return "" }
+    if event.tool == "browser_action" {
+      switch event.summary {
+      case "Browser action submitted; observe before retrying.", "Browser action completed.",
+           "Browser action executed.":
+        return L10n.text("activity.browserActionExecuted")
+      case "Browser action confirmed by post-condition.":
+        return L10n.text("activity.browserConditionConfirmed")
+      case "Browser action executed; post-condition not met.":
+        return L10n.text("activity.browserConditionNotMet")
+      default: break
+      }
+    }
+    return event.summary
   }
 
   /// Time of day for today, the date otherwise; duration only when it is noticeable.
@@ -282,7 +311,6 @@ private struct ActivityEventRow: View {
 
   private func effectTitle(_ effect: String) -> String {
     switch effect {
-    case "submitted": return L10n.text("activity.needsVerification")
     case "partial": return L10n.text("activity.partiallyCompleted")
     case "possible": return L10n.text("activity.outcomeUnknown")
     default: return effect

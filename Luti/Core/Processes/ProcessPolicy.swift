@@ -288,7 +288,9 @@ public enum ProcessPolicy {
         "Install it locally or provide its explicit executable path. Shell startup files are not sourced."
       )
     }
-    return result.standardizedFileURL.resolvingSymlinksInPath()
+    // The invocation path is significant to venv Python and multicall tools
+    // such as rustup's cargo proxy. Scope checks resolve their own canonical path.
+    return result.standardizedFileURL
   }
   private static func executableOutsideAllowedScope(
     _ program: String,

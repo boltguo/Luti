@@ -88,7 +88,9 @@ actor BrowserProvider {
       if (error as? Failure)?.code == "browser_transport_unknown", self.rpc === rpc {
         discardSession()
       }
-      throw error
+      let failure = Failure.safe(error)
+      throw Failure(failure.code, redactor.clean(failure.message), redactor.clean(failure.recovery),
+                    effect: failure.effect)
     }
     guard accepting else { throw Failure.stopped }
     if name == "browser_screenshot" {

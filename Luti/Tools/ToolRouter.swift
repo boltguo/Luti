@@ -338,9 +338,10 @@ public actor ToolRouter {
       if output.data["postConditionSatisfied"] == true {
         return "Browser action confirmed by post-condition."
       }
-      return output.data["effect"] == "submitted"
-        ? "Browser action submitted; observe before retrying."
-        : "Browser action completed."
+      if output.data["postConditionSatisfied"] == false {
+        return "Browser action executed; post-condition not met."
+      }
+      return "Browser action executed."
     case "browser_session":
       switch output.data["action"].string {
       case "open": return "Browser tab opened."

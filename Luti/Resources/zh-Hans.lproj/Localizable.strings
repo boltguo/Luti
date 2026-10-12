@@ -15,7 +15,9 @@
 "activity.failed" = "失败";
 "activity.interrupted" = "已中断";
 "activity.last" = "最近 %@";
-"activity.needsVerification" = "等待验证";
+"activity.browserActionExecuted" = "已执行浏览器操作";
+"activity.browserConditionConfirmed" = "已执行，目标条件已满足";
+"activity.browserConditionNotMet" = "已执行，目标条件尚未满足";
 "activity.noActivityMatchesFilter" = "暂无匹配记录";
 "activity.noActivityYet" = "暂无活动记录";
 "activity.outcomeUnknown" = "结果未知";

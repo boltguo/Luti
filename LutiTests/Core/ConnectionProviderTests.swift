@@ -222,3 +222,53 @@ private actor FixtureProvider: ConnectionProvider {
     XCTAssertEqual(model.connectionStatusKey, "connection.state.stopped")
   }
 }
+
+extension ConnectionProviderTests {
+  func testPreparationFailureRetriesWithoutRestartingRuntimeOrPromptingAgain() async throws {
+    let f = try Fixture(); defer { f.remove() }
+    let store = FixtureKeychain(values: [KeychainService.openAIAPIKey: "synthetic-key"],
+      failedReads: [KeychainService.openAIAPIKey: 1])
+    let provider = FixtureProvider()
+    let tunnel = "tunnel_0123456789abcdef0123456789abcdef"
+    f.defaults.set(tunnel, forKey: "connection.openai.tunnelID")
+    let model = AppModel(contextDataRoot: f.contextDataRoot, defaults: f.defaults,
+      credentials: store.client, makeProvider: { _, _, _ in provider })
+    model.addProject(f.root); model.requestStart()
+    for _ in 0..<200 {
+      if model.connection.state == .failed && !model.connectionBusy { break }
+      try await Task.sleep(for: .milliseconds(25))
+    }
+    XCTAssertEqual(model.connection.state, .failed)
+    let run = model.currentRunID
+    await model.refresh()
+    XCTAssertEqual(model.connection.state, .failed)
+    for _ in 0..<200 {
+      await model.refresh()
+      if model.connection.state == .ready { break }
+      try await Task.sleep(for: .milliseconds(50))
+    }
+    XCTAssertEqual(model.connection.state, .ready)
+    XCTAssertEqual(model.phase, .running)
+    XCTAssertEqual(model.currentRunID, run)
+    XCTAssertEqual(store.readInteractions, [true, false])
+    await model.stop()
+  }
+
+  func testMissingCredentialStaysFailedWithoutAutomaticReadLoop() async throws {
+    let f = try Fixture(); defer { f.remove() }
+    let store = FixtureKeychain()
+    f.defaults.set("tunnel_0123456789abcdef0123456789abcdef", forKey: "connection.openai.tunnelID")
+    let model = AppModel(contextDataRoot: f.contextDataRoot, defaults: f.defaults, credentials: store.client)
+    model.apiKeySaved = true // A credential removed after launch.
+    model.addProject(f.root); model.requestStart()
+    for _ in 0..<200 {
+      if model.connection.state == .failed && !model.connectionBusy { break }
+      try await Task.sleep(for: .milliseconds(25))
+    }
+    for _ in 0..<25 { await model.refresh(); try await Task.sleep(for: .milliseconds(250)) }
+    XCTAssertEqual(model.connection.state, .failed)
+    XCTAssertFalse(model.apiKeySaved)
+    XCTAssertEqual(store.readInteractions, [true])
+    await model.stop()
+  }
+}

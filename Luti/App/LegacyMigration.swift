@@ -5,6 +5,7 @@ import Foundation
 /// providers, OAuth, project memory, sessions and checkpoints.
 enum LegacyMigration {
   static let completedKey = "legacyDataMigrated"
+  static let credentialsCompletedKey = "legacyCredentialsMigrated"
   static let selectedFolderKey = "selectedFolder"
   static let tunnelIDKey = "connection.openai.tunnelID"
   private static let approvedProjectsKey = "approvedProjects"
@@ -18,7 +19,29 @@ enum LegacyMigration {
   ]
 
   /// `keychain` is false in tests so a fixture never touches the user's real items.
-  static func run(defaults: UserDefaults, dataRoot: URL, keychain: Bool) {
+  static func run(defaults: UserDefaults, dataRoot: URL, keychain: Bool,
+                  credentials: KeychainClient = .live) {
+    // Independent of retired preferences: older releases already removed those
+    // even when copying their Keychain item failed.
+    if keychain, !defaults.bool(forKey: credentialsCompletedKey) {
+      do {
+        let account = KeychainService.openAIAPIKey
+        if try credentials.read(account, false) == nil,
+          let old = try credentials.read(openAIAccount, false)
+        {
+          try credentials.save(old, account)
+          guard try credentials.read(account, false) == old else {
+            throw Failure.invalid("Credential migration could not verify the copied key.")
+          }
+        }
+        for retired in credentials.accounts() where retired != account {
+          try credentials.remove(retired)
+        }
+        defaults.set(true, forKey: credentialsCompletedKey)
+      } catch {
+        // Keep the old key and the retry marker; ordinary preferences may still migrate.
+      }
+    }
     guard !defaults.bool(forKey: completedKey) else { return }
     defer { defaults.set(true, forKey: completedKey) }
     // Fresh installs have nothing to migrate or remove.
@@ -40,18 +63,6 @@ enum LegacyMigration {
       defaults.set(id, forKey: tunnelIDKey)
     }
     for key in retiredKeys { defaults.removeObject(forKey: key) }
-
-    if keychain {
-      if !KeychainService.exists(), let key = try? KeychainService.read(account: openAIAccount) {
-        try? KeychainService.save(key)
-      }
-      // Keep the old OpenAI item if copying it failed, so the key is never lost.
-      let copied = KeychainService.exists()
-      for account in KeychainService.accounts()
-      where account != KeychainService.openAIAPIKey && (account != openAIAccount || copied) {
-        try? KeychainService.remove(account: account)
-      }
-    }
 
     let files = FileManager.default
     try? files.removeItem(at: dataRoot.appendingPathComponent("auth"))

@@ -520,3 +520,67 @@ import XCTest
     } catch let e as Failure { XCTAssertEqual(e.code, "runtime_stopped") }
   }
 }
+
+extension ProcessTests {
+  func testVirtualEnvironmentSurvivesPipePTYAndDiscoveredTaskExecution() async throws {
+    let f = try Fixture(); defer { f.remove() }
+    let setup = #"""
+    import pathlib,subprocess,sys,venv
+    root=pathlib.Path(sys.argv[1]); env=root/'.venv'
+    venv.EnvBuilder(with_pip=False,symlinks=True).create(env)
+    python=env/'bin/python3'
+    site=subprocess.check_output([str(python),'-c','import sysconfig;print(sysconfig.get_paths()["purelib"])'],text=True).strip()
+    pathlib.Path(site,'luti_venv_only.py').write_text('VALUE="VENV_DEPENDENCY_OK"\n')
+    pathlib.Path(site,'pytest.py').write_text('import luti_venv_only;print(luti_venv_only.VALUE)\n')
+    """#
+    let prepare = try OwnedProcess(ProcessRequest(program: "python3", args: ["-c", setup, f.root.path],
+      cwd: f.root, timeout: 30), helper: Fixture.helper)
+    while !prepare.finished { try await Task.sleep(for: .milliseconds(25)) }
+    XCTAssertEqual(prepare.snapshot(id: "setup")["exitCode"], 0)
+    let venv = f.root.appendingPathComponent(".venv")
+    let probe = "import os,sys,luti_venv_only;assert os.path.samefile(sys.prefix,sys.argv[1]);assert '.venv' in sys.executable;print(luti_venv_only.VALUE)"
+    let router = try f.router(execution: true)
+    addTeardownBlock { await router.stop() }
+    for mode in ["pipe", "pty"] {
+      for usePATH in [false, true] {
+        let started = await router.callInCurrentProject("run_process", arguments: [
+          "program": .string(usePATH ? "python3" : ".venv/bin/python3"),
+          "args": [.string("-c"), .string(probe), .string(venv.path)],
+          "environment": usePATH ? ["PATH": .string(venv.appendingPathComponent("bin").path + ":/usr/bin:/bin")] : [:],
+          "terminalMode": .string(mode), "interactive": .bool(mode == "pty"), "timeout": 10, "syncWait": 3,
+        ])
+        XCTAssertFalse(started.isError, started.data.text())
+        let id = try XCTUnwrap(started.data["jobId"].string)
+        var result = started
+        for _ in 0..<200 where result.data["terminal"] != true {
+          try await Task.sleep(for: .milliseconds(25))
+          result = await router.callInCurrentProject("job_query", arguments: ["action": "status", "jobId": .string(id)])
+        }
+        XCTAssertEqual(result.data["exitCode"], 0, result.data.text())
+        XCTAssertTrue(result.data["stdoutTail"].string?.contains("VENV_DEPENDENCY_OK") == true)
+      }
+    }
+    try f.write("pyproject.toml", "[project]\nname='fixture'\nversion='0.1.0'\n[tool.pytest.ini_options]\n")
+    let inspected = await router.callInCurrentProject("inspect_project", arguments: [:])
+    XCTAssertEqual(inspected.data["taskRegistry"]["tasks"].array?.first?["program"], ".venv/bin/python")
+    let tested = await router.callInCurrentProject("run_process", arguments: ["taskId": "task:test", "timeout": 10, "syncWait": 3])
+    XCTAssertFalse(tested.isError, tested.data.text())
+    XCTAssertEqual(tested.data["exitCode"], 0)
+    XCTAssertTrue(tested.data["stdoutTail"].string?.contains("VENV_DEPENDENCY_OK") == true)
+  }
+
+  func testPATHExecutableSymlinkPreservesMulticallArgvZero() async throws {
+    let f = try Fixture(); defer { f.remove() }
+    try f.write("multicall.c", "#include <stdio.h>\nint main(int argc, char **argv) { puts(argv[0]); return 0; }\n")
+    let compiler = try OwnedProcess(ProcessRequest(program: "/usr/bin/cc",
+      args: ["multicall.c", "-o", "multicall"], cwd: f.root, timeout: 30), helper: Fixture.helper)
+    while !compiler.finished { try await Task.sleep(for: .milliseconds(25)) }
+    XCTAssertEqual(compiler.snapshot(id: "compile")["exitCode"], 0)
+    try FileManager.default.createSymbolicLink(atPath: f.root.appendingPathComponent("cargo").path, withDestinationPath: "multicall")
+    let process = try OwnedProcess(ProcessRequest(program: "cargo", args: ["--version"], cwd: f.root,
+      environment: ["PATH": f.root.path + ":/usr/bin:/bin"], timeout: 10), helper: Fixture.helper)
+    while !process.finished { try await Task.sleep(for: .milliseconds(25)) }
+    XCTAssertEqual(process.snapshot(id: "proxy")["stdoutTail"].string?.trimmingCharacters(in: .whitespacesAndNewlines),
+      f.root.appendingPathComponent("cargo").path)
+  }
+}

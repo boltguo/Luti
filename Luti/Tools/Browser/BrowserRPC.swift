@@ -53,11 +53,14 @@ final class BrowserRPC: @unchecked Sendable {
   }
   func call(_ method: String, _ arguments: JSONValue) async throws -> JSONValue {
     let id = UUID().uuidString
+    // Post-condition waiting starts after the action/navigation finishes. Give
+    // that declared phase its own budget without removing the helper's hard cap.
+    let timeoutMs = 25_000 + min(20_000, max(0, arguments["waitTimeoutMs"].int ?? 0))
     let bytes = try (["jsonrpc": "2.0", "id": .string(id), "method": .string(method), "params": arguments] as JSONValue).data() + Data([10])
     return try await withTaskCancellationHandler {
       try await withCheckedThrowingContinuation { continuation in
         let deadline = Task { [weak self] in
-          guard (try? await Task.sleep(for: .seconds(25))) != nil, let self else { return }
+          guard (try? await Task.sleep(for: .milliseconds(timeoutMs))) != nil, let self else { return }
           if self.lock.withLock({ self.pending[id] != nil }) { self.stop() }
         }
         let accepted = lock.withLock {

@@ -1,6 +1,13 @@
 import Foundation
 
 struct UnifiedPatch {
+  /// Physical lines retain their terminator; a trailing separator is not another line.
+  static func lines(_ text: String) -> [String] {
+    guard !text.isEmpty else { return [] }
+    var lines = text.components(separatedBy: "\n")
+    if text.hasSuffix("\n") { lines.removeLast(); return lines.map { $0 + "\n" } }
+    return lines.enumerated().map { $0.offset < lines.count - 1 ? $0.element + "\n" : $0.element }
+  }
   struct Hunk {
     let start: Int
     let newStart: Int
@@ -13,10 +20,7 @@ struct UnifiedPatch {
     let delete: Bool
     var hunks: [Hunk]
     func apply(to original: String) throws -> String {
-      var lines = original.components(separatedBy: "\n")
-      if original.hasSuffix("\n") { lines.removeLast(); lines = lines.map { $0 + "\n" } }
-      else if !original.isEmpty { lines = lines.enumerated().map { $0.offset < lines.count - 1 ? $0.element + "\n" : $0.element } }
-      else { lines = [] }
+      let lines = UnifiedPatch.lines(original)
       var cursor = 0, output: [String] = []
       for (index, hunk) in hunks.enumerated() {
         let position = hunk.old.isEmpty ? hunk.start : hunk.start - 1

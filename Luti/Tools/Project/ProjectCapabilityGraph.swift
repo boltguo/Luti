@@ -268,9 +268,12 @@ struct ProjectDiscovery: Sendable {
       || entries.contains { $0["name"].string == "conftest.py" }
       || pyprojectText.localizedCaseInsensitiveContains("pytest")
     if ecosystems.contains(.python), hasPytest {
+      let python = [".venv/bin/python", ".venv/bin/python3"].first {
+        FileManager.default.isExecutableFile(atPath: directory.appendingPathComponent($0).path)
+      } ?? "python3"
       tasks.append(
         task(
-          "test", provider: "python", program: "python3", args: ["-m", "pytest"],
+          "test", provider: "python", program: python, args: ["-m", "pytest"],
           source: "pytest project markers"))
     }
     if ecosystems.contains(.rust) {

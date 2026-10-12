@@ -241,8 +241,10 @@ enum PrivateFiles {
 /// Project data is keyed by canonical absolute path and never written into the project itself.
 enum LutiPaths {
   static var root: URL {
-    FileManager.default.homeDirectoryForCurrentUser
+    let root = FileManager.default.homeDirectoryForCurrentUser
       .appendingPathComponent(".luti", isDirectory: true)
+    return Identity.isDevelopmentBuild
+      ? root.appendingPathComponent("development", isDirectory: true) : root
   }
 
   static var projects: URL { root.appendingPathComponent("projects", isDirectory: true) }

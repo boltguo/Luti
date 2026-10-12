@@ -37,6 +37,9 @@ import Observation
   /// The latest stored-activity load; tests await it.
   @ObservationIgnored private(set) var activityLoad: Task<Void, Never>?
   @ObservationIgnored private let defaults: UserDefaults
+  @ObservationIgnored private let credentials: KeychainClient
+  @ObservationIgnored private let makeProvider: @Sendable (String, String, URL) throws -> any ConnectionProvider
+  @ObservationIgnored private var connectionRetryAllowed = true
   private static let selectedFolderKey = "selectedFolder"
   private static let tunnelIDKey = "connection.openai.tunnelID"
   /// Set by Start, cleared by an explicit Stop; Quit and update relaunch keep it.
@@ -68,16 +71,24 @@ import Observation
     phase == .running && !savingConnection && !connectionBusy && !connection.state.isActive
       && connectionConfigured && !hasUnsavedConnection
   }
-  init(contextDataRoot: URL = LutiPaths.root, defaults: UserDefaults = .standard) {
+  init(contextDataRoot: URL = LutiPaths.root, defaults: UserDefaults = .standard,
+       credentials: KeychainClient? = nil,
+       makeProvider: @escaping @Sendable (String, String, URL) throws -> any ConnectionProvider = {
+         try OpenAITunnelProvider(tunnelID: $0, apiKey: $1, helper: $2)
+       }) {
     self.contextDataRoot = contextDataRoot
     self.defaults = defaults
+    let credentials = credentials ?? (defaults == .standard ? .live : .empty)
+    self.credentials = credentials
+    self.makeProvider = makeProvider
     // Test fixtures use their own suites and must never touch the user's Keychain.
-    LegacyMigration.run(defaults: defaults, dataRoot: contextDataRoot, keychain: defaults == .standard)
+    LegacyMigration.run(defaults: defaults, dataRoot: contextDataRoot, keychain: defaults == .standard,
+                        credentials: credentials)
     tunnelID = defaults.string(forKey: Self.tunnelIDKey) ?? ""
     if let data = defaults.data(forKey: Self.selectedFolderKey) {
       activeProject = try? JSONDecoder().decode(ApprovedProject.self, from: data)
     }
-    apiKeySaved = KeychainService.exists()
+    apiKeySaved = credentials.exists(KeychainService.openAIAPIKey)
     Self.discardStaleRuns(in: contextDataRoot)
     reloadStoredActivity()
     LocalLogStore.runtime("info", "Luti app initialized.")
@@ -223,7 +234,8 @@ import Observation
       let key = apiKeyDraft.trimmed
       if !key.isEmpty {
         try ConnectionContract.validateAPIKey(key)
-        try await Self.keychain { try KeychainService.save(key) }
+        let credentials = self.credentials
+        try await Self.keychain { try credentials.save(key, KeychainService.openAIAPIKey) }
       } else if !apiKeySaved {
         throw Failure.invalid(L10n.text("connection.enterAPIKey"))
       }
@@ -249,7 +261,8 @@ import Observation
     savingConnection = true
     defer { savingConnection = false }
     do {
-      try await Self.keychain { try KeychainService.remove() }
+      let credentials = self.credentials
+      try await Self.keychain { try credentials.remove(KeychainService.openAIAPIKey) }
       defaults.removeObject(forKey: Self.tunnelIDKey)
       tunnelID = ""
       apiKeyDraft = ""
@@ -339,36 +352,44 @@ import Observation
   }
 
   /// Connects, or reconnects after a failure, without touching the runtime or its jobs.
-  func connectRemote() {
+  func connectRemote(isRetry: Bool = false) {
     guard let runtime = session, canConnect else { return }
-    let manager = ConnectionManager(router: runtime.router)
-    remote = manager
+    // Publish a manager only after preparation succeeds. An untouched manager's
+    // stopped snapshot must not overwrite a credential/preparation failure.
+    remote = nil
     let token = revision
     let operation = UUID()
     connectionRevision = operation
     connectionBusy = true
     connectionError = nil
+    connectionRetryAllowed = true
     connection = ConnectionSnapshot(state: .starting, providerID: .openAI)
     let tunnelID = savedTunnelID
     connectionTask = Task { [weak self] in
       guard let self else { return }
       do {
-        let key = try await Self.keychain { try KeychainService.read() }
+        let credentials = self.credentials
+        let key = try await Self.keychain { try credentials.read(KeychainService.openAIAPIKey, !isRetry) }
         try Task.checkCancellation()
         guard self.revision == token, self.connectionRevision == operation else {
           throw CancellationError()
         }
-        guard let key else { throw Failure.invalid(L10n.text("connection.enterAPIKey")) }
-        let provider = try OpenAITunnelProvider(
-          tunnelID: tunnelID, apiKey: key, helper: Self.processHelper)
+        guard let key else {
+          self.apiKeySaved = false
+          throw Failure.invalid(L10n.text("connection.enterAPIKey"))
+        }
+        let provider = try self.makeProvider(tunnelID, key, Self.processHelper)
+        let manager = ConnectionManager(router: runtime.router)
+        self.remote = manager
         try await manager.connect(provider)
       } catch {
         guard self.revision == token, self.connectionRevision == operation else { return }
         if !(error is CancellationError) {
           self.connectionError = Failure.safe(error).localizedDescription
+          self.connectionRetryAllowed = (error as? Failure)?.code != "invalid_arguments"
         }
       }
-      let snapshot = await manager.snapshot()
+      let snapshot = await self.remote?.snapshot() ?? .stopped
       guard self.revision == token, self.connectionRevision == operation else { return }
       self.connection = self.connectionError.map {
         ConnectionSnapshot(state: .failed, message: $0, providerID: .openAI)
@@ -457,7 +478,7 @@ import Observation
   /// with capped backoff while the runtime runs; jobs are never touched.
   private func retryConnectionIfNeeded() {
     if connection.state == .ready { reconnectFailures = 0 }
-    guard phase == .running, connection.state == .failed, canConnect else {
+    guard phase == .running, connection.state == .failed, connectionRetryAllowed, canConnect else {
       reconnectAt = nil
       return
     }
@@ -468,7 +489,7 @@ import Observation
     }
     guard Date() >= due else { return }
     reconnectAt = nil
-    connectRemote()
+    connectRemote(isRetry: true)
   }
 }
 

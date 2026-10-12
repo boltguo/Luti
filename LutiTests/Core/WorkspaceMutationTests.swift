@@ -233,3 +233,58 @@ import XCTest
     XCTAssertThrowsError(try UnifiedPatch.parse("--- a/x\n+++ b/x\n@@ -1,9 +1 @@\n-x\n+y\n"))
   }
 }
+
+extension WorkspaceMutationTests {
+  func testPatchRejectsCaseAliasesBeforeChangingExistingFiles() async throws {
+    let f = try Fixture(); defer { f.remove() }
+    try f.write("notes.txt", "one\ntwo\n")
+    let aliasExists = FileManager.default.fileExists(atPath: f.root.appendingPathComponent("NOTES.txt").path)
+    if !aliasExists { try f.write("NOTES.txt", "one\ntwo\n") }
+    let patch = "--- a/notes.txt\n+++ b/notes.txt\n@@ -1 +1 @@\n-one\n+ONE\n--- a/NOTES.txt\n+++ b/NOTES.txt\n@@ -2 +2 @@\n-two\n+TWO\n"
+    if aliasExists {
+      for dryRun in [true, false] {
+        do { _ = try await f.files.applyPatch(patch, dryRun: dryRun); XCTFail("Aliased targets must be rejected") }
+        catch let error as Failure { XCTAssertEqual(error.code, "invalid_arguments") }
+      }
+      let current = try await f.files.text("notes.txt")
+      XCTAssertEqual(current.text, "one\ntwo\n")
+    } else {
+      _ = try await f.files.applyPatch(patch)
+      let first = try await f.files.text("notes.txt"), second = try await f.files.text("NOTES.txt")
+      XCTAssertEqual(first.text, "ONE\ntwo\n")
+      XCTAssertEqual(second.text, "one\nTWO\n")
+    }
+  }
+
+  func testPatchCreationAliasesNeverOverwriteAndRollback() async throws {
+    let f = try Fixture(); defer { f.remove() }
+    try f.write("case-probe", "x")
+    guard FileManager.default.fileExists(atPath: f.root.appendingPathComponent("CASE-PROBE").path) else { return }
+    let patch = "--- /dev/null\n+++ b/new.txt\n@@ -0,0 +1 @@\n+first\n--- /dev/null\n+++ b/NEW.txt\n@@ -0,0 +1 @@\n+second\n"
+    do { _ = try await f.files.applyPatch(patch); XCTFail("Creation must not overwrite a case alias") } catch {}
+    XCTAssertFalse(FileManager.default.fileExists(atPath: f.root.appendingPathComponent("new.txt").path))
+    XCTAssertFalse(try FileManager.default.contentsOfDirectory(atPath: f.root.path).contains { $0.hasPrefix(".luti-") })
+  }
+
+  func testExactEditDiffPreservesEOFAndEmptyFiles() async throws {
+    let f = try Fixture(); defer { f.remove() }
+    let pairs = [("one", "two"), ("one\n", "one"), ("one", "one\n"),
+                 ("one\n", "two\n"), ("one", ""), ("one\n", ""), ("\n", ""),
+                 ("head\ntail", "changed\ntail"), ("head\n\n", "head\n")]
+    for (before, after) in pairs {
+      try f.write("eof.txt", before)
+      let edit = try await f.files.edit(path: "eof.txt", expectedSHA: Budget.sha256(Data(before.utf8)),
+        edits: [TextEdit(oldText: before, newText: after)], dryRun: true)
+      _ = try await f.files.applyPatch(try XCTUnwrap(edit["diff"].string))
+      let bytes = try Data(contentsOf: f.root.appendingPathComponent("eof.txt"))
+      XCTAssertEqual(bytes, Data(after.utf8), "\(before.debugDescription) -> \(after.debugDescription)")
+      XCTAssertEqual(Budget.sha256(bytes), edit["sha256"].string)
+    }
+    for after in ["one", "one\n", "\n"] {
+      try f.write("empty.txt", "")
+      let patch = WorkspaceFiles.diff("", after, path: "empty.txt")
+      _ = try await f.files.applyPatch(patch)
+      XCTAssertEqual(try Data(contentsOf: f.root.appendingPathComponent("empty.txt")), Data(after.utf8))
+    }
+  }
+}

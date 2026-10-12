@@ -29,7 +29,7 @@ import SwiftUI
 
   var body: some Scene {
     // A Window has one instance. Every menu and Dock reopen returns to this window.
-    Window("Luti", id: "main") {
+    Window(Identity.name, id: "main") {
       MainWindowView(model: model, loginItem: loginItem, updater: updater, selectedTab: $selectedTab)
         .environment(\.locale, language.locale)
         .onAppear {
@@ -52,7 +52,7 @@ import SwiftUI
         .resizable()
         .interpolation(.high)
         .frame(width: 18, height: 18)
-        .accessibilityLabel("Luti")
+        .accessibilityLabel(Identity.name)
     }
     .menuBarExtraStyle(.window)
   }

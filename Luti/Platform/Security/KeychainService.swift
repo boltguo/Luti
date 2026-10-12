@@ -11,8 +11,13 @@ public enum KeychainService {
       kSecAttrAccount as String: account, kSecAttrSynchronizable as String: false,
     ]
   }
-  public static func read(account: String = openAIAPIKey) throws -> String? {
+  public static func read(account: String = openAIAPIKey, allowInteraction: Bool = true) throws -> String? {
     var q = query(account)
+    if !allowInteraction {
+      let context = LAContext()
+      context.interactionNotAllowed = true
+      q[kSecUseAuthenticationContext as String] = context
+    }
     q[kSecReturnData as String] = true
     q[kSecMatchLimit as String] = kSecMatchLimitOne
     var item: CFTypeRef?
@@ -72,4 +77,23 @@ public enum KeychainService {
       "Unlock your login keychain and keep the app's signing identity stable. No key is written to a JSON fallback."
     )
   }
+}
+
+/// Shared credential access for connection recovery and upgrade migration.
+/// Fixtures supply an in-memory store instead of touching the login Keychain.
+struct KeychainClient: Sendable {
+  var read: @Sendable (String, Bool) throws -> String?
+  var save: @Sendable (String, String) throws -> Void
+  var remove: @Sendable (String) throws -> Void
+  var exists: @Sendable (String) -> Bool
+  var accounts: @Sendable () -> [String]
+
+  static let live = KeychainClient(
+    read: { try KeychainService.read(account: $0, allowInteraction: $1) },
+    save: { try KeychainService.save($0, account: $1) },
+    remove: { try KeychainService.remove(account: $0) },
+    exists: { KeychainService.exists(account: $0) }, accounts: { KeychainService.accounts() })
+  static let empty = KeychainClient(
+    read: { _, _ in nil }, save: { _, _ in throw Failure.invalid("No credential store configured.") },
+    remove: { _ in }, exists: { _ in false }, accounts: { [] })
 }

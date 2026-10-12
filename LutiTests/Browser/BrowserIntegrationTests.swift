@@ -315,3 +315,118 @@ import XCTest
     return value.substring(with: match.range(at: 1))
   }
 }
+
+extension BrowserIntegrationTests {
+  private func recoveryFixture() async throws -> (BrowserProvider, String) {
+    guard BrowserInstallation.chromeAvailable else { throw XCTSkip("Google Chrome is required.") }
+    let f = try Fixture()
+    let node = try await BrowserInstallation.shared.prepare()
+    let server = Process()
+    let portFile = f.root.appendingPathComponent("port")
+    let script = #"""
+    const http=require('node:http'), fs=require('node:fs');
+    const server=http.createServer((req,res)=>{
+      const u=new URL(req.url,'http://localhost');
+      if(u.pathname==='/failure'){res.destroy();return;}
+      const dialog=u.pathname.slice(1);
+      const initial=['alert','confirm','prompt'].includes(dialog)
+        ? `<script>window.answer=${dialog}('Initial dialog');</script>` : '';
+      res.writeHead(200,{'Content-Type':'text/html'});
+      res.end(`<!doctype html><title>Recovery fixture</title>${initial}
+        <h1>Page ready</h1><button onclick="window.clicks=(window.clicks||0)+1;
+        if(window.succeed)setTimeout(()=>document.querySelector('output').textContent='Completed',19000)">Slow</button><output></output>`);
+    });
+    server.listen(0,'127.0.0.1',()=>fs.writeFileSync(process.argv[1],String(server.address().port)));
+    """#
+    server.executableURL = node; server.arguments = ["-e", script, portFile.path]
+    server.standardOutput = FileHandle.nullDevice; server.standardError = FileHandle.nullDevice
+    try server.run()
+    let browser = BrowserProvider(workspace: f.files, artifacts: ArtifactStore(), headless: true)
+    addTeardownBlock {
+      await browser.stop()
+      if server.isRunning { server.terminate(); server.waitUntilExit() }
+      f.remove()
+    }
+    for _ in 0..<100 {
+      if let port = try? String(contentsOf: portFile, encoding: .utf8) {
+        return (browser, "http://127.0.0.1:" + port)
+      }
+      try await Task.sleep(for: .milliseconds(30))
+    }
+    throw Failure.invalid("Fixture HTTP server did not start.")
+  }
+
+  func testInitialDialogsReturnUsableTabs() async throws {
+    let (browser, url) = try await recoveryFixture()
+    for kind in ["alert", "confirm", "prompt"] {
+      let started = ContinuousClock.now
+      let opened = try await browser.call("browser_open", ["url": .string(url + "/" + kind)])
+      XCTAssertLessThan(started.duration(to: .now), .seconds(10))
+      XCTAssertEqual(opened.data["blockedByDialog"], true)
+      XCTAssertEqual(opened.data["pendingDialog"]["type"], .string(kind))
+      let tab = opened.data["tabId"]
+      let handled = try await browser.call("browser_dialog", ["tabId": tab,
+        "dialogId": opened.data["pendingDialog"]["dialogId"], "action": kind == "confirm" ? "dismiss" : "accept",
+        "promptText": "fixture answer"])
+      XCTAssertEqual(handled.data["handled"], true)
+      _ = try await browser.call("browser_wait", ["tabId": tab, "text": "Page ready", "timeoutMs": 5000])
+      let snapshot = try await browser.call("browser_snapshot", ["tabId": tab])
+      XCTAssertTrue(snapshot.data["snapshot"].string?.contains("Page ready") == true)
+      _ = try await browser.call("browser_close", ["tabId": tab])
+    }
+  }
+
+  func testSlowActionAndLongPostConditionPreserveSession() async throws {
+    let (browser, url) = try await recoveryFixture()
+    let opened = try await browser.call("browser_open", ["url": .string(url)])
+    let tab = opened.data["tabId"]
+    for succeeds in [false, true] {
+      _ = try await browser.call("browser_evaluate", ["tabId": tab, "expression": .string(
+        "window.succeed=\(succeeds);document.querySelector('button').disabled=true;setTimeout(()=>document.querySelector('button').disabled=false,7000);true")])
+      let snapshot = try await browser.call("browser_snapshot", ["tabId": tab])
+      let button = try ref(in: XCTUnwrap(snapshot.data["snapshot"].string), role: "button", label: "Slow")
+      let started = ContinuousClock.now
+      let clicked = try await browser.call("browser_click", ["tabId": tab, "snapshotId": snapshot.data["snapshotId"],
+        "ref": .string(button), "waitForText": "Completed", "waitTimeoutMs": 20000])
+      XCTAssertGreaterThan(started.duration(to: .now), .seconds(25))
+      XCTAssertEqual(clicked.data["postConditionSatisfied"], .bool(succeeds))
+      XCTAssertEqual(clicked.data["effect"], succeeds ? "confirmed" : "submitted")
+      let tabs = try await browser.call("browser_tabs", [:])
+      XCTAssertEqual(tabs.data["tabs"].array?.first?["tabId"], tab)
+      let observed = try await browser.call("browser_evaluate", ["tabId": tab, "expression": "window.clicks"])
+      XCTAssertEqual(observed.data["value"], succeeds ? 2 : 1)
+    }
+  }
+
+  func testBrowserErrorsAndObservationsRedactSyntheticCredentials() async throws {
+    let (browser, url) = try await recoveryFixture()
+    let opened = try await browser.call("browser_open", ["url": .string(url)])
+    let tab = opened.data["tabId"]
+    let marker = "AUDIT_DEMO_CREDENTIAL_0123456789"
+    let requests: [(String, JSONValue)] = [
+      ("browser_evaluate", ["tabId": tab, "expression": .string("(()=>{throw new Error('access_token=\(marker)')})()")]),
+      ("browser_navigate", ["tabId": tab, "url": .string(url + "/failure?access_token=" + marker)]),
+    ]
+    for (method, args) in requests {
+      do { _ = try await browser.call(method, args); XCTFail("Expected browser failure") }
+      catch let failure as Failure {
+        XCTAssertEqual(failure.code, "browser_operation_failed")
+        XCTAssertEqual(failure.effect, "possible")
+        let output = ToolOutput.failure(failure)
+        XCTAssertFalse(output.mcp.text().contains(marker))
+        XCTAssertTrue(output.mcp.text().contains("REDACTED"))
+      }
+    }
+    // The deliberately aborted navigation may still be committing Chrome's
+    // error page. Use a fresh tab for the independent observation-redaction checks.
+    _ = try await browser.call("browser_close", ["tabId": tab])
+    let observedPage = try await browser.call("browser_open", ["url": .string(url)])
+    let observedTab = observedPage.data["tabId"]
+    _ = try await browser.call("browser_evaluate", ["tabId": observedTab, "expression": .string(
+      "console.error('password=\(marker)');fetch('/failure?access_token=\(marker)').catch(()=>{});true")])
+    for method in ["browser_console", "browser_network_errors"] {
+      let output = try await browser.call(method, ["tabId": observedTab])
+      XCTAssertFalse(output.mcp.text().contains(marker))
+    }
+  }
+}

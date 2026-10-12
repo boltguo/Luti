@@ -224,16 +224,28 @@ extension WorkspaceFiles {
     } else {
       regex = nil
     }
-    func containsQuery(_ text: String) -> Bool {
+    let deadline = ContinuousClock.now.advanced(by: .seconds(3))
+    var timedOut = false
+    func containsQuery(_ text: String) throws -> Bool {
       if let regex {
         let candidate = Budget.prefix(text, bytes: 2048)
         let range = NSRange(candidate.startIndex..<candidate.endIndex, in: candidate)
-        return regex.firstMatch(in: candidate, range: range) != nil
+        var matched = false
+        regex.enumerateMatches(in: candidate, options: [.reportProgress], range: range) { match, _, stop in
+          if Task.isCancelled || ContinuousClock.now >= deadline {
+            timedOut = ContinuousClock.now >= deadline
+            stop.pointee = true
+          } else if match != nil {
+            matched = true
+            stop.pointee = true
+          }
+        }
+        try Task.checkCancellation()
+        return matched
       }
       return text.range(
         of: query, options: caseSensitive ? [.literal] : [.literal, .caseInsensitive]) != nil
     }
-    let deadline = ContinuousClock.now.advanced(by: .seconds(3))
     var pending = ["."]
     var matches: [JSONValue] = []
     var inspected = 0
@@ -251,12 +263,14 @@ extension WorkspaceFiles {
       let (entries, cut) = try names(fd.raw, max: max(0, 5000 - inspected))
       truncated = truncated || cut
       for name in entries {
+        try Task.checkCancellation()
+        if ContinuousClock.now >= deadline { truncated = true; break outer }
         inspected += 1
         let path = relative == "." ? name : relative + "/" + name
         guard !Self.protected(path), !Self.bulk.contains(name) else { continue }
         var info = mc_stat()
         guard mc_lstat_at(fd.raw, name, &info) == 0 else { continue }
-        if mode == "filename", fnmatch(glob, path, 0) == 0, containsQuery(path) {
+        if mode == "filename", fnmatch(glob, path, 0) == 0, try containsQuery(path) {
           let type = info.directory == 1 ? "directory" : (info.regular == 1 ? "file" : "other")
           let item: JSONValue = [
             "path": .string(path), "type": .string(type),
@@ -283,11 +297,15 @@ extension WorkspaceFiles {
         scanned += file.text.utf8.count
         let lines = file.text.components(separatedBy: "\n")
         for (index, line) in lines.enumerated() {
+          try Task.checkCancellation()
+          if ContinuousClock.now >= deadline { truncated = true; break outer }
           if mode == "regex", line.utf8.count > 2048 {
             regexClippedLines += 1
             truncated = true
           }
-          guard containsQuery(line) else { continue }
+          let matched = try containsQuery(line)
+          if timedOut { truncated = true; break outer }
+          guard matched else { continue }
           let first = max(0, index - contextBefore)
           let last = min(lines.count - 1, index + contextAfter)
           let context = (first...last).map { "\($0 + 1): \(Budget.prefix(lines[$0], bytes: 1024))" }

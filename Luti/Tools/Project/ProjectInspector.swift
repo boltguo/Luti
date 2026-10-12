@@ -133,7 +133,9 @@ private enum LSPQuery {
         params: [
           "processId": .null,
           "rootUri": .string(root.absoluteString),
-          "capabilities": [:],
+          "capabilities": [
+            "textDocument": ["documentSymbol": ["hierarchicalDocumentSymbolSupport": true]],
+          ],
           "workspaceFolders": [[
             "uri": .string(root.absoluteString),
             "name": .string(root.lastPathComponent),
@@ -197,8 +199,9 @@ private enum LSPQuery {
             rows.append([
               "name": item["name"], "kind": item["kind"],
               "detail": item["detail"].string.map(JSONValue.string) ?? .null,
+              "containerName": item["containerName"].string.map(JSONValue.string) ?? .null,
               "depth": .int(depth),
-              "range": normalizedRange(item["range"]),
+              "range": normalizedRange(item["range"] != .null ? item["range"] : item["location"]["range"]),
               "selectionRange": normalizedRange(item["selectionRange"]),
             ])
             collect(item["children"].array ?? [], depth: depth + 1)

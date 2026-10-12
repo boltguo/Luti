@@ -33,7 +33,22 @@ function webURL(value) {
 }
 async function ensureBrowser() {
   if (!browser) {
-    browser = await chromium.launch({ channel: 'chrome', headless, chromiumSandbox: true, downloadsPath: scratch });
+    // Keep the pinned Playwright 1.63.0 defaults: Chromium takes the last
+    // --disable-features value. Its app-clone hard link triggers App Management
+    // for the launching app; an isolated automation session does not need it.
+    const disabledFeatures = [
+      'AvoidUnnecessaryBeforeUnloadCheckSync', 'DestroyProfileOnBrowserClose',
+      'DialMediaRouteProvider', 'GlobalMediaControls', 'HttpsUpgrades', 'LensOverlay',
+      'MediaRouter', 'PaintHolding', 'ThirdPartyStoragePartitioning',
+      'BlockOriginHeaderModificationOnRedirect', 'Translate', 'AutoDeElevate',
+      'OptimizationHints', 'msForceBrowserSignIn', 'msEdgeUpdateLaunchServicesPreferredVersion'
+    ];
+    const defaultFeatures = '--disable-features=' + disabledFeatures.join(',');
+    browser = await chromium.launch({
+      channel: 'chrome', headless, chromiumSandbox: true, downloadsPath: scratch,
+      ignoreDefaultArgs: [defaultFeatures],
+      args: [defaultFeatures + ',MacAppCodeSignClone']
+    });
     browser.on('disconnected', () => { browser = undefined; tabs.clear(); });
   }
 }
@@ -262,8 +277,12 @@ async function addTab(args) {
       }
       push(state.console, { level: 'browser', text: 'Popup adopted as owned tab ' + popupState.id + '.' });
     });
-    await page.goto(webURL(args.url), { waitUntil: 'domcontentloaded' });
-    return { tabId: state.id, url: cleanURL(page.url()), title: clip(await page.title(), 512) };
+    const outcome = await actionWithDialog(state, async () => {
+      await page.goto(webURL(args.url), { waitUntil: 'domcontentloaded' });
+      return clip(await page.title(), 512);
+    });
+    if (outcome.dialog) return actionResult(state, outcome, args, { url: cleanURL(page.url()) });
+    return { tabId: state.id, url: cleanURL(page.url()), title: outcome.value };
   } catch (error) {
     for (const [id, item] of tabs) if (item.context === context) tabs.delete(id);
     await closeContext(context);

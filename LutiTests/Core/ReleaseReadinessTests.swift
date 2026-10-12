@@ -3,6 +3,24 @@ import XCTest
 @testable import Luti
 
 @MainActor final class ReleaseReadinessTests: XCTestCase {
+  func testBuildIdentitySeparatesDevelopmentPermissionsAndStorage() {
+    XCTAssertEqual(Bundle.main.bundleIdentifier, Identity.bundleID)
+    XCTAssertEqual(Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String, Identity.name)
+    XCTAssertEqual(Bundle.main.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String, Identity.name)
+    let productionRoot = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".luti")
+    #if DEBUG
+    XCTAssertEqual(Identity.bundleID, "com.aouos.luti.debug")
+    XCTAssertEqual(Identity.keychainService, "com.aouos.luti.debug.tunnel")
+    XCTAssertEqual(LutiPaths.root.standardizedFileURL, productionRoot.appendingPathComponent("development", isDirectory: true).standardizedFileURL)
+    let updater = AppUpdater(startingUpdater: true)
+    XCTAssertFalse(updater.canCheckForUpdates, "Development builds must not install production updates.")
+    #else
+    XCTAssertEqual(Identity.bundleID, "com.aouos.luti")
+    XCTAssertEqual(Identity.keychainService, "com.aouos.luti.tunnel")
+    XCTAssertEqual(LutiPaths.root.standardizedFileURL, productionRoot.standardizedFileURL)
+    #endif
+  }
+
   func testUpdateFeedAndSecurityDefaults() throws {
     let info = try XCTUnwrap(Bundle.main.infoDictionary)
     XCTAssertEqual(info["SUFeedURL"] as? String,
@@ -40,6 +58,9 @@ import XCTest
         "home.configureTunnel",
         "home.saveConnection",
         "activity.projectRoot",
+        "activity.browserActionExecuted",
+        "activity.browserConditionConfirmed",
+        "activity.browserConditionNotMet",
       ] {
         let value = bundle.localizedString(forKey: key, value: "__MISSING__", table: nil)
         XCTAssertNotEqual(value, "__MISSING__", "\(language): \(key)")

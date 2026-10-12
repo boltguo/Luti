@@ -15,7 +15,9 @@
 "activity.failed" = "失敗";
 "activity.interrupted" = "中断";
 "activity.last" = "最終呼び出し %@";
-"activity.needsVerification" = "確認が必要";
+"activity.browserActionExecuted" = "ブラウザ操作を実行済み";
+"activity.browserConditionConfirmed" = "実行済み・指定条件を満たしました";
+"activity.browserConditionNotMet" = "実行済み・指定条件は未達成です";
 "activity.noActivityMatchesFilter" = "一致する記録はありません";
 "activity.noActivityYet" = "アクティビティはまだありません";
 "activity.outcomeUnknown" = "結果は不明";

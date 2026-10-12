@@ -1,10 +1,17 @@
 import Foundation
 
 public enum Identity {
+  #if DEBUG
+  public static let isDevelopmentBuild = true
+  public static let name = "Luti Dev"
+  public static let bundleID = "com.aouos.luti.debug"
+  #else
+  public static let isDevelopmentBuild = false
   public static let name = "Luti"
-  public static let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.1.0"
   public static let bundleID = "com.aouos.luti"
-  public static let keychainService = "com.aouos.luti.tunnel"
+  #endif
+  public static let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.1.0"
+  public static let keychainService = bundleID + ".tunnel"
 }
 public struct Failure: Error, LocalizedError, Sendable, Equatable {
   public let code: String

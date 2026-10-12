@@ -15,7 +15,9 @@
 "activity.failed" = "Failed";
 "activity.interrupted" = "Interrupted";
 "activity.last" = "Last %@";
-"activity.needsVerification" = "Needs verification";
+"activity.browserActionExecuted" = "Browser action executed";
+"activity.browserConditionConfirmed" = "Action executed; target condition met";
+"activity.browserConditionNotMet" = "Action executed; target condition not met";
 "activity.noActivityMatchesFilter" = "No matching activity";
 "activity.noActivityYet" = "No activity yet";
 "activity.outcomeUnknown" = "Outcome unknown";

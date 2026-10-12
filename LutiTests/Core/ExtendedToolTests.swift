@@ -69,11 +69,24 @@ import SwiftUI
     }
   }
 
-  func testRenderProjectDetailsAndSettingsPages() throws {
+  func testRenderProjectDetailsAndSettingsPages() async throws {
     let f = try Fixture(); defer { f.remove() }
     let model = AppModel(contextDataRoot: f.contextDataRoot, defaults: f.defaults)
+    await model.activityLoad?.value
     let project = ApprovedProject(id: "fixture", name: "Review project", url: f.root)
     model.activeProject = project
+    model.activity = [
+      ActivityEvent(id: UUID(), startedAt: .now, finishedAt: .now, tool: "browser_action",
+        action: "click", target: "tab_fixture", status: "ok", effect: "submitted",
+        summary: "Browser action executed.", durationSeconds: 0.04),
+      ActivityEvent(id: UUID(), startedAt: .now, finishedAt: .now, tool: "run_process",
+        action: "task", target: "task:dev", status: "stopped", operationState: "stopped",
+        effect: "possible", summary: "Job stopped.", durationSeconds: 601.92),
+      ActivityEvent(id: UUID(), startedAt: .now, finishedAt: .now, tool: "browser_action",
+        action: "click", target: "tab_interrupted", status: "failed", effect: "possible",
+        summary: "Browser connection interrupted.", errorCode: "browser_transport_unknown",
+        durationSeconds: 25),
+    ]
 
     model.phase = .stopped
     let repo = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
@@ -106,7 +119,7 @@ import SwiftUI
       hosting.appearance = NSAppearance(named: .aqua)
       hosting.frame = NSRect(x: 0, y: 0, width: 460, height: 736)
       hosting.layoutSubtreeIfNeeded()
-      RunLoop.main.run(until: Date().addingTimeInterval(0.3))
+      try await Task.sleep(for: .milliseconds(300))
       hosting.layoutSubtreeIfNeeded()
       let rep = try XCTUnwrap(hosting.bitmapImageRepForCachingDisplay(in: hosting.bounds))
       hosting.cacheDisplay(in: hosting.bounds, to: rep)
@@ -386,6 +399,7 @@ import SwiftUI
         method = message.get("method")
         if "id" in message:
             if method == "initialize":
+                assert message["params"]["capabilities"]["textDocument"]["documentSymbol"]["hierarchicalDocumentSymbolSupport"] is True
                 result = {"capabilities": {"documentSymbolProvider": True}}
             elif method == "textDocument/documentSymbol":
                 result = [{
@@ -428,6 +442,22 @@ import SwiftUI
     XCTAssertEqual(symbols.data["effect"], "possible")
     XCTAssertTrue(
       symbols.data["symbols"].array?.contains { $0["name"] == "Widget" } == true)
+
+    XCTAssertEqual(symbols.data["symbols"].array?.first?["range"]["start"]["line"], 1)
+    XCTAssertEqual(symbols.data["symbols"].array?.first?["selectionRange"]["end"]["column"], 7)
+
+    // A conforming server may still return the flat SymbolInformation variant.
+    let flatServer = server.replacingOccurrences(of: "\"range\": symbol_range,",
+      with: "\"location\": {\"uri\": message[\"params\"][\"textDocument\"][\"uri\"], \"range\": symbol_range},")
+      .replacingOccurrences(of: "\"selectionRange\": symbol_range,", with: "\"containerName\": \"Container\",")
+    XCTAssertNotEqual(flatServer, server)
+    try f.write(serverPath, flatServer)
+    let flat = await router.callInCurrentProject("code_query",
+      arguments: ["path": "src/app.ts", "action": "documentSymbols"], grant: languageServiceGrant)
+    XCTAssertFalse(flat.isError, flat.data.text())
+    XCTAssertEqual(flat.data["symbols"].array?.first?["range"]["end"]["column"], 7)
+    XCTAssertEqual(flat.data["symbols"].array?.first?["selectionRange"], .null)
+    XCTAssertEqual(flat.data["symbols"].array?.first?["containerName"], "Container")
 
     let diagnostics = await router.callInCurrentProject(
       "code_query",
@@ -902,6 +932,39 @@ import SwiftUI
     XCTAssertEqual(restoredEvents.count, 1)
     XCTAssertEqual(restoredEvents.first?.id, id)
     XCTAssertEqual(restoredEvents.first?.operationState, "completed")
+  }
+
+  func testActivityWarningsDistinguishNormalActionsAndStopsFromUncertainFailures() async throws {
+    let store = ActivityStore()
+    let started = Date()
+    let browserID = await store.begin(tool: "browser_action", target: "tab_fixture")
+    let browser = await store.finish(id: browserID, status: "ok", started: started, effect: "submitted")
+    XCTAssertNil(browser.effectWarning)
+    XCTAssertEqual(browser.effect, "submitted", "Presentation must preserve the protocol effect.")
+
+    let jobID = await store.begin(tool: "run_process", target: "task:dev")
+    await store.finish(id: jobID, status: "ok", started: started, jobID: "job_fixture",
+                       effect: "submitted", operationState: "running")
+    await store.reconcileJobs([[
+      "jobId": "job_fixture", "status": "stopped", "terminal": true,
+    ]])
+    let events = await store.snapshot()
+    let stopped = try XCTUnwrap(events.first { $0.id == jobID })
+    XCTAssertEqual(stopped.status, "stopped")
+    XCTAssertNil(stopped.effectWarning)
+    XCTAssertEqual(stopped.effect, "possible")
+
+    for (state, effect, code) in [
+      ("interrupted", "possible", "session_interrupted"),
+      ("timed_out", "possible", "timeout"),
+      ("stopped", "possible", "stop_failed"),
+      ("failed", "partial", "partial_write"),
+    ] {
+      let id = await store.begin(tool: "run_process", target: "fixture")
+      let event = await store.finish(id: id, status: "failed", started: started,
+        effect: effect, operationState: state, errorCode: code)
+      XCTAssertEqual(event.effectWarning, effect, state)
+    }
   }
 
   func testGroupedToolActivitySeparatesActionTargetTypeAndTarget() async throws {
