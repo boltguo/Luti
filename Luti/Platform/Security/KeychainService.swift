@@ -31,6 +31,21 @@ public enum KeychainService {
     q[kSecUseAuthenticationContext as String] = context
     return SecItemCopyMatching(q as CFDictionary, nil) == errSecSuccess
   }
+  /// Accounts stored under this app's service. Attribute-only; never prompts.
+  public static func accounts() -> [String] {
+    let context = LAContext()
+    context.interactionNotAllowed = true
+    let q: [String: Any] = [
+      kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: Identity.keychainService,
+      kSecMatchLimit as String: kSecMatchLimitAll, kSecReturnAttributes as String: true,
+      kSecUseAuthenticationContext as String: context,
+    ]
+    var items: CFTypeRef?
+    guard SecItemCopyMatching(q as CFDictionary, &items) == errSecSuccess,
+      let rows = items as? [[String: Any]]
+    else { return [] }
+    return rows.compactMap { $0[kSecAttrAccount as String] as? String }
+  }
   public static func save(_ value: String, account: String = openAIAPIKey) throws {
     guard !value.isEmpty, value.utf8.count <= 8192,
       value.utf8.allSatisfy({ (33...126).contains($0) })

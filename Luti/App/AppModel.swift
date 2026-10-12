@@ -60,6 +60,8 @@ import Observation
   init(contextDataRoot: URL = LutiPaths.root, defaults: UserDefaults = .standard) {
     self.contextDataRoot = contextDataRoot
     self.defaults = defaults
+    // Test fixtures use their own suites and must never touch the user's Keychain.
+    LegacyMigration.run(defaults: defaults, dataRoot: contextDataRoot, keychain: defaults == .standard)
     tunnelID = defaults.string(forKey: Self.tunnelIDKey) ?? ""
     if let data = defaults.data(forKey: Self.selectedFolderKey) {
       activeProject = try? JSONDecoder().decode(ApprovedProject.self, from: data)

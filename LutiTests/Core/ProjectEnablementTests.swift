@@ -56,4 +56,56 @@ import XCTest
     model.addProject(other.root)
     XCTAssertEqual(model.activeProject, selected)
   }
+
+  func testLegacyMigrationKeepsActiveProjectAndOpenAISettings() throws {
+    let f = try Fixture(), other = try Fixture(); defer { f.remove(); other.remove() }
+    // The 1.0.x format: several projects with extra fields, OpenAI address, other providers.
+    let legacy = """
+      [{"id":"a","name":"A","path":"\(other.root.path)","enabled":true,"permissionMode":"ask"},
+       {"id":"b","name":"B","path":"\(f.root.path)","enabled":false,"permissionMode":"full"}]
+      """
+    f.defaults.set(Data(legacy.utf8), forKey: "approvedProjects")
+    f.defaults.set("b", forKey: "activeProjectID")
+    f.defaults.set("tunnel_fixture123", forKey: "connection.openai.address")
+    f.defaults.set("https://mcp.example.com", forKey: "publicBaseURL")
+    f.defaults.set("https://example.ngrok.app", forKey: "connection.ngrok.address")
+    let data = f.contextDataRoot
+    let project = data.appendingPathComponent("projects/key")
+    for name in ["auth", "projects/key/memory", "projects/key/sessions", "projects/key/checkpoints",
+                 "projects/key/activity"] {
+      try FileManager.default.createDirectory(
+        at: data.appendingPathComponent(name), withIntermediateDirectories: true)
+    }
+
+    LegacyMigration.run(defaults: f.defaults, dataRoot: data, keychain: false)
+
+    let selected = try XCTUnwrap(f.defaults.data(forKey: "selectedFolder"))
+    XCTAssertEqual(try JSONDecoder().decode(ApprovedProject.self, from: selected).id, "b")
+    XCTAssertEqual(f.defaults.string(forKey: "connection.openai.tunnelID"), "tunnel_fixture123")
+    for key in ["approvedProjects", "activeProjectID", "connection.openai.address",
+                "publicBaseURL", "connection.ngrok.address"] {
+      XCTAssertNil(f.defaults.object(forKey: key), key)
+    }
+    XCTAssertTrue(f.defaults.bool(forKey: LegacyMigration.completedKey))
+    XCTAssertFalse(FileManager.default.fileExists(atPath: data.appendingPathComponent("auth").path))
+    for name in ["memory", "sessions", "checkpoints"] {
+      XCTAssertFalse(FileManager.default.fileExists(atPath: project.appendingPathComponent(name).path), name)
+    }
+    XCTAssertTrue(FileManager.default.fileExists(atPath: project.appendingPathComponent("activity").path))
+
+    let model = AppModel(contextDataRoot: data, defaults: f.defaults)
+    XCTAssertEqual(model.activeProject?.path, ApprovedProject(url: f.root).path)
+    XCTAssertEqual(model.tunnelID, "tunnel_fixture123")
+  }
+
+  func testLegacyMigrationLeavesFreshInstallUntouched() throws {
+    let f = try Fixture(); defer { f.remove() }
+    let auth = f.contextDataRoot.appendingPathComponent("auth")
+    try FileManager.default.createDirectory(at: auth, withIntermediateDirectories: true)
+    LegacyMigration.run(defaults: f.defaults, dataRoot: f.contextDataRoot, keychain: false)
+    XCTAssertTrue(f.defaults.bool(forKey: LegacyMigration.completedKey))
+    XCTAssertNil(f.defaults.data(forKey: "selectedFolder"))
+    // No 1.0.x settings means nothing on disk is treated as legacy data.
+    XCTAssertTrue(FileManager.default.fileExists(atPath: auth.path))
+  }
 }
