@@ -120,6 +120,7 @@ extension WorkspaceFiles {
       let name: String
       let bytes: Data
       let directory: Bool
+      var executable = false
     }
     var entries: [ZipEntry] = []
     var seen = Set<String>()
@@ -146,7 +147,8 @@ extension WorkspaceFiles {
               "Export fewer or smaller project paths.")
           }
           payloadBytes += Int64(bytes.count)
-          entries.append(ZipEntry(name: path, bytes: bytes, directory: false))
+          entries.append(ZipEntry(
+            name: path, bytes: bytes, directory: false, executable: info.mode & 0o111 != 0))
         }
       }
     }
@@ -216,7 +218,10 @@ extension WorkspaceFiles {
       append16(0, to: &central)
       append16(0, to: &central)
       append16(0, to: &central)
-      append32(entry.directory ? 0x10 : 0, to: &central)
+      // Unix creator: mode in the high 16 bits. Normalized so unzip never yields
+      // mode 000, keeps execute bits and drops setuid/setgid/sticky.
+      let mode: UInt32 = entry.directory ? 0o040755 : (entry.executable ? 0o100755 : 0o100644)
+      append32(mode << 16 | (entry.directory ? 0x10 : 0), to: &central)
       append32(offset, to: &central)
       central.append(filename)
 

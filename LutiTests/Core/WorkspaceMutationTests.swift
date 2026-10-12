@@ -122,6 +122,33 @@ import XCTest
     }
   }
 
+  func testArchiveExtractsWithNormalizedUnixModes() async throws {
+    let f = try Fixture(); defer { f.remove() }
+    try f.write("pkg/run.sh", "#!/bin/sh\n")
+    try f.write("pkg/data.txt", "data")
+    let manager = FileManager.default
+    try manager.setAttributes([.posixPermissions: 0o4755], ofItemAtPath: f.root.appendingPathComponent("pkg/run.sh").path)
+    try manager.setAttributes([.posixPermissions: 0o600], ofItemAtPath: f.root.appendingPathComponent("pkg/data.txt").path)
+
+    let out = manager.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    defer { try? manager.removeItem(at: out) }
+    try manager.createDirectory(at: out, withIntermediateDirectories: true)
+    try await f.files.archive(paths: ["pkg"]).write(to: out.appendingPathComponent("a.zip"))
+    let unzip = Process()
+    unzip.executableURL = URL(fileURLWithPath: "/usr/bin/unzip")
+    unzip.arguments = ["-q", "a.zip"]
+    unzip.currentDirectoryURL = out
+    try unzip.run()
+    unzip.waitUntilExit()
+    XCTAssertEqual(unzip.terminationStatus, 0)
+    func mode(_ path: String) throws -> Int {
+      try XCTUnwrap(manager.attributesOfItem(atPath: out.appendingPathComponent(path).path)[.posixPermissions] as? Int)
+    }
+    XCTAssertEqual(try mode("pkg"), 0o755)
+    XCTAssertEqual(try mode("pkg/run.sh"), 0o755)
+    XCTAssertEqual(try mode("pkg/data.txt"), 0o644)
+  }
+
   func testProtectedDescendantsPreventWholeMutation() async throws {
     let f = try Fixture(); defer { f.remove() }
     try f.write("folder/a.txt", "keep")
