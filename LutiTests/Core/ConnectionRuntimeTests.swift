@@ -176,19 +176,19 @@ private actor TestConnectionProvider: ConnectionProvider {
 
   func testInvalidConnectionSettingsAreRejectedWithoutTouchingSavedState() async throws {
     let f = try Fixture(); defer { f.remove() }
-    f.defaults.set("tunnel_fixture123", forKey: "connection.openai.tunnelID")
+    f.defaults.set("tunnel_0123456789abcdef0123456789abcdef", forKey: "connection.openai.tunnelID")
     let model = AppModel(contextDataRoot: f.contextDataRoot, defaults: f.defaults)
     model.activeProject = ApprovedProject(url: f.root)
     model.tunnelID = "not-a-tunnel"
     let saved = await model.saveConnection()
     XCTAssertFalse(saved)
     XCTAssertNotNil(model.connectionSettingsError)
-    XCTAssertEqual(model.savedTunnelID, "tunnel_fixture123")
-    model.tunnelID = "tunnel_fixture456"
+    XCTAssertEqual(model.savedTunnelID, "tunnel_0123456789abcdef0123456789abcdef")
+    model.tunnelID = "tunnel_fedcba9876543210fedcba9876543210"
     model.apiKeyDraft = "not-an-api-key"
     let resaved = await model.saveConnection()
     XCTAssertFalse(resaved)
-    XCTAssertEqual(model.savedTunnelID, "tunnel_fixture123")
+    XCTAssertEqual(model.savedTunnelID, "tunnel_0123456789abcdef0123456789abcdef")
     XCTAssertTrue(model.canStart)
   }
 
@@ -226,7 +226,7 @@ private actor TestConnectionProvider: ConnectionProvider {
 
   func testNativeStartWithoutAPIKeyKeepsRemoteUnavailable() async throws {
     let f = try Fixture()
-    f.defaults.set("tunnel_fixture123", forKey: "connection.openai.tunnelID")
+    f.defaults.set("tunnel_0123456789abcdef0123456789abcdef", forKey: "connection.openai.tunnelID")
     let model = AppModel(contextDataRoot: f.contextDataRoot, defaults: f.defaults)
     addTeardownBlock { await model.stop(); f.remove() }
     let project = ApprovedProject(url: f.root)

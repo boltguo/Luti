@@ -12,6 +12,9 @@ struct OpenAIConnectionView: View {
       {
         ProviderInfoCallout(text: message, symbol: "exclamationmark.triangle", tone: .red)
           .textSelection(.enabled)
+      } else if model.connection.state == .reconnecting, !model.connection.message.isEmpty {
+        ProviderInfoCallout(text: model.connection.message, symbol: "arrow.triangle.2.circlepath")
+          .textSelection(.enabled)
       }
 
       if model.phase == .running && model.connectionConfigured {
@@ -106,7 +109,7 @@ struct OpenAIConnectionView: View {
       }
       .disabled(!model.canEditConnection)
 
-      if !model.canEditConnection {
+      if !model.canEditConnection && !model.savingConnection {
         ProviderInfoCallout(
           text: L10n.text("connection.disconnectToEdit"),
           symbol: "lock",

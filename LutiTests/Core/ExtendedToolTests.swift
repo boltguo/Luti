@@ -20,8 +20,8 @@ import SwiftUI
 
     model.phase = .running
     model.connection = ConnectionSnapshot(state: .ready, providerID: .openAI)
-    model.tunnelID = "tunnel_preview123"
-    fixture.defaults.set("tunnel_preview123", forKey: "connection.openai.tunnelID")
+    model.tunnelID = "tunnel_preview0000000000000000000000000"
+    fixture.defaults.set("tunnel_preview0000000000000000000000000", forKey: "connection.openai.tunnelID")
     model.apiKeySaved = true
     let repo = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
     let output = repo.appendingPathComponent("build/ui-review-previews", isDirectory: true)
@@ -139,11 +139,11 @@ import SwiftUI
           model.phase = ["empty", "project-empty", "project-details", "connection-setup"].contains(state) ? .stopped : .running
           let failed = state == "connection-failed"
           if failed {
-            f.defaults.set("tunnel_preview123", forKey: "connection.openai.tunnelID")
+            f.defaults.set("tunnel_preview0000000000000000000000000", forKey: "connection.openai.tunnelID")
           } else {
             f.defaults.removeObject(forKey: "connection.openai.tunnelID")
           }
-          model.tunnelID = failed ? "tunnel_preview123" : ""
+          model.tunnelID = failed ? "tunnel_preview0000000000000000000000000" : ""
           model.apiKeySaved = failed
           model.connection = failed
             ? ConnectionSnapshot(state: .failed, message: "The remote connection is unavailable.", providerID: .openAI)
@@ -912,8 +912,8 @@ import SwiftUI
     let model = AppModel(contextDataRoot: fixture.contextDataRoot, defaults: fixture.defaults)
     model.activeProject = ApprovedProject(id: "luti", name: "Luti", url: fixture.root)
     model.phase = .stopped
-    model.tunnelID = "tunnel_preview123"
-    fixture.defaults.set("tunnel_preview123", forKey: "connection.openai.tunnelID")
+    model.tunnelID = "tunnel_preview0000000000000000000000000"
+    fixture.defaults.set("tunnel_preview0000000000000000000000000", forKey: "connection.openai.tunnelID")
     model.apiKeySaved = true
 
     let root = MainWindowView(

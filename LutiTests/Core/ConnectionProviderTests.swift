@@ -8,16 +8,16 @@ import XCTest
 private actor FixtureProvider: ConnectionProvider {
   nonisolated let id = ConnectionProviderID.openAI
   nonisolated let privateCredential = "lt_" + Budget.token()
-  private let initiallyReconnecting: Bool
+  private let stateAfterStart: ConnectionState
   private var state = ConnectionSnapshot.stopped
   private(set) var endpoint: URL?
 
-  init(initiallyReconnecting: Bool = false) {
-    self.initiallyReconnecting = initiallyReconnecting
+  init(stateAfterStart: ConnectionState = .ready) {
+    self.stateAfterStart = stateAfterStart
   }
   func start(endpoint: URL) async throws {
     self.endpoint = endpoint
-    state = ConnectionSnapshot(state: initiallyReconnecting ? .reconnecting : .ready)
+    state = ConnectionSnapshot(state: stateAfterStart)
   }
   func snapshot() -> ConnectionSnapshot { state }
   func stop() { state = .stopped }
@@ -56,7 +56,7 @@ private actor FixtureProvider: ConnectionProvider {
   func testProviderMustConfirmReadinessBeforeConnectionStarts() async throws {
     let (_, runtime, manager) = try fixture()
     try await runtime.start()
-    let provider = FixtureProvider(initiallyReconnecting: true)
+    let provider = FixtureProvider(stateAfterStart: .starting)
     do {
       try await manager.connect(provider)
       XCTFail("A provider must confirm its connection before becoming available.")
@@ -67,6 +67,15 @@ private actor FixtureProvider: ConnectionProvider {
     XCTAssertEqual(failed.state, .failed)
     let project = await runtime.router.callInCurrentProject("project_info", arguments: [:])
     XCTAssertFalse(project.isError)
+  }
+
+  /// A verified transport that is retrying its network stays up and reports why.
+  func testVerifiedProviderMayStartReconnecting() async throws {
+    let (_, runtime, manager) = try fixture()
+    try await runtime.start()
+    try await manager.connect(FixtureProvider(stateAfterStart: .reconnecting))
+    let snapshot = await manager.snapshot()
+    XCTAssertEqual(snapshot.state, .reconnecting)
   }
 
   func testProviderIngressCannotPointAtAnotherServiceOrPublicHost() throws {
@@ -81,8 +90,10 @@ private actor FixtureProvider: ConnectionProvider {
   }
 
   func testTunnelConfigurationShapes() {
-    XCTAssertNoThrow(try ConnectionContract.validateTunnelID("tunnel_fixture123"))
-    for invalid in ["", "fixture123", "tunnel_", "tunnel_bad id", "tunnel_x/y"] {
+    XCTAssertNoThrow(try ConnectionContract.validateTunnelID("tunnel_0123456789abcdef0123456789abcdef"))
+    for invalid in ["", "fixture123", "tunnel_", "tunnel_bad id", "tunnel_x/y", "tunnel_fixture123",
+      "tunnel_" + String(repeating: "A", count: 32), "tunnel_" + String(repeating: "a", count: 31),
+      "tunnel_" + String(repeating: "a", count: 33)] {
       XCTAssertThrowsError(try ConnectionContract.validateTunnelID(invalid))
     }
     XCTAssertNoThrow(try ConnectionContract.validateAPIKey("sk-" + String(repeating: "a", count: 40)))
@@ -142,18 +153,30 @@ private actor FixtureProvider: ConnectionProvider {
     let model = AppModel(contextDataRoot: f.contextDataRoot, defaults: f.defaults)
     model.apiKeySaved = false
     XCTAssertFalse(model.connectionConfigured)
-    f.defaults.set("tunnel_fixture123", forKey: "connection.openai.tunnelID")
-    model.tunnelID = "tunnel_fixture123"
+    f.defaults.set("tunnel_0123456789abcdef0123456789abcdef", forKey: "connection.openai.tunnelID")
+    model.tunnelID = "tunnel_0123456789abcdef0123456789abcdef"
     XCTAssertFalse(model.connectionConfigured)
     model.apiKeySaved = true
     XCTAssertTrue(model.connectionConfigured)
     model.phase = .running
     XCTAssertTrue(model.canConnect)
+    model.savingConnection = true
+    XCTAssertFalse(model.canConnect, "Save/clear in flight must not connect with old settings.")
+    XCTAssertFalse(model.canEditConnection)
+    model.savingConnection = false
     model.tunnelID = "tunnel_changed"
     XCTAssertFalse(model.canConnect, "Unsaved edits must be saved before connecting.")
-    model.tunnelID = "tunnel_fixture123"
+    model.tunnelID = "tunnel_0123456789abcdef0123456789abcdef"
     model.apiKeySaved = false
     XCTAssertFalse(model.canConnect)
+  }
+
+  func testPollReasonKeepsOnlyTheBoundedCause() {
+    XCTAssertEqual(
+      OpenAITunnelProvider.pollReason(#"Get "https://api.openai.com/v1/tunnels/t/poll?limit=20": unexpected EOF"#),
+      "unexpected EOF")
+    XCTAssertEqual(OpenAITunnelProvider.pollReason(""), "unknown error")
+    XCTAssertLessThanOrEqual(OpenAITunnelProvider.pollReason(String(repeating: "x", count: 500)).utf8.count, 200)
   }
 
   func testStaleRunDirectoriesAreRemovedAtLaunch() throws {
@@ -169,7 +192,7 @@ private actor FixtureProvider: ConnectionProvider {
     let model = AppModel(contextDataRoot: f.contextDataRoot, defaults: f.defaults)
     model.apiKeySaved = false
     XCTAssertEqual(model.connectionStatusKey, "connection.notConfigured")
-    f.defaults.set("tunnel_fixture123", forKey: "connection.openai.tunnelID")
+    f.defaults.set("tunnel_0123456789abcdef0123456789abcdef", forKey: "connection.openai.tunnelID")
     model.apiKeySaved = true
     XCTAssertEqual(model.connectionStatusKey, "connection.state.stopped")
     for state in [ConnectionState.starting, .ready, .reconnecting, .failed, .stopping] {

@@ -70,7 +70,7 @@ public actor ConnectionManager {
       try check(owned.id)
       let result = await provider.snapshot()
       try check(owned.id)
-      guard result.state == .ready else {
+      guard [.ready, .reconnecting].contains(result.state) else {
         throw Failure("connection_not_ready", "The remote provider did not confirm readiness.",
                       "Inspect the connection settings and reconnect explicitly. Project tasks keep running.")
       }

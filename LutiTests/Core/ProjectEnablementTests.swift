@@ -66,7 +66,7 @@ import XCTest
       """
     f.defaults.set(Data(legacy.utf8), forKey: "approvedProjects")
     f.defaults.set("b", forKey: "activeProjectID")
-    f.defaults.set("tunnel_fixture123", forKey: "connection.openai.address")
+    f.defaults.set("tunnel_0123456789abcdef0123456789abcdef", forKey: "connection.openai.address")
     f.defaults.set("https://mcp.example.com", forKey: "publicBaseURL")
     f.defaults.set("https://example.ngrok.app", forKey: "connection.ngrok.address")
     let data = f.contextDataRoot
@@ -81,7 +81,7 @@ import XCTest
 
     let selected = try XCTUnwrap(f.defaults.data(forKey: "selectedFolder"))
     XCTAssertEqual(try JSONDecoder().decode(ApprovedProject.self, from: selected).id, "b")
-    XCTAssertEqual(f.defaults.string(forKey: "connection.openai.tunnelID"), "tunnel_fixture123")
+    XCTAssertEqual(f.defaults.string(forKey: "connection.openai.tunnelID"), "tunnel_0123456789abcdef0123456789abcdef")
     for key in ["approvedProjects", "activeProjectID", "connection.openai.address",
                 "publicBaseURL", "connection.ngrok.address"] {
       XCTAssertNil(f.defaults.object(forKey: key), key)
@@ -95,7 +95,7 @@ import XCTest
 
     let model = AppModel(contextDataRoot: data, defaults: f.defaults)
     XCTAssertEqual(model.activeProject?.path, ApprovedProject(url: f.root).path)
-    XCTAssertEqual(model.tunnelID, "tunnel_fixture123")
+    XCTAssertEqual(model.tunnelID, "tunnel_0123456789abcdef0123456789abcdef")
   }
 
   func testLegacyMigrationLeavesFreshInstallUntouched() throws {

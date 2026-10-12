@@ -47,14 +47,17 @@ import Observation
     if connection.state != .stopped { return "connection.state." + connection.state.rawValue }
     return connectionConfigured ? "connection.state.stopped" : "connection.notConfigured"
   }
+  /// Save and clear are async Keychain operations; while one runs, nothing may
+  /// start, connect or edit against configuration that is about to change.
   var canStart: Bool {
-    !active && !contextBusy && activeProject != nil
+    !active && !contextBusy && !savingConnection && activeProject != nil
   }
   var canEditConnection: Bool {
-    !connectionBusy && !connection.state.isActive && ![.preparing, .starting, .stopping].contains(phase)
+    !savingConnection && !connectionBusy && !connection.state.isActive
+      && ![.preparing, .starting, .stopping].contains(phase)
   }
   var canConnect: Bool {
-    phase == .running && !connectionBusy && !connection.state.isActive
+    phase == .running && !savingConnection && !connectionBusy && !connection.state.isActive
       && connectionConfigured && !hasUnsavedConnection
   }
   init(contextDataRoot: URL = LutiPaths.root, defaults: UserDefaults = .standard) {
@@ -178,7 +181,7 @@ import Observation
   /// configuration exactly as it was.
   @discardableResult
   func saveConnection() async -> Bool {
-    guard canEditConnection, !savingConnection else { return false }
+    guard canEditConnection else { return false }
     savingConnection = true
     defer { savingConnection = false }
     do {
@@ -198,6 +201,7 @@ import Observation
       connection = .stopped
       connectionSettingsError = nil
       connectionError = nil
+      savingConnection = false
       if phase == .running { connectRemote() }
       return true
     } catch {
@@ -208,7 +212,7 @@ import Observation
 
   @discardableResult
   func clearConnection() async -> Bool {
-    guard canEditConnection, !savingConnection else { return false }
+    guard canEditConnection else { return false }
     savingConnection = true
     defer { savingConnection = false }
     do {

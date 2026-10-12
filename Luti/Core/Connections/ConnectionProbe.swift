@@ -17,8 +17,8 @@ enum ConnectionProbe {
     let challenge: String?
   }
 
-  static func request(_ url: URL, method: String = "GET",
-                      headers: [String: String] = [:]) async throws -> Response {
+  static func request(_ url: URL, method: String = "GET", headers: [String: String] = [:],
+                      limit: Int = 32_768) async throws -> Response {
     let configuration = URLSessionConfiguration.ephemeral
     configuration.timeoutIntervalForRequest = 3
     configuration.timeoutIntervalForResource = 6
@@ -34,13 +34,13 @@ enum ConnectionProbe {
     request.setValue("Luti-Connection-Probe", forHTTPHeaderField: "User-Agent")
     for (key, value) in headers { request.setValue(value, forHTTPHeaderField: key) }
     let (bytes, response) = try await session.bytes(for: request)
-    guard let http = response as? HTTPURLResponse, response.expectedContentLength <= 32_768 else {
+    guard let http = response as? HTTPURLResponse, response.expectedContentLength <= limit else {
       throw Failure.invalid("The connection probe exceeded its response bound.")
     }
     var data = Data()
     for try await byte in bytes {
       try Task.checkCancellation()
-      guard data.count < 32_768 else { throw Failure.invalid("The connection probe exceeded its response bound.") }
+      guard data.count < limit else { throw Failure.invalid("The connection probe exceeded its response bound.") }
       data.append(byte)
     }
     return Response(status: http.statusCode, json: (try? JSONValue.decode(data)) ?? .null,

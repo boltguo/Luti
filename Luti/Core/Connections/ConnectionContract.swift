@@ -17,9 +17,10 @@ public enum ConnectionContract {
   }
 
   public static func validateTunnelID(_ value: String) throws {
-    guard value.hasPrefix("tunnel_"), (8...128).contains(value.utf8.count),
-      value.utf8.allSatisfy({ (48...57).contains($0) || (65...90).contains($0)
-        || (97...122).contains($0) || $0 == 95 || $0 == 45 })
+    // Matches tunnel-client's own contract: ^tunnel_[a-z0-9]{32}$.
+    let suffix = value.utf8.dropFirst("tunnel_".utf8.count)
+    guard value.hasPrefix("tunnel_"), suffix.count == 32,
+      suffix.allSatisfy({ (48...57).contains($0) || (97...122).contains($0) })
     else { throw Failure.invalid("Enter the tunnel_id from OpenAI Platform tunnel settings.") }
   }
 
