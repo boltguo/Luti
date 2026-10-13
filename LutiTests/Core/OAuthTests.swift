@@ -78,6 +78,19 @@ private final class OAuthClock: @unchecked Sendable {
     XCTAssertEqual(another.status, 303)
   }
 
+  func testRegistrationWithoutOptionalClientNameStillRequiresNativeConsent() async throws {
+    let service = try OAuthService(origin: origin, project: "a")
+    let response = await service.handle(HTTPRequest(path: "/oauth/register", headers: ["content-type": ["application/json"]],
+      body: try JSONValue.object(["redirect_uris": [.string(redirect)], "token_endpoint_auth_method": "none"]).data()))
+    XCTAssertEqual(response.status, 201)
+    XCTAssertEqual(response.json["client_name"], "MCP client")
+    let before = await service.snapshot()
+    XCTAssertTrue(before.applications.isEmpty)
+    let code = try await approveCode(service, client: response.json)
+    let tokens = await exchange(service, client: response.json, code: code)
+    XCTAssertEqual(tokens.status, 200)
+  }
+
   func testCodeIsSingleUseAndRequiresCorrectPKCE() async throws {
     let service = try OAuthService(origin: origin, project: "a")
     let client = try await register(service)

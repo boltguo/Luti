@@ -190,7 +190,8 @@ public actor OAuthService {
       return failure(415, "invalid_request")
     }
     let body = try JSONValue.decode(request.body)
-    guard let name = body["client_name"].string, (1...80).contains(name.utf8.count),
+    let displayName = body["client_name"] == .null ? "MCP client" : body["client_name"].string
+    guard let name = displayName, (1...80).contains(name.utf8.count),
       !name.unicodeScalars.contains(where: { CharacterSet.controlCharacters.contains($0) }),
       let values = body["redirect_uris"].array, (1...8).contains(values.count),
       values.allSatisfy({ $0.string.map(OAuthContract.validRedirect) == true })
