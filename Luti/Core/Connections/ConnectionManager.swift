@@ -48,7 +48,7 @@ public actor ConnectionManager {
     self.router = router
   }
 
-  public func connect(_ provider: any ConnectionProvider) async throws {
+  public func connect(_ provider: any ConnectionProvider, oauth: OAuthService? = nil, port: Int = 0) async throws {
     guard !retired else { throw Failure.stopped }
     guard attempt == nil, closing == nil else {
       throw Failure.invalid("A remote connection is already starting, running or stopping.")
@@ -57,14 +57,18 @@ public actor ConnectionManager {
     attempt = owned
     state = ConnectionSnapshot(state: .starting, providerID: provider.id)
     do {
-      guard provider.privateCredential.utf8.count >= 32 else {
+      guard oauth != nil || provider.privateCredential.utf8.count >= 32 else {
         throw Failure.invalid("The private tunnel requires a fresh ingress credential.")
       }
       let context = RequestContext(
         transport: provider.id.transport, clientID: provider.id.rawValue + "-tunnel",
         clientName: provider.id.title, authorizationID: owned.id)
-      let endpoint = try await owned.server.start(
-        router: router, authentication: .delegated(bearer: provider.privateCredential, context: context))
+      guard (provider.id == .cloudflare) == (oauth != nil) else {
+        throw Failure.invalid("Public ingress requires local OAuth authorization.")
+      }
+      let authentication: MCPAuthentication = oauth.map(MCPAuthentication.oauth)
+        ?? .delegated(bearer: provider.privateCredential, context: context)
+      let endpoint = try await owned.server.start(router: router, authentication: authentication, port: port)
       try check(owned.id)
       try await provider.start(endpoint: endpoint)
       try check(owned.id)

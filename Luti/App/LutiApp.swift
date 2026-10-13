@@ -67,7 +67,7 @@ private extension LutiApp {
       "LutiMenuStarting"
     // Running without a usable tunnel is not reachable from ChatGPT; never show it as healthy.
     case .running:
-      switch model.connection.state {
+      switch model.reachableConnection.state {
       case .ready: "LutiMenuRunning"
       case .failed, .stopped: "LutiMenuFailed"
       case .starting, .reconnecting, .stopping: "LutiMenuStarting"
@@ -245,7 +245,7 @@ private struct RuntimeMenu: View {
 
   private var statusColor: Color {
     switch model.phase {
-    case .running: model.connection.state == .ready ? MDTheme.success : MDTheme.warning
+    case .running: model.reachableConnection.state == .ready ? MDTheme.success : MDTheme.warning
     case .preparing, .starting, .stopping: MDTheme.warning
     case .failed: MDTheme.error
     case .stopped: MDTheme.onSurfaceVariant
@@ -253,7 +253,7 @@ private struct RuntimeMenu: View {
   }
 
   private var connectionStatus: String {
-    L10n.text(model.connectionStatusKey)
+    L10n.text("connection.state." + model.reachableConnection.state.rawValue)
   }
 
   private var projectPath: String {

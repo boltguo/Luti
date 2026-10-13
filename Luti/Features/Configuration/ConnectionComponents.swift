@@ -2,8 +2,8 @@ import AppKit
 import SwiftUI
 
 extension ConnectionProviderID {
-  var symbol: String { "lock.icloud" }
-  var iconTone: MDIconTone { .green }
+  var symbol: String { self == .openAI ? "lock.icloud" : "cloud" }
+  var iconTone: MDIconTone { self == .openAI ? .green : .yellow }
 }
 
 /// Provider details follow the same single-level section hierarchy as the

@@ -105,6 +105,15 @@
 		FA36D59DD76A910506E3B025 /* Luti/Core/Processes/OwnedProcess.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D63BD03697420FAA1565448 /* Luti/Core/Processes/OwnedProcess.swift */; };
 		FE309333D9B130590844E98A /* Luti/UI/Components/MDSelectionControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96AD40F390699FD126B54DE3 /* Luti/UI/Components/MDSelectionControls.swift */; };
 		FF22E9F1F2BF8955B2E840EA /* Luti/Core/Workspace/WorkspaceRead.swift in Sources */ = {isa = PBXBuildFile; fileRef = D66A9FA3C88C794199B56D90 /* Luti/Core/Workspace/WorkspaceRead.swift */; };
+		10C6D0A7B4A02A67D9F4FC59 /* Luti/App/CloudflareConnectionModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6246FFB19C6FB784755BB5F /* Luti/App/CloudflareConnectionModel.swift */; };
+		BBDC95AA793469EE4E1D0E45 /* Luti/Core/Connections/CloudflareBuild.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FA42E96BED762A110257BE9 /* Luti/Core/Connections/CloudflareBuild.swift */; };
+		64448F211CD4106947D3D631 /* Luti/Core/Connections/CloudflareContract.swift in Sources */ = {isa = PBXBuildFile; fileRef = 325E56FCFD7989746ECD7BA6 /* Luti/Core/Connections/CloudflareContract.swift */; };
+		9B6BB0B9922E23F204438594 /* Luti/Core/Connections/CloudflareInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = B91F838EA49DAA08C9183054 /* Luti/Core/Connections/CloudflareInstaller.swift */; };
+		BBF317330D55DB56934B75BF /* Luti/Core/Connections/CloudflareTunnelProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = B700429F6242A9C7F044DE75 /* Luti/Core/Connections/CloudflareTunnelProvider.swift */; };
+		2D35DFBFCA95B6ECBBC45636 /* Luti/Core/OAuth/OAuthContract.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB010513BFBA6E85402473C2 /* Luti/Core/OAuth/OAuthContract.swift */; };
+		2930540E3247C741AAD92C67 /* Luti/Core/OAuth/OAuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 70D376C39972671888C8590F /* Luti/Core/OAuth/OAuthService.swift */; };
+		6B8B6B79141DFB980756BB14 /* Luti/Features/Configuration/CloudflareConnectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACF887D4E0949B21F2DB4701 /* Luti/Features/Configuration/CloudflareConnectionView.swift */; };
+		B21D0620D444C62778DB2293 /* LutiTests/Core/OAuthTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44CBF79E56E0C86303C8B7AA /* LutiTests/Core/OAuthTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -238,6 +247,15 @@
 		FAB0A1413B860505F16734FD /* Luti/Core/BoundedDownload.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/Core/BoundedDownload.swift; sourceTree = SOURCE_ROOT; };
 		FBEEC3023EF3A0CCFBA0E59C /* Luti/Tools/Project/ProjectCapabilityGraph.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/Tools/Project/ProjectCapabilityGraph.swift; sourceTree = SOURCE_ROOT; };
 		FFA216B57F89C91BE74A48A6 /* LutiTests/Core/ConnectionRuntimeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LutiTests/Core/ConnectionRuntimeTests.swift; sourceTree = SOURCE_ROOT; };
+		B6246FFB19C6FB784755BB5F /* Luti/App/CloudflareConnectionModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/App/CloudflareConnectionModel.swift; sourceTree = SOURCE_ROOT; };
+		2FA42E96BED762A110257BE9 /* Luti/Core/Connections/CloudflareBuild.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/Core/Connections/CloudflareBuild.swift; sourceTree = SOURCE_ROOT; };
+		325E56FCFD7989746ECD7BA6 /* Luti/Core/Connections/CloudflareContract.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/Core/Connections/CloudflareContract.swift; sourceTree = SOURCE_ROOT; };
+		B91F838EA49DAA08C9183054 /* Luti/Core/Connections/CloudflareInstaller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/Core/Connections/CloudflareInstaller.swift; sourceTree = SOURCE_ROOT; };
+		B700429F6242A9C7F044DE75 /* Luti/Core/Connections/CloudflareTunnelProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/Core/Connections/CloudflareTunnelProvider.swift; sourceTree = SOURCE_ROOT; };
+		BB010513BFBA6E85402473C2 /* Luti/Core/OAuth/OAuthContract.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/Core/OAuth/OAuthContract.swift; sourceTree = SOURCE_ROOT; };
+		70D376C39972671888C8590F /* Luti/Core/OAuth/OAuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/Core/OAuth/OAuthService.swift; sourceTree = SOURCE_ROOT; };
+		ACF887D4E0949B21F2DB4701 /* Luti/Features/Configuration/CloudflareConnectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/Features/Configuration/CloudflareConnectionView.swift; sourceTree = SOURCE_ROOT; };
+		44CBF79E56E0C86303C8B7AA /* LutiTests/Core/OAuthTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LutiTests/Core/OAuthTests.swift; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -321,6 +339,7 @@
 			isa = PBXGroup;
 			children = (
 				092C1F4AB94198ACE0512B43 /* Luti/App/AppModel.swift */,
+				B6246FFB19C6FB784755BB5F /* Luti/App/CloudflareConnectionModel.swift */,
 				EB6094E59F0C6D3D84E65384 /* Luti/App/LutiApp.swift */,
 				A10000000000000000000005 /* Luti/App/AppUpdater.swift */,
 			);
@@ -399,6 +418,7 @@
 				FFA216B57F89C91BE74A48A6 /* LutiTests/Core/ConnectionRuntimeTests.swift */,
 				749AFAFDC58E81E44E0CB305 /* LutiTests/Core/ProcessTests.swift */,
 				8A030C42AFDD9773D2BE64E0 /* LutiTests/Core/TestSupport.swift */,
+				44CBF79E56E0C86303C8B7AA /* LutiTests/Core/OAuthTests.swift */,
 				D735396EB5E7148699039C37 /* LutiTests/Core/WorkspaceMutationTests.swift */,
 				A8B12DD1BA476099324F279B /* LutiTests/Core/WorkspaceTests.swift */,
 			);
@@ -513,6 +533,10 @@
 				920B04943DF63F3784DBC238 /* Luti/Features/Configuration/OpenAIConnectionView.swift */,
 				90294815478D1E0D60C71362 /* Luti/Core/Connections/ConnectionContract.swift */,
 				B14E6347996F041D5A7B03DC /* Luti/Core/Connections/OpenAITunnelProvider.swift */,
+				B700429F6242A9C7F044DE75 /* Luti/Core/Connections/CloudflareTunnelProvider.swift */,
+				B91F838EA49DAA08C9183054 /* Luti/Core/Connections/CloudflareInstaller.swift */,
+				325E56FCFD7989746ECD7BA6 /* Luti/Core/Connections/CloudflareContract.swift */,
+				2FA42E96BED762A110257BE9 /* Luti/Core/Connections/CloudflareBuild.swift */,
 				9DD4BB9F6B92B41C10CCA2FE /* Luti/Core/Connections/ConnectionManager.swift */,
 			);
 			path = Runtime;
@@ -586,6 +610,8 @@
 				FAB0A1413B860505F16734FD /* Luti/Core/BoundedDownload.swift */,
 				C84FE4D9A5E55F8A29DEB628 /* Luti/Core/JSONValue.swift */,
 				84602EDC9195414E16E5F0E3 /* Luti/Core/Primitives.swift */,
+				70D376C39972671888C8590F /* Luti/Core/OAuth/OAuthService.swift */,
+				BB010513BFBA6E85402473C2 /* Luti/Core/OAuth/OAuthContract.swift */,
 				8A5E1048090D4982EB02D1D3 /* Luti/Core/PrivateFiles.swift */,
 			);
 			path = Core;
@@ -596,6 +622,7 @@
 			children = (
 				E7612F932AC349918F720006 /* ConnectionComponents.swift */,
 				8A34858E97E4A9C214108649 /* Luti/Features/Configuration/ConfigurationView.swift */,
+				ACF887D4E0949B21F2DB4701 /* Luti/Features/Configuration/CloudflareConnectionView.swift */,
 			);
 			path = Configuration;
 			sourceTree = "<group>";
@@ -792,6 +819,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B21D0620D444C62778DB2293 /* LutiTests/Core/OAuthTests.swift in Sources */,
 				A10D673B3B93B07EB53293AB /* ValidationEvidenceTests.swift in Sources */,
 				C5DA0343394F66790C0F2026 /* ProjectBindingTests.swift in Sources */,
 				EA32A342CC313AD04D1A3FA5 /* ArtifactImportTests.swift in Sources */,
@@ -819,6 +847,14 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				6B8B6B79141DFB980756BB14 /* Luti/Features/Configuration/CloudflareConnectionView.swift in Sources */,
+				2930540E3247C741AAD92C67 /* Luti/Core/OAuth/OAuthService.swift in Sources */,
+				2D35DFBFCA95B6ECBBC45636 /* Luti/Core/OAuth/OAuthContract.swift in Sources */,
+				BBF317330D55DB56934B75BF /* Luti/Core/Connections/CloudflareTunnelProvider.swift in Sources */,
+				9B6BB0B9922E23F204438594 /* Luti/Core/Connections/CloudflareInstaller.swift in Sources */,
+				64448F211CD4106947D3D631 /* Luti/Core/Connections/CloudflareContract.swift in Sources */,
+				BBDC95AA793469EE4E1D0E45 /* Luti/Core/Connections/CloudflareBuild.swift in Sources */,
+				10C6D0A7B4A02A67D9F4FC59 /* Luti/App/CloudflareConnectionModel.swift in Sources */,
 				3C68469184D757FCC6ADF868 /* WorkspaceImport.swift in Sources */,
 				3BCBA22913793B9139B4345C /* ValidationEvidence.swift in Sources */,
 				B79E06745EFD12529899CD6C /* TestEvidenceParser.swift in Sources */,

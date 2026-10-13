@@ -366,6 +366,42 @@
   };
 
   /* New languages also need a menu item and hreflang link in index.html. */
+  /* Isometric workshop labels. Task controls live on the factories. */
+  Object.assign(ZH, {
+    'hero.lede': 'AI 有想法，给它动手的能力。通过 Luti，连接你的代码、应用和 Mac，让想法在本机落地。',
+    'hero.sr': '流程示意：ChatGPT、Claude 和 Grok 的消息经由 Tunnel 到达 Luti 和本机工具。点击 AI 或工厂可以查看相应路线。不会执行真实操作。',
+    'factory.eyebrow': '一个小应用，打开更多可能。',
+    'factory.requirements': '免费开源 · macOS 14+',
+    'factory.hosts': '一次连接，支持任何兼容 MCP 的 AI。',
+    'factory.workspace': '在你的 MAC 上',
+    'factory.remote': '随时随地使用 AI',
+    'factory.tunnel': '请求送达，结果返回。',
+    'factory.parcel': '每个包裹，都是一条消息。',
+    'factory.memory': '项目记忆',
+    'factory.browser': '浏览器',
+    'factory.code': '文件与代码',
+    'factory.terminal': '终端',
+    'factory.tipAi': 'AI 负责理解与规划。',
+    'factory.tipLuti': '连接 AI 与本机工具。'
+  });
+  Object.assign(JA, {
+    'hero.lede': 'AI のアイデアを、あなたの Mac で形に。コード、アプリ、ローカルツールをつないで、考えるだけから実行へ。',
+    'hero.sr': '動作の例：ChatGPT、Claude、Grok のメッセージが Tunnel を通り、Luti とローカルツールへ届きます。AI や工場を選ぶと経路が切り替わります。実際の操作は行いません。',
+    'factory.eyebrow': '小さなアプリ。広がる可能性。',
+    'factory.requirements': '無料・オープンソース · macOS 14 以降',
+    'factory.hosts': 'ひとつの接続。あらゆる MCP 対応 AI。',
+    'factory.workspace': 'あなたの MAC で',
+    'factory.remote': 'どこからでも AI を',
+    'factory.tunnel': 'リクエストを届け、結果を返す。',
+    'factory.parcel': 'ひとつの荷物が、ひとつのメッセージ。',
+    'factory.memory': 'メモリ',
+    'factory.browser': 'ブラウザ',
+    'factory.code': 'ファイル',
+    'factory.terminal': 'ターミナル',
+    'factory.tipAi': 'AI が作業を計画します。',
+    'factory.tipLuti': 'AI とローカルツールをつなぐ。'
+  });
+
   const LANGS = {
     en: { html: 'en', og: 'en_US', short: 'EN', dict: EN },
     zh: { html: 'zh-Hans', og: 'zh_CN', short: '中', dict: ZH },

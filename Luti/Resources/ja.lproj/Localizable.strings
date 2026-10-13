@@ -213,3 +213,22 @@
 "provider.openai.step3.detail" = "上にTunnel IDとRuntime API Keyを入力して保存します。Lutiの実行中は自動的に接続します。";
 "provider.openai.step4.title" = "ChatGPTに追加する";
 "provider.openai.step4.detail" = "ChatGPTのPluginsで「+」>「Add custom MCP server」を選び、ConnectionでTunnelを選択してTunnel IDを指定します。作成中はLutiを接続したままにしてください。";
+
+/* Cloudflare Tunnel and local approval */
+"cloudflare.enabled" = "Cloudflare Tunnel を有効にする";
+"cloudflare.domain" = "HTTPS ドメイン";
+"cloudflare.token" = "Cloudflare Tunnel Token を貼り付け";
+"cloudflare.copy" = "MCP URL をコピー";
+"cloudflare.connectGuide" = "Luti を起動し、AI クライアントのカスタム MCP にこの URL を追加して OAuth を選びます。この Mac で下のリクエストを承認してください。";
+"cloudflare.setup" = "Cloudflare でリモート管理の Tunnel を作成し、ドメインの公開ホスト名を下のローカルサービスに接続します。ドメインと Tunnel Token をここに保存してください。";
+"cloudflare.originService" = "Cloudflare サービス：";
+"cloudflare.dashboard" = "Cloudflare ダッシュボードを開く ↗";
+"cloudflare.pending" = "この Mac での承認待ち";
+"cloudflare.verify" = "ブラウザの確認コードとコールバックドメインを照合してください。アプリ名はクライアントの申告であり、本人確認済みの情報ではありません。";
+"cloudflare.access" = "このプロジェクトのファイル、コマンド、ブラウザツールへのアクセスを許可します。コマンドは現在の macOS ユーザー権限で実行されます。";
+"cloudflare.deny" = "拒否";
+"cloudflare.allow" = "アクセスを許可";
+"cloudflare.apps" = "承認済みアプリ";
+"cloudflare.noApps" = "このプロジェクトとドメインで承認されたアプリはありません。";
+"cloudflare.revoke" = "取り消す";
+"cloudflare.clearNotice" = "保存したドメインと Tunnel Token を削除します。既存のアプリ承認は削除前に下で取り消せます。承認は 30 日後に期限切れになります。";

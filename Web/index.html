@@ -198,6 +198,11 @@
 <header class="appbar" id="appbar">
   <div class="wrap appbar__inner">
     <a class="brand" href="#top"><img src="assets/luti-icon.png" alt="Luti" width="30" height="30"><span>Luti</span></a>
+    <nav class="appbar__nav" aria-label="Main navigation">
+      <a href="#capabilities" data-i18n="nav.caps">Capabilities</a>
+      <a href="#context" data-i18n="nav.context">Project context</a>
+      <a href="#start" data-i18n="hero.ctaChain">Setup guide</a>
+    </nav>
     <div class="menu" data-menu>
       <button class="menu__trigger" id="langTrigger" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="langMenu" data-i18n-attr="aria-label:a11y.lang" aria-label="Interface language">
         <svg><use href="#i-globe"/></svg>
@@ -228,254 +233,70 @@
 
 <main id="top">
 
-<section class="hero">
-  <div class="hero__aurora" aria-hidden="true"><span></span><span></span><span></span></div>
-  <div class="wrap">
-
+<section class="hero" aria-labelledby="heroTitle">
+  <div class="hero__layout">
     <div class="hero__copy">
-      <span class="eyebrow" data-i18n-html="hero.eyebrow"><b>Open source</b> macOS app</span>
-      <h1 data-i18n-html="hero.h1">Cloud AI.<br><em>On your Mac.</em></h1>
-      <p class="hero__lede" data-i18n="hero.lede">Let your AI read and edit local code, run tests, and use your browser and Mac apps. Connect compatible MCP clients to the same project and its saved memory.</p>
+      <p class="hero__eyebrow"><span class="hero__status" aria-hidden="true"></span><span data-i18n="factory.eyebrow">A little app. A world of possibility.</span></p>
+      <h1 id="heroTitle" data-i18n-html="hero.h1">Cloud AI.<br><em>On your Mac.</em></h1>
+      <p class="hero__lede" data-i18n="hero.lede">Your AI has the ideas. Give it the tools to bring them to life — with your code, your apps, and your Mac.</p>
       <div class="hero__actions">
-        <div class="button-run">
-          <a class="btn btn--tonal" href="#start" data-i18n="hero.ctaChain">Setup guide</a>
-          <a class="btn btn--filled" href="https://github.com/boltguo/Luti/releases/latest/download/Luti.dmg" data-i18n="hero.ctaDownload">Download for Mac</a>
-        </div>
+        <a class="btn btn--filled" href="https://github.com/boltguo/Luti/releases/latest/download/Luti.dmg"><span data-i18n="hero.ctaDownload">Download for Mac</span><svg aria-hidden="true"><use href="#i-fwd"/></svg></a>
+        <a class="hero__guide" href="#start"><span data-i18n="hero.ctaChain">Setup guide</span><svg aria-hidden="true"><use href="#i-fwd"/></svg></a>
       </div>
-      <p class="hero__requirements" data-i18n="hero.requirements">macOS 14+ · Apple Silicon & Intel</p>
+      <p class="hero__requirements" data-i18n="factory.requirements">Free & open source · macOS 14+</p>
+      <div class="hero__hosts">
+        <p data-i18n="factory.hosts">One connection. Any MCP-compatible AI.</p>
+        <div class="hero__host-list"><span>ChatGPT</span><span>Claude</span><span>Codex</span><span>Grok</span><span class="hero__host-more" aria-hidden="true">+</span></div>
+      </div>
     </div>
 
-    <p class="sr-only" data-i18n="hero.sr">Illustrative workflow: one AI saves a project decision, another recalls it before editing code, and connected clients run tests and inspect the result. The conversations and results shown are examples.</p>
-
-    <div class="stage" id="stage" aria-hidden="true">
-      <svg class="stage__wire" id="wire" preserveAspectRatio="none">
-        <defs>
-          <linearGradient id="wireGrad" x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0" stop-color="var(--primary)" stop-opacity="0"/>
-            <stop offset="0.55" stop-color="var(--primary)" stop-opacity="0.75"/>
-            <stop offset="1" stop-color="var(--primary)"/>
-          </linearGradient>
-        </defs>
-        <path class="wire__casing" id="wireCasing"/>
-        <path class="wire__bore" id="wireBore"/>
-        <path class="wire__ribs" id="wireRibs"/>
-        <path class="wire__base" id="wireBase"/>
-        <path class="wire__trail" id="wireTrail"/>
-      </svg>
-
-      <!-- Chat stack -->
-      <div class="deck" id="deck">
-        <!-- Decorative cards are excluded from animation. -->
-        <div class="client client--ghost" data-pos="4" aria-hidden="true"><span class="ghost__bar"><i></i><b></b></span></div>
-        <div class="client client--ghost" data-pos="5" aria-hidden="true"><span class="ghost__bar"><i></i><b></b></span></div>
-
-        <article class="client" data-client="chatgpt" data-link="remote" data-pos="3" style="--brand:light-dark(#0f0f0f,#ededed);--brand-ink:light-dark(#fff,#111)">
-          <div class="client__bar">
-            <span class="client__mark"><svg><use href="#i-chatgpt"/></svg></span>
-            <span class="client__name">ChatGPT</span>
-            <span class="client__link"><svg><use href="#i-cloud"/></svg>chatgpt.com</span>
-          </div>
-          <div class="client__log" data-log>
-            <p class="bubble bubble--user bubble--ghost" data-i18n-html="seed.gptQ"><b class="mention">@luti</b> first time on this project — give me the background</p>
-            <p class="bubble bubble--ai bubble--ghost" data-i18n="seed.gptA">Connected. acme-dashboard — 24 memories, 7 sessions, 27 tools.</p>
-          </div>
-          <div class="client__composer">
-            <span class="client__field" data-field data-placeholder="Ask ChatGPT"></span>
-            <button class="client__send" tabindex="-1"><svg><use href="#i-send"/></svg></button>
-          </div>
-        </article>
-
-        <article class="client" data-client="codex" data-link="local" data-pos="2" style="--brand:light-dark(#0f0f0f,#ededed);--brand-ink:light-dark(#fff,#111)">
-          <div class="client__bar">
-            <span class="client__mark"><svg><use href="#i-codex"/></svg></span>
-            <span class="client__name">Codex</span>
-            <span class="client__link"><svg><use href="#i-display"/></svg>localhost</span>
-          </div>
-          <div class="client__log" data-log>
-            <p class="bubble bubble--user bubble--ghost" data-i18n-html="seed.codexQ"><b class="mention">@luti</b> which project am I on?</p>
-            <p class="bubble bubble--ai bubble--ghost" data-i18n="seed.codexA">acme-dashboard — the same project, and the same context, as the IDE and the web.</p>
-          </div>
-          <div class="client__composer">
-            <span class="client__field" data-field data-placeholder="Describe a task"></span>
-            <button class="client__send" tabindex="-1"><svg><use href="#i-send"/></svg></button>
-          </div>
-        </article>
-
-        <article class="client" data-client="claude" data-link="remote" data-pos="0" style="--brand:#d97757;--brand-ink:#fff">
-          <div class="client__bar">
-            <span class="client__mark"><svg><use href="#i-claude"/></svg></span>
-            <span class="client__name">Claude</span>
-            <span class="client__link"><svg><use href="#i-cloud"/></svg>claude.ai</span>
-          </div>
-          <div class="client__log" data-log>
-            <p class="bubble bubble--user bubble--ghost" data-i18n-html="seed.claudeQ"><b class="mention">@luti</b> are you connected?</p>
-            <p class="bubble bubble--ai bubble--ghost" data-i18n="seed.claudeA">Connected. Active project is acme-dashboard — vite · pnpm · tsc.</p>
-          </div>
-          <div class="client__composer">
-            <span class="client__field" data-field data-placeholder="How can I help you today?"></span>
-            <button class="client__send" tabindex="-1"><svg><use href="#i-send"/></svg></button>
-          </div>
-        </article>
-
-        <article class="client" data-client="grok" data-link="remote" data-pos="1" style="--brand:light-dark(#1d1b20,#e6e0e9);--brand-ink:light-dark(#fff,#141218)">
-          <div class="client__bar">
-            <span class="client__mark"><svg><use href="#i-grok"/></svg></span>
-            <span class="client__name">Grok</span>
-            <span class="client__link"><svg><use href="#i-cloud"/></svg>grok.com</span>
-          </div>
-          <div class="client__log" data-log>
-            <p class="bubble bubble--user bubble--ghost" data-i18n-html="seed.grokQ"><b class="mention">@luti</b> is the dev server still up?</p>
-            <p class="bubble bubble--ai bubble--ghost" data-i18n="seed.grokA">Connected. job_7c31 is still running — 18 passed, 0 failed.</p>
-          </div>
-          <div class="client__composer">
-            <span class="client__field" data-field data-placeholder="What do you want to know?"></span>
-            <button class="client__send" tabindex="-1"><svg><use href="#i-send"/></svg></button>
-          </div>
-        </article>
+    <div class="factory" id="factory">
+      <div class="factory__scene" id="factoryScene">
+        <canvas class="factory__routes" id="factoryRoutes" aria-hidden="true"></canvas>
+        <div class="factory__mac-boundary" aria-hidden="true"><span data-i18n="factory.workspace">ON YOUR MAC</span><code>~/projects/acme</code></div>
+        <div class="factory__client-heading" data-i18n="factory.remote">YOUR AI, ANYWHERE</div>
+        <div class="factory__parcels" id="factoryParcels" aria-hidden="true"></div>
+        <button class="factory__station factory__station--client" data-client="chatgpt" data-node="ai" style="--node-color:#b77b5f" type="button" aria-pressed="true">
+          <img class="factory__building" src="assets/factory-client.webp" alt="" width="512" height="512" draggable="false">
+          <span class="factory__label">ChatGPT<span class="factory__tip" data-i18n="factory.tipAi">Your AI plans the work.</span></span>
+        </button>
+        <button class="factory__station factory__station--client" data-client="claude" data-node="ai" style="--node-color:#b77b5f" type="button" aria-pressed="false">
+          <img class="factory__building" src="assets/factory-client.webp" alt="" width="512" height="512" draggable="false">
+          <span class="factory__label">Claude<span class="factory__tip" data-i18n="factory.tipAi">Your AI plans the work.</span></span>
+        </button>
+        <button class="factory__station factory__station--client" data-client="grok" data-node="ai" style="--node-color:#7e8583" type="button" aria-pressed="false">
+          <img class="factory__building" src="assets/factory-client.webp" alt="" width="512" height="512" draggable="false">
+          <span class="factory__label">Grok<span class="factory__tip" data-i18n="factory.tipAi">Your AI plans the work.</span></span>
+        </button>
+        <div class="factory__tunnel" style="--x:35.5%;--y:43%"><span>MCP · Tunnel</span><small data-i18n="factory.tunnel">Requests in. Results back.</small></div>
+        <button class="factory__station factory__station--hub" data-node="luti" style="--node-color:#8b73a7" type="button" aria-pressed="false">
+          <img class="factory__building" src="assets/factory-luti.webp" alt="" width="512" height="512" fetchpriority="high" draggable="false">
+          <span class="factory__label"><img src="assets/luti-icon.png" alt="" width="18" height="18">Luti<span class="factory__tip" data-i18n="factory.tipLuti">The bridge to your local tools.</span></span>
+        </button>
+        <button class="factory__station" data-node="memory" style="--node-color:#819769" type="button" aria-pressed="false">
+          <img class="factory__building" src="assets/factory-memory.webp" alt="" width="512" height="512" draggable="false">
+          <span class="factory__label"><span data-i18n="factory.memory">memory</span><span class="factory__tip">memory · recall / remember</span></span>
+        </button>
+        <button class="factory__station" data-node="code" style="--node-color:#678aa5" type="button" aria-pressed="true">
+          <img class="factory__building" src="assets/factory-files.webp" alt="" width="512" height="512" draggable="false">
+          <span class="factory__label"><span data-i18n="factory.code">files & code</span><span class="factory__tip">read_files · edit_files</span></span>
+        </button>
+        <button class="factory__station" data-node="browser" style="--node-color:#589397" type="button" aria-pressed="false">
+          <img class="factory__building" src="assets/factory-browser.webp" alt="" width="512" height="512" draggable="false">
+          <span class="factory__label"><span data-i18n="factory.browser">browser</span><span class="factory__tip">browser_session · browser_observe</span></span>
+        </button>
+        <button class="factory__station" data-node="terminal" style="--node-color:#b49a53" type="button" aria-pressed="false">
+          <img class="factory__building" src="assets/factory-terminal.webp" alt="" width="512" height="512" draggable="false">
+          <span class="factory__label"><span data-i18n="factory.terminal">terminal</span><span class="factory__tip">run_process · job_query</span></span>
+        </button>
+        <div class="factory__message-note"><img src="assets/message-parcel.webp" width="22" height="24" alt=""><span data-i18n="factory.parcel">Every parcel is a message.</span></div>
       </div>
-
-      <!-- Connection lane -->
-      <div class="stage__lane">
-        <div class="tunnel" id="nodeTunnel">
-          <p class="tunnel__row">
-            <span class="tunnel__icon"><svg><use href="#i-link"/></svg></span>
-            <span class="tunnel__name">MCP</span>
-          </p>
-          <p class="tunnel__sub" id="linkMode" data-i18n="stage.linkRemote">your own tunnel</p>
-        </div>
-      </div>
-
-      <!-- Mac demo -->
-      <div class="mac" id="mac">
-        <div class="mac__body">
-          <span class="mac__cam"></span>
-          <div class="mac__screen" id="macScreen">
-
-            <div class="mac__bar" id="nodeLuti">
-              <span class="mac__logo"><img src="assets/luti-icon.png" alt=""><i class="mac__ring"></i></span>
-              <span class="mac__name">Luti</span>
-              <span class="mac__tool" id="statusTool">memory</span>
-              <span class="mac__arrow">&rarr;</span>
-              <span class="mac__res is-pending" id="statusResult" data-i18n="demo.idle">waiting for a call</span>
-              <span class="mac__meta" id="lutiMeta">acme-dashboard</span>
-            </div>
-
-            <div class="desk" id="desk">
-
-              <div class="desk__stack">
-
-              <section class="win win--editor" data-pos="0" id="viewEditor">
-                <div class="win__bar">
-                  <span class="lights"><i></i><i></i><i></i></span>
-                  <span class="win__title">queue.ts &mdash; ~/dev/acme-dashboard</span>
-                  <span class="win__by">Luti<b data-by>edit_files</b></span>
-                </div>
-                <div class="win__body">
-                  <div class="editor" id="editor">
-                    <div class="line"><span class="line__no">1</span><span class="line__code"><span class="tk-key">import</span> { open } <span class="tk-key">from</span> <span class="tk-str">"./sqlite"</span></span></div>
-                    <div class="line"><span class="line__no">2</span><span class="line__code"><span class="tk-key">export async function</span> <span class="tk-fn">createQueue</span>() {</span></div>
-                    <div class="line"><span class="line__no">3</span><span class="line__code">  <span class="tk-key">const</span> db = <span class="tk-key">await</span> <span class="tk-fn">open</span>(<span class="tk-str">"queue.db"</span>)</span></div>
-                    <div class="line is-pending" data-add><span class="line__no">4</span><span class="line__code">  <span class="tk-key">await</span> db.<span class="tk-fn">exec</span>(</span></div>
-                    <div class="line is-pending" data-add><span class="line__no">5</span><span class="line__code">    <span class="tk-str">"CREATE TABLE IF NOT EXISTS jobs ("</span> +</span></div>
-                    <div class="line is-pending" data-add><span class="line__no">6</span><span class="line__code">    <span class="tk-str">"id TEXT PRIMARY KEY,"</span> +</span></div>
-                    <div class="line is-pending" data-add><span class="line__no">7</span><span class="line__code">    <span class="tk-str">"payload TEXT NOT NULL)"</span></span></div>
-                    <div class="line is-pending" data-add><span class="line__no">8</span><span class="line__code">  )</span></div>
-                    <div class="line"><span class="line__no">9</span><span class="line__code">  <span class="tk-key">return</span> db</span></div>
-                    <div class="line"><span class="line__no">10</span><span class="line__code">}</span></div>
-                  </div>
-                </div>
-              </section>
-
-              <section class="win win--browser" data-pos="1" id="viewBrowser">
-                <div class="win__bar">
-                  <span class="lights"><i></i><i></i><i></i></span>
-                  <span class="win__title" data-i18n="stage.winPreview">Preview — acme-dashboard</span>
-                  <span class="win__by">Luti<b data-by>browser_observe</b></span>
-                </div>
-                <div class="win__body">
-                  <div class="chrome">
-                    <span class="chrome__nav"><svg><use href="#i-back"/></svg><svg><use href="#i-fwd"/></svg></span>
-                    <span class="chrome__url"><svg><use href="#i-lock-s"/></svg><span id="urlText">localhost:5173</span></span>
-                    <span class="chrome__spin"></span>
-                  </div>
-                  <div class="viewport">
-                    <div class="mini" id="miniPreview">
-                      <div class="mini__card">
-                        <span class="mini__dot"></span>
-                        <span><span class="mini__t">Queue</span><br><span class="mini__s" data-i18n="stage.miniSub">SQLite · 3 workers ready</span></span>
-                      </div>
-                      <div class="mini__bars">
-                        <div class="mini__bar"></div><div class="mini__bar"></div><div class="mini__bar"></div>
-                      </div>
-                    </div>
-                  </div>
-                  <div class="shot" id="shot">
-                    <span class="shot__frame"></span>
-                    <span class="shot__flash"></span>
-                  </div>
-                </div>
-              </section>
-              </div>
-
-              <!-- Memory stays visible beside the window stack. -->
-              <aside class="ledger" id="viewContext">
-                <div class="ledger__bar">
-                  <span class="ledger__title" data-i18n="stage.ctxTitle">Project memory</span>
-                  <span class="win__by ledger__by"><b data-by>memory</b></span>
-                </div>
-                <div class="ledger__body">
-                  <div class="ctx">
-                    <div class="ctx__head">
-                      <span class="ctx__tab is-on">Memory</span>
-                      <span class="ctx__tab">Sessions</span>
-                      <span class="ctx__tab">Activity</span>
-                    </div>
-                    <div class="ctx__list" id="ctxList">
-                      <article class="mem">
-                        <p class="mem__top"><span class="mem__kind" data-kind="convention">convention</span><span class="mem__src">claude · 2d</span></p>
-                        <p class="mem__body" data-i18n="stage.mem1">pnpm only. CI rejects npm lockfiles.</p>
-                      </article>
-                      <article class="mem">
-                        <p class="mem__top"><span class="mem__kind" data-kind="pitfall">pitfall</span><span class="mem__src">cursor · 5d</span></p>
-                        <p class="mem__body" data-i18n="stage.mem2">The /api dev proxy needs changeOrigin, or cookies are dropped.</p>
-                      </article>
-                      <article class="mem">
-                        <p class="mem__top"><span class="mem__kind" data-kind="constraint">constraint</span><span class="mem__src">chatgpt · 9d</span></p>
-                        <p class="mem__body" data-i18n="stage.mem3">The local queue must not depend on the network; it has to persist offline.</p>
-                      </article>
-                    </div>
-                    <p class="ctx__foot" id="ctxCount" data-i18n="demo.count">24 memories · 7 sessions</p>
-                  </div>
-                </div>
-              </aside>
-
-            </div>
-          </div>
-          <div class="mac__chin"></div>
-        </div>
-        <div class="mac__neck"></div>
-        <div class="mac__foot"></div>
-      </div>
-
-      <div class="packets" id="packets"></div>
-
-    </div>
-
-    <p class="stage__note" data-i18n="hero.demoNote">Illustrative demo · example conversations and results</p>
-    <div class="stage__caption">
-      <span class="hop" data-hop="client" id="hopClient">Claude</span>
-      <span class="hop__sep">&rarr;</span>
-      <span class="hop" data-hop="tunnel" id="hopLink">MCP · localhost</span>
-      <span class="hop__sep">&rarr;</span>
-      <span class="hop" data-hop="luti" data-i18n="stage.hopLuti">Luti · project runtime</span>
-      <span class="hop__sep">&rarr;</span>
-      <span class="hop" data-hop="project">acme-dashboard</span>
-      <button class="stage__toggle" id="stageToggle" aria-pressed="false">
-        <svg aria-hidden="true"><use href="#i-pause" id="toggleIcon"/></svg><span id="toggleText" data-i18n="demo.pause">Pause demo</span>
-      </button>
     </div>
   </div>
+
+  <p class="sr-only" data-i18n="hero.sr">Illustrative animation: ChatGPT, Claude, and Grok send messages through your tunnel to Luti and your local tools. Select an AI or factory to follow its route. No real operations are performed.</p>
 </section>
+
 
 <section class="section" id="capabilities">
   <div class="wrap">

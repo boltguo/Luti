@@ -40,6 +40,14 @@ struct HomeView: View {
         iconTone: ConnectionProviderID.openAI.iconTone,
         accessory: nil,
         action: openConnection)
+      if model.cloudflare.enabled || model.cloudflare.configured {
+        MDNavigationRow(
+          title: ConnectionProviderID.cloudflare.title, symbol: "cloud",
+          subtitle: model.cloudflare.savedDomain,
+          detail: L10n.text(model.cloudflare.authorization.pending.isEmpty
+            ? model.cloudflare.statusKey : "cloudflare.pending"),
+          iconTone: .yellow, accessory: nil, action: openConnection)
+      }
     }
     .accessibilityIdentifier("home-connection")
   }
@@ -132,7 +140,7 @@ struct HomeView: View {
     switch model.phase {
     case .stopped:
       if model.canLaunch { L10n.text("home.readyStart") }
-      else if model.activeProject != nil && !model.connectionConfigured { L10n.text("home.configureTunnel") }
+      else if model.activeProject != nil && !model.anyConnectionConfigured { L10n.text("home.configureTunnel") }
       else if model.activeProject != nil && model.hasUnsavedConnection { L10n.text("home.saveConnection") }
       else { L10n.text("home.notRunning") }
     case .preparing: L10n.text("common.preparing")

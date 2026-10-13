@@ -267,6 +267,13 @@ actor ProviderProcess {
 
   var running: Bool { child.map { !$0.finished } ?? false }
 
+  /// Only startup discovery reads output; normal status checks never reparse logs.
+  var startupOutput: String {
+    guard let child else { return "" }
+    let delta = child.logDelta(stdoutOffset: 0, stderrOffset: 0, maxBytes: 16_384)
+    return (delta["stdout"]["text"].string ?? "") + (delta["stderr"]["text"].string ?? "")
+  }
+
   func stop() async {
     if let closing { await closing.value; return }
     closed = true

@@ -3,7 +3,7 @@ import Foundation
 /// Which pipe a call arrived on. The tool runtime never branches on it; it exists
 /// so Activity can say where an effect came from.
 public enum TransportProviderID: String, Codable, Sendable {
-  case loopback, openAI = "openai"
+  case loopback, cloudflare, openAI = "openai"
 }
 
 /// What the tool runtime is told about an authenticated remote caller.

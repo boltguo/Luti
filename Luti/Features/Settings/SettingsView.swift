@@ -207,6 +207,12 @@ struct SettingsView: View {
             position: .middle,
             tone: .purple)
           ComponentVersionRow(
+            name: "cloudflared",
+            symbol: "cloud",
+            version: CloudflareBuild.version,
+            position: .middle,
+            tone: .orange)
+          ComponentVersionRow(
             name: "SwiftNIO",
             symbol: "network",
             version: "2.103.0",

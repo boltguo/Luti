@@ -29,18 +29,20 @@ public struct HTTPReply: Sendable {
   }
   public var json: JSONValue { (try? JSONValue.decode(body)) ?? .null }
 }
-/// A listener has exactly one bearer credential. Every listener is loopback-only;
-/// `.delegated` attributes its calls to the tunnel that forwards them.
+/// Every listener is loopback-only. OpenAI delegates authorization to its
+/// workspace; public Cloudflare ingress authenticates each client locally.
 public enum MCPAuthentication: Sendable {
   case local(bearer: String)
   case delegated(bearer: String, context: RequestContext)
+  case oauth(OAuthService)
 }
 
 public actor MCPDispatcher {
   public static let modern = "2026-07-28"
   public static let versions = [modern, "2025-11-25", "2025-06-18"]
-  private let bearer: String
-  private let grant: ToolGrant
+  private let bearer: String?
+  private let staticGrant: ToolGrant?
+  private let oauth: OAuthService?
   private let hosts: Set<String>
   private let origins: Set<String>
   private let router: ToolRouter
@@ -53,23 +55,36 @@ public actor MCPDispatcher {
   public init(authentication: MCPAuthentication, port: Int, router: ToolRouter) {
     precondition((1...65535).contains(port))
     self.router = router
-    hosts = ["127.0.0.1:\(port)", "localhost:\(port)"]
+    let localHosts: Set<String> = ["127.0.0.1:\(port)", "localhost:\(port)"]
     switch authentication {
     case .local(let bearer):
       precondition(bearer.utf8.count >= 32)
       self.bearer = bearer
-      grant = .local
+      staticGrant = .local
+      oauth = nil
+      hosts = localHosts
       origins = ["http://127.0.0.1:\(port)", "http://localhost:\(port)"]
     case .delegated(let bearer, let context):
       precondition(bearer.utf8.count >= 32)
       self.bearer = bearer
-      grant = .remote(context)
+      staticGrant = .remote(context)
+      oauth = nil
+      hosts = localHosts
       origins = []
+    case .oauth(let service):
+      bearer = nil
+      staticGrant = nil
+      oauth = service
+      hosts = localHosts.union([service.origin.host!, service.origin.host! + ":443"])
+      origins = [service.origin.absoluteString]
     }
     tools = ToolCatalog.definitions
     toolNames = ToolCatalog.names
   }
-  public func shutdown() { enabled = false }
+  public func shutdown() async {
+    enabled = false
+    await oauth?.shutdown()
+  }
   private func reply(_ status: Int, _ json: JSONValue, extra: [String: String] = [:]) -> HTTPReply {
     HTTPReply(
       status: status, body: (try? json.data()) ?? Data(),
@@ -86,12 +101,14 @@ public actor MCPDispatcher {
     return reply(status, body)
   }
   private func unauthorized() -> HTTPReply {
-    reply(401, ["error": "unauthorized"], extra: ["WWW-Authenticate": "Bearer realm=\"Luti\""])
+    let challenge = oauth.map { "Bearer resource_metadata=\"\($0.metadataURL)\", scope=\"mcp\"" }
+      ?? "Bearer realm=\"Luti\""
+    return reply(401, ["error": "unauthorized"], extra: ["WWW-Authenticate": challenge])
   }
   public func handle(_ request: HTTPRequest) async -> HTTPReply {
     guard enabled else { return error(503, -32603, "Runtime stopped") }
     let path = String(request.path.prefix(while: { $0 != "?" }))
-    guard ["/mcp", "/healthz"].contains(path) else {
+    guard ["/mcp", "/healthz"].contains(path) || (oauth != nil && OAuthContract.paths.contains(path)) else {
       return HTTPReply(status: 404)
     }
     for name in [
@@ -110,9 +127,20 @@ public actor MCPDispatcher {
     if let origin = request.headers["origin"]?.first, !origins.contains(origin.lowercased()) {
       return error(403, -32600, "Origin is not allowed")
     }
-    guard let auth = request.headers["authorization"]?.first, auth.hasPrefix("Bearer "),
-      Budget.constantTimeEqual(String(auth.dropFirst("Bearer ".count)), bearer)
-    else { return unauthorized() }
+    if let oauth, OAuthContract.paths.contains(path) { return await oauth.handle(request) }
+    guard let auth = request.headers["authorization"]?.first, auth.hasPrefix("Bearer "), auth.utf8.count <= 8192 else {
+      return unauthorized()
+    }
+    let presented = String(auth.dropFirst(7))
+    let grant: ToolGrant
+    if let oauth {
+      guard let authenticated = await oauth.grant(for: presented) else { return unauthorized() }
+      guard enabled, !Task.isCancelled else { return HTTPReply(status: 503) }
+      grant = authenticated
+    } else {
+      guard let bearer, let staticGrant, Budget.constantTimeEqual(presented, bearer) else { return unauthorized() }
+      grant = staticGrant
+    }
     if path == "/healthz" {
       return request.method == "GET"
         ? reply(200, ["ready": true]) : HTTPReply(status: 405, headers: ["Allow": "GET"])

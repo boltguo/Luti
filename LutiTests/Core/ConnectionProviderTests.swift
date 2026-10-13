@@ -46,9 +46,9 @@ private actor FixtureProvider: ConnectionProvider {
     return (try XCTUnwrap(response as? HTTPURLResponse).statusCode, (try? JSONValue.decode(data)) ?? .null)
   }
 
-  func testLiteProviderCatalogContainsOnlyOpenAITunnel() {
-    XCTAssertEqual(ConnectionProviderID.allCases, [.openAI])
-    for removed in ["cloudflare", "ngrok", "quick", "custom"] {
+  func testProviderCatalogKeepsOnlySupportedTransports() {
+    XCTAssertEqual(ConnectionProviderID.allCases, [.openAI, .cloudflare])
+    for removed in ["ngrok", "quick", "custom"] {
       XCTAssertNil(ConnectionProviderID(rawValue: removed))
     }
   }

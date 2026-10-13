@@ -2,10 +2,11 @@ import Foundation
 
 public enum ConnectionProviderID: String, Codable, CaseIterable, Hashable, Sendable, Identifiable {
   case openAI = "openai"
+  case cloudflare
 
   public var id: String { rawValue }
-  public var title: String { "OpenAI Secure MCP Tunnel" }
-  public var transport: TransportProviderID { .openAI }
+  public var title: String { self == .openAI ? "OpenAI Secure MCP Tunnel" : "Cloudflare Tunnel" }
+  public var transport: TransportProviderID { self == .openAI ? .openAI : .cloudflare }
 }
 
 public enum ConnectionContract {

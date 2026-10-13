@@ -14,6 +14,8 @@ Bundled in Luti.app:
   is bundled and extracted intact. No browser executable is redistributed.
 
 Downloaded directly from the pinned official publisher when a feature is used:
+- Cloudflare cloudflared 2026.9.1: Apache-2.0; downloaded unchanged on demand.
+  Source: https://github.com/cloudflare/cloudflared/tree/2026.9.1
 - OpenAI tunnel-client 0.0.14: Apache-2.0; copyright and NOTICE below.
   Source: https://github.com/openai/tunnel-client/tree/v0.0.14
 - Node.js 24.21.0 (darwin-arm64): Node.js and bundled third-party licenses.

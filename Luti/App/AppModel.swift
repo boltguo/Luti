@@ -13,6 +13,7 @@ import Observation
   var activity: [ActivityEvent] = []
   var currentRunID: UUID?
   var connection = ConnectionSnapshot.stopped
+  let cloudflare: CloudflareConnectionModel
   var connectionBusy = false
   var connectionError: String?
   var connectionSettingsError: String?
@@ -54,15 +55,19 @@ import Observation
     if connection.state != .stopped { return "connection.state." + connection.state.rawValue }
     return connectionConfigured ? "connection.state.stopped" : "connection.notConfigured"
   }
+  var reachableConnection: ConnectionSnapshot {
+    if connection.state == .ready || !cloudflare.enabled { return connection }
+    if cloudflare.connection.state == .ready || !connectionConfigured { return cloudflare.connection }
+    return connection
+  }
+  var anyConnectionConfigured: Bool { connectionConfigured || cloudflare.canLaunch }
   /// Save and clear are async Keychain operations; while one runs, nothing may
   /// start, connect or edit against configuration that is about to change.
   var canStart: Bool {
-    !active && !contextBusy && !savingConnection && activeProject != nil
+    !active && !contextBusy && !savingConnection && !cloudflare.saving && activeProject != nil
   }
-  /// What the UI offers: the OpenAI Tunnel is Luti's only client path, so starting
-  /// without a connection it can open (saved, no pending edits) would expose nothing.
-  /// Tests drive `requestStart` on `canStart` alone.
-  var canLaunch: Bool { canStart && connectionConfigured && !hasUnsavedConnection }
+  /// Start when at least one saved client path is usable. Both may run together.
+  var canLaunch: Bool { canStart && ((connectionConfigured && !hasUnsavedConnection) || cloudflare.canLaunch) }
   var canEditConnection: Bool {
     !savingConnection && !connectionBusy && !connection.state.isActive
       && ![.preparing, .starting, .stopping].contains(phase)
@@ -89,6 +94,8 @@ import Observation
     // connection read report the error and use the existing noninteractive retry
     // path; only a confirmed missing item disables Start and automatic recovery.
     apiKeySaved = (try? credentials.exists(KeychainService.openAIAPIKey)) ?? true
+    cloudflare = CloudflareConnectionModel(defaults: defaults, credentials: credentials, dataRoot: contextDataRoot)
+    cloudflare.loadAuthorizations(project: activeProject?.url)
     Self.discardStaleRuns(in: contextDataRoot)
     reloadStoredActivity()
     LocalLogStore.runtime("info", "Luti app initialized.")
@@ -132,9 +139,9 @@ import Observation
     guard polling == nil else { return }
     polling = Task { [weak self] in
       while !Task.isCancelled {
-        guard let self else { return }
-        await self.refresh()
-        let delay: Duration = self.active ? .milliseconds(750) : .milliseconds(1500)
+        guard self != nil else { return }
+        await self?.refresh()
+        let delay: Duration = self?.active == true ? .milliseconds(750) : .milliseconds(1500)
         do { try await Task.sleep(for: delay) } catch { return }
       }
     }
@@ -174,6 +181,7 @@ import Observation
     guard !active, !contextBusy, activeProject == nil else { return }
     let project = ApprovedProject(url: url)
     activeProject = project
+    cloudflare.loadAuthorizations(project: project.url)
     persistSelectedFolder()
     errorText = nil
     detail = "Project approved. Start when you are ready."
@@ -184,6 +192,7 @@ import Observation
   func removeProject(_ id: String) {
     guard !active, !contextBusy, activeProject?.id == id else { return }
     activeProject = nil
+    cloudflare.loadAuthorizations(project: nil)
     persistSelectedFolder()
     errorText = nil
     detail = "Choose a folder to get started."
@@ -325,6 +334,7 @@ import Observation
         self.detail = "Project runtime is running."
         LocalLogStore.runtime("info", "Local folder runtime started.")
         if self.connectionConfigured { self.connectRemote() }
+        self.cloudflare.start(router: runtime.router, project: root, helper: Self.processHelper)
       } catch {
         if let owned { await owned.stop() }
         guard self.revision == token else { return }
@@ -434,10 +444,12 @@ import Observation
     detail = "Stopping this app’s tools and owned processes…"
     LocalLogStore.runtime("info", "Runtime stopping.")
     let cleanup = Task {
+      async let cloudflareStop: Void = cloudflare.stop()
       await manager?.shutdown()
       if let owned { await owned.stop() }
       await task?.value
       await remoteTask?.value
+      await cloudflareStop
     }
     teardown = cleanup
     await cleanup.value
@@ -455,7 +467,7 @@ import Observation
   /// Polled state is assigned only when it changes, so an idle window does not
   /// invalidate every observing view on each tick.
   func refresh() async {
-    guard let owned = session else { return }
+    guard let owned = session else { await cloudflare.refresh(); return }
     let token = revision
     let operation = connectionRevision
     let manager = remote
@@ -472,6 +484,7 @@ import Observation
     if lastCall != snapshot.lastCall { lastCall = snapshot.lastCall }
     if activeJobs != snapshot.activeJobs { activeJobs = snapshot.activeJobs }
     retryConnectionIfNeeded()
+    await cloudflare.refresh()
   }
 
   /// A failed tunnel (client exit, network down at login) reconnects on its own

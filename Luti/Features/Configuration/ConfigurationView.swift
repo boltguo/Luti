@@ -9,6 +9,11 @@ struct ConfigurationView: View {
         OpenAIConnectionView(model: model)
           .accessibilityIdentifier("provider-openai")
       }
+      Divider()
+      MDSection(title: ConnectionProviderID.cloudflare.title) {
+        CloudflareConnectionView(model: model)
+          .accessibilityIdentifier("provider-cloudflare")
+      }
     }
   }
 }
