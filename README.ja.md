@@ -56,8 +56,9 @@ Runtimeを起動する前に、ローカルでフォルダを選択します。
 | 接続 | 用意するもの | 認証 | 向いている用途 |
 |---|---|---|---|
 | **OpenAI Secure MCP Tunnel** | Tunnel ID + ランタイムAPIキー | ChatGPTワークスペースの関連付け | 公開Endpointなしで使うChatGPT |
+| **Cloudflare Tunnel** | HTTPS ドメイン + Tunnel Token | この Mac で承認する OAuth | 固定の公開 URL を使うカスタム MCP クライアント |
 
-LutiのMCP接続はOpenAI Tunnelのみです。Lutiは固定バージョンでハッシュ検証済みの`tunnel-client`をダウンロードし、OpenAIへ送信方向で接続します。公開Listenerはなく、OAuthフローもありません。接続ごとの新しいCredentialだけを受け付けるLoopback専用Listenerを接続が所有します。接続障害が起きてもRuntimeと実行中のJobは維持され、Lutiが自動的に再試行します。接続中または再接続中にTunnel IDやAPI Keyを変更する場合は、Runtimeを停止し、新しい設定を保存してから再起動してください。停止すると実行中のJobとLutiが管理するBrowser Sessionは終了します。システムのプロキシ設定を変更した後も、Runtimeの停止と再起動が必要です。
+OpenAI は接続ごとの新しい Credential と専用 Loopback Listener を使い、`tunnel-client` で送信方向に接続します。Cloudflare は固定 HTTPS ドメイン用に OAuth で保護された独立した入口を提供します。どちらか一方の設定で起動でき、同時接続も可能です。接続障害ではプロジェクトの Job を再起動せず再接続します。設定変更前に Runtime を停止してください。停止すると Job と Browser Session も終了します。[Cloudflare 設定とローカル承認](docs/cloudflare.md)を参照してください。
 
 ## 機能
 
@@ -95,7 +96,7 @@ Lutiは容量を制限した実行履歴だけを`~/.luti/`に保存します。
 | **Project Scope** | ファイルとProject操作を現在の承認済みProjectに限定 |
 | **Permission Mode** | Lutiは選択したフォルダ内で常にフルアクセスを使用。外部操作の権限境界は維持します |
 | **Credential** | Runtime CredentialをmacOS Keychainに保存し、機密値を永続化前にRedact |
-| **Remote Access** | 設定済みのOpenAI TunnelだけがLutiに到達。ListenerはLoopback専用でCredentialに結びつく |
+| **Remote Access** | 独立した Loopback Listener。OpenAI は専用 Credential、Cloudflare はこの Mac で承認したプロジェクトごとの OAuth を使用 |
 | **Git** | 公開Git Capabilityは読み取り専用 |
 | **ブラウザ自動化** | Lutiが所有するBrowser Sessionのみを操作。デスクトップ撮影やマウス・キーボード操作は提供しません |
 | **Process Execution** | `fullLocal`はユーザー権限で実行され、OS Sandboxではない |

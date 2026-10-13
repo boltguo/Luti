@@ -222,14 +222,14 @@ import Observation
   func decide(_ id: UUID, allow: Bool) async {
     guard let service else { return }
     do { try await service.decide(id, allow: allow) }
-    catch { error = Failure.safe(error).localizedDescription }
+    catch { self.error = Failure.safe(error).localizedDescription }
     await refresh()
   }
 
   func revoke(_ id: UUID) async {
     guard let service else { return }
     do { try await service.revoke(id) }
-    catch { error = Failure.safe(error).localizedDescription }
+    catch { self.error = Failure.safe(error).localizedDescription }
     await refresh()
   }
 

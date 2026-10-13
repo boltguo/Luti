@@ -56,8 +56,9 @@ flowchart TB
 | 连接 | 需要提供 | 认证 | 适合场景 |
 |---|---|---|---|
 | **OpenAI Secure MCP Tunnel** | Tunnel ID + 运行 API Key | ChatGPT 工作区关联 | ChatGPT，无需公开入口 |
+| **Cloudflare Tunnel** | HTTPS 域名 + Tunnel Token | OAuth，在本机批准 | 通过固定公开地址连接的自定义 MCP 客户端 |
 
-Luti 只通过 OpenAI Tunnel 提供 MCP 接入。Luti 下载固定版本并校验哈希的 `tunnel-client`，由它主动连接 OpenAI；本机不对外监听，也没有 OAuth 流程。连接持有一个仅回环的私有监听，只接受每次连接新生成的凭据。连接出错时，Runtime 和运行中的 Job 会保留，Luti 会自动重试。在已连接或重连期间更换 Tunnel ID 或 API Key，需先停止 Runtime，保存新配置后再启动。停止会结束运行中的 Job 和 Luti 管理的浏览器会话。修改系统代理后也需停止并重新启动 Runtime。
+OpenAI 使用独立的回环监听和每次连接新生成的私有凭据，通过 `tunnel-client` 主动出站连接。Cloudflare 为固定 HTTPS 域名单独提供 OAuth 保护的入口。任意一种连接配置完成即可启动，两种连接也可同时运行；传输失败会重连，不重启项目任务。修改配置前先停止 Runtime；停止会结束 Job 和浏览器会话。参见 [Cloudflare 配置与本机授权](docs/cloudflare.md)。
 
 ## 能力
 
@@ -95,7 +96,7 @@ Luti 只保留有容量限制的执行活动，存放于 `~/.luti/`，用于排�
 | **项目范围** | 文件与项目操作限制在当前已授权项目中 |
 | **权限模式** | Luti 默认对选定文件夹使用完全访问；外部操作仍遵守原有权限边界 |
 | **凭据** | Runtime 凭据存入 macOS Keychain；敏感值在持久化前脱敏 |
-| **远程访问** | 只有已配置的 OpenAI Tunnel 能访问 Luti；监听仅限回环并绑定凭据 |
+| **远程访问** | 独立的回环监听：OpenAI 使用私有连接凭据，Cloudflare 使用本机批准且绑定项目的 OAuth |
 | **Git** | 对外 Git 能力只读 |
 | **浏览器自动化** | Luti 只操作自己拥有的 Browser Session；不提供桌面截图或鼠标、键盘控制 |
 | **进程执行** | `fullLocal` 使用当前用户权限执行，不是 OS Sandbox |

@@ -249,4 +249,86 @@ private final class OAuthClock: @unchecked Sendable {
     XCTAssertEqual(CloudflareTunnelProvider.readinessURL(from: "Starting metrics server on 127.0.0.1:42123/metrics")?.port, 42123)
     XCTAssertNil(CloudflareTunnelProvider.readinessURL(from: "Starting metrics server on 0.0.0.0:42123/metrics"))
   }
+
+  func testFailedPersistenceCannotIssueAnAuthorization() async throws {
+    let f = try Fixture(); defer { f.remove() }
+    let file = f.contextDataRoot.appendingPathComponent("grants.json")
+    let service = try OAuthService(origin: origin, project: "a", file: file)
+    let client = try await register(service)
+    _ = await authorize(service, client: client)
+    let pending = await service.snapshot().pending[0]
+    // An unexpected directory at the file path must fail closed, not silently
+    // fall back to ephemeral grants that disappear after a restart.
+    try FileManager.default.createDirectory(at: file, withIntermediateDirectories: false)
+    do { try await service.decide(pending.id, allow: true); XCTFail("Unsafe persistence target") } catch {}
+    let snapshot = await service.snapshot()
+    XCTAssertTrue(snapshot.applications.isEmpty)
+    XCTAssertEqual(snapshot.pending.count, 1)
+  }
+
+  func testCloudflareSettingsAreAtomicAndCanStartWithoutOpenAI() async throws {
+    let f = try Fixture(); defer { f.remove() }
+    let keychain = FixtureKeychain(failedSaves: 1)
+    let model = AppModel(contextDataRoot: f.contextDataRoot, defaults: f.defaults, credentials: keychain.client)
+    model.addProject(f.root)
+    let cf = model.cloudflare
+    cf.domain = origin.absoluteString
+    cf.tokenDraft = String(repeating: "a", count: 80)
+    await cf.save(project: f.root)
+    XCTAssertEqual(cf.savedDomain, "")
+    XCTAssertFalse(cf.tokenSaved)
+    XCTAssertFalse(model.canLaunch)
+    await cf.save(project: f.root)
+    XCTAssertEqual(cf.savedDomain, origin.absoluteString)
+    XCTAssertTrue(cf.tokenSaved)
+    XCTAssertTrue(cf.enabled)
+    XCTAssertTrue(model.canLaunch)
+    XCTAssertFalse(model.connectionConfigured)
+    cf.domain = "https://changed.example.com"
+    XCTAssertFalse(model.canLaunch)
+    cf.domain = cf.savedDomain
+    cf.enabled = false
+    XCTAssertFalse(model.canLaunch)
+    await model.stop()
+  }
+
+  func testStopRacingCloudflareStartRetiresOAuthAndJoinsOwnership() async throws {
+    let f = try Fixture(); defer { f.remove() }
+    let service = try OAuthService(origin: origin, project: "a")
+    let manager = ConnectionManager(router: try f.router())
+    let provider = SuspendedCloudflare()
+    let start = Task { try await manager.connect(provider, oauth: service) }
+    for _ in 0..<100 {
+      if await provider.started { break }
+      try await Task.sleep(for: .milliseconds(10))
+    }
+    let didStart = await provider.started
+    XCTAssertTrue(didStart)
+    await manager.shutdown()
+    do { try await start.value; XCTFail("A stopped connection cannot publish readiness") } catch {}
+    let snapshot = await manager.snapshot()
+    XCTAssertEqual(snapshot.state, .stopped)
+    let metadata = await service.handle(HTTPRequest(method: "GET", path: "/.well-known/oauth-authorization-server", headers: [:], body: Data()))
+    XCTAssertEqual(metadata.status, 503)
+    let stopCount = await provider.stops
+    XCTAssertEqual(stopCount, 1)
+  }
+}
+
+private actor SuspendedCloudflare: ConnectionProvider {
+  nonisolated let id = ConnectionProviderID.cloudflare
+  nonisolated let privateCredential = ""
+  private var waiter: CheckedContinuation<Void, Never>?
+  private(set) var started = false
+  private(set) var stops = 0
+  func start(endpoint: URL) async throws {
+    started = true
+    await withCheckedContinuation { waiter = $0 }
+  }
+  func snapshot() -> ConnectionSnapshot { ConnectionSnapshot(state: .ready) }
+  func stop() {
+    stops += 1
+    waiter?.resume()
+    waiter = nil
+  }
 }

@@ -56,8 +56,9 @@ Select the active folder locally before starting the Runtime.
 | Connection | What you provide | Authentication | Best for |
 |---|---|---|---|
 | **OpenAI Secure MCP Tunnel** | Tunnel ID + runtime API key | ChatGPT workspace association | ChatGPT, with no public endpoint |
+| **Cloudflare Tunnel** | HTTPS domain + Tunnel Token | OAuth with approval on this Mac | Custom MCP clients using a stable public URL |
 
-Luti exposes MCP through the OpenAI tunnel only. Luti downloads the pinned, checksum-verified `tunnel-client`, which connects outbound to OpenAI; nothing listens publicly and there is no OAuth flow. The connection owns a private loopback listener that accepts only a fresh per-connection credential. Connection failures leave the Runtime and running jobs alive while Luti retries automatically. To change the Tunnel ID or API key while connected or reconnecting, stop the Runtime, save the new configuration, then start again. Stopping ends running jobs and Luti-managed browser sessions. After changing system proxy settings, stop and start the Runtime as well.
+OpenAI uses its private, credential-bound loopback listener and outbound `tunnel-client`; Cloudflare adds an independent OAuth-protected listener for a named HTTPS domain. Either connection can start the runtime, and both may run together. Failed transports reconnect without restarting project jobs. Stop the runtime before changing connection settings; stopping also ends jobs and browser sessions. See [Cloudflare setup and authorization](docs/cloudflare.md).
 
 ## Capabilities
 
@@ -95,7 +96,7 @@ Luti keeps bounded execution activity in `~/.luti/` for diagnostics. Current-run
 | **Project scope** | File and project operations stay inside the active approved project |
 | **Permission mode** | Luti always uses `Full Project Access` within the selected folder; external operations retain their permission boundaries |
 | **Secrets** | Runtime credentials use macOS Keychain; sensitive values are redacted before persistence |
-| **Remote access** | Only the configured OpenAI tunnel reaches Luti; its listener is loopback-only and credential-bound |
+| **Remote access** | Separate loopback listeners: OpenAI uses a private transport credential; Cloudflare requires project-bound OAuth approved on this Mac |
 | **Git** | Public Git capability is read-only |
 | **Browser automation** | Luti owns its browser sessions; desktop capture and input are unavailable |
 | **Process execution** | `fullLocal` runs with your user privileges and is not an OS sandbox |
