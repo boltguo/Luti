@@ -57,7 +57,7 @@ Runtimeを起動する前に、ローカルでフォルダを選択します。
 |---|---|---|---|
 | **OpenAI Secure MCP Tunnel** | Tunnel ID + ランタイムAPIキー | ChatGPTワークスペースの関連付け | 公開Endpointなしで使うChatGPT |
 
-LutiのMCP接続はOpenAI Tunnelのみです。Lutiは固定バージョンでハッシュ検証済みの`tunnel-client`をダウンロードし、OpenAIへ送信方向で接続します。公開Listenerはなく、OAuthフローもありません。接続ごとの新しいCredentialだけを受け付けるLoopback専用Listenerを接続が所有します。接続障害が起きてもProject Runtimeと実行中のJobは停止せず、Runtimeを再起動せずに接続ページから再接続できます。
+LutiのMCP接続はOpenAI Tunnelのみです。Lutiは固定バージョンでハッシュ検証済みの`tunnel-client`をダウンロードし、OpenAIへ送信方向で接続します。公開Listenerはなく、OAuthフローもありません。接続ごとの新しいCredentialだけを受け付けるLoopback専用Listenerを接続が所有します。接続障害が起きてもRuntimeと実行中のJobは維持され、Lutiが自動的に再試行します。接続中または再接続中にTunnel IDやAPI Keyを変更する場合は、Runtimeを停止し、新しい設定を保存してから再起動してください。停止すると実行中のJobとLutiが管理するBrowser Sessionは終了します。システムのプロキシ設定を変更した後も、Runtimeの停止と再起動が必要です。
 
 ## 機能
 

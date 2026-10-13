@@ -57,7 +57,7 @@ flowchart TB
 |---|---|---|---|
 | **OpenAI Secure MCP Tunnel** | Tunnel ID + 运行 API Key | ChatGPT 工作区关联 | ChatGPT，无需公开入口 |
 
-Luti 只通过 OpenAI Tunnel 提供 MCP 接入。Luti 下载固定版本并校验哈希的 `tunnel-client`，由它主动连接 OpenAI；本机不对外监听，也没有 OAuth 流程。连接持有一个仅回环的私有监听，只接受每次连接新生成的凭据。连接出错时，项目 Runtime 和已运行的 Job 不受影响，可在连接页单独重连，无需重启 Runtime。
+Luti 只通过 OpenAI Tunnel 提供 MCP 接入。Luti 下载固定版本并校验哈希的 `tunnel-client`，由它主动连接 OpenAI；本机不对外监听，也没有 OAuth 流程。连接持有一个仅回环的私有监听，只接受每次连接新生成的凭据。连接出错时，Runtime 和运行中的 Job 会保留，Luti 会自动重试。在已连接或重连期间更换 Tunnel ID 或 API Key，需先停止 Runtime，保存新配置后再启动。停止会结束运行中的 Job 和 Luti 管理的浏览器会话。修改系统代理后也需停止并重新启动 Runtime。
 
 ## 能力
 
