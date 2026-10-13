@@ -14,11 +14,7 @@ public actor OpenAITunnelProvider: ConnectionProvider {
   private var logs: URL?
   private var metrics: URL?
   private var lastMetricsCheck: ContinuousClock.Instant?
-  private var logSeq = 0
-  /// Set once this client instance has authenticated to the control plane.
-  private var controlPlaneReached = false
-  /// The latest unrecovered poll failure; local readiness alone never reports it.
-  private var pollError: String?
+  private var pollState = PollState()
   private var lastProbe: (at: ContinuousClock.Instant, ready: Bool)?
   private var started = false
   private var stopped = false
@@ -63,9 +59,9 @@ public actor OpenAITunnelProvider: ConnectionProvider {
           await readLogs()
           // A verified key is enough to keep the client: it retries flaky polls
           // itself, and snapshot() reports them as reconnecting with the cause.
-          if controlPlaneReached {
+          if pollState.controlPlaneReached {
             guard !stopped, await process.running else { throw Failure.stopped }
-            lastProbe = (ContinuousClock.now, pollError == nil)
+            lastProbe = (ContinuousClock.now, pollState.pollError == nil)
             return
           }
         }
@@ -104,7 +100,7 @@ public actor OpenAITunnelProvider: ConnectionProvider {
     var ready = false
     if let health, await ConnectionProbe.ready(health) {
       await readLogs()
-      ready = controlPlaneReached && pollError == nil
+      ready = pollState.controlPlaneReached && pollState.pollError == nil
     }
     lastProbe = (ContinuousClock.now, ready)
     return ready
@@ -118,27 +114,60 @@ public actor OpenAITunnelProvider: ConnectionProvider {
     guard let logs, let response = try? await ConnectionProbe.request(logs, limit: 262_144),
       response.status == 200, let events = response.json["events"].array
     else { return }
-    let firstNew = events.compactMap { $0["seq"].int }.filter { $0 > logSeq }.min()
-    let missedEvents = logSeq > 0 && (firstNew ?? 0) > logSeq + 1
-    for event in events {
-      guard let seq = event["seq"].int, seq > logSeq else { continue }
-      logSeq = seq
-      switch event["message"].string {
-      case "tunnel metadata fetched":
-        controlPlaneReached = true
-      case "poller recovered; polling operational":
-        controlPlaneReached = true
+    let missedEvents = pollState.read(events)
+    guard missedEvents || !pollState.controlPlaneReached,
+      let last = await lastSuccessfulPoll() else { return }
+    pollState.recordSuccess(last, missedEvents: missedEvents)
+  }
+
+  /// Log ordering is authoritative; metrics may fill gaps only with newer evidence.
+  struct PollState {
+    private var logSeq = 0
+    private var lastFailureAt: Double?
+    private(set) var controlPlaneReached = false
+    private(set) var pollError: String?
+
+    mutating func read(_ events: [JSONValue], now: Date = Date()) -> Bool {
+      let firstNew = events.compactMap { $0["seq"].int }.filter { $0 > logSeq }.min()
+      let missedEvents = logSeq > 0 && (firstNew ?? 0) > logSeq + 1
+      for event in events {
+        guard let seq = event["seq"].int, seq > logSeq else { continue }
+        logSeq = seq
+        switch event["message"].string {
+        case "tunnel metadata fetched":
+          controlPlaneReached = true
+        case "poller recovered; polling operational":
+          controlPlaneReached = true
+          pollError = nil
+          lastFailureAt = nil
+        case "poll failed; backing off", "poll timed out; backing off":
+          pollError = OpenAITunnelProvider.pollReason(event["attrs"]["error"].string ?? "poll timed out")
+          // Go's time.Time JSON can include fractional seconds. If the timestamp
+          // is missing or invalid, conservatively use when we observed the failure.
+          let format = ISO8601DateFormatter()
+          format.formatOptions.insert(.withFractionalSeconds)
+          let time = event["time"].string ?? ""
+          let fractional = format.date(from: time)
+          format.formatOptions.remove(.withFractionalSeconds)
+          lastFailureAt = (fractional ?? format.date(from: time) ?? now).timeIntervalSince1970
+        default:
+          break
+        }
+      }
+      return missedEvents
+    }
+
+    mutating func recordSuccess(_ last: Double, missedEvents: Bool, now: Date = Date()) {
+      guard last.isFinite, last > 0 else { return }
+      controlPlaneReached = true
+      let age = now.timeIntervalSince1970 - last
+      // Metrics have whole-second precision; an equal timestamp cannot prove
+      // recovery. An explicit recovery event can still clear the failure.
+      if missedEvents, (0..<40).contains(age), last > (lastFailureAt ?? -.infinity) {
         pollError = nil
-      case "poll failed; backing off", "poll timed out; backing off":
-        pollError = Self.pollReason(event["attrs"]["error"].string ?? "poll timed out")
-      default:
-        break
+        lastFailureAt = nil
       }
     }
-    guard missedEvents || !controlPlaneReached, let last = await lastSuccessfulPoll() else { return }
-    controlPlaneReached = true
-    // A success within one long-poll window (30 s plus guardrail) means polling works now.
-    if missedEvents, Date().timeIntervalSince1970 - last < 40 { pollError = nil }
   }
 
   /// Unix time of this client's latest successful poll; at most one ~200 KB read per 2 s.
@@ -181,10 +210,10 @@ public actor OpenAITunnelProvider: ConnectionProvider {
   }
 
   private var notReadyMessage: String {
-    if let pollError {
+    if let pollError = pollState.pollError {
       return "Cannot reach OpenAI (\(pollError)). Retrying automatically; check the network or proxy. After changing proxy settings, stop and start Luti."
     }
-    return controlPlaneReached
+    return pollState.controlPlaneReached
       ? "OpenAI Tunnel is not ready. Retrying automatically."
       : "OpenAI Tunnel has not reached OpenAI yet. Check network access, runtime-key permissions and workspace association."
   }
@@ -200,7 +229,7 @@ public actor OpenAITunnelProvider: ConnectionProvider {
 
   private var startupFailure: Failure {
     Failure("openai_tunnel_unavailable",
-            "OpenAI Tunnel did not become ready." + (pollError.map { " Last error: \($0)." } ?? ""),
+             "OpenAI Tunnel did not become ready." + (pollState.pollError.map { " Last error: \($0)." } ?? ""),
             "Check the tunnel_id, runtime API key with Tunnels Read + Use, and the target workspace association.")
   }
 }

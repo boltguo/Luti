@@ -33,6 +33,7 @@ public final class OwnedProcess: @unchecked Sendable {
   public let terminalMode: String
   private let redactor: Redactor
   private let tailLimit = 65_536
+  private let redactionContext = 16_384
   public init(_ request: ProcessRequest, helper: URL, redactor: Redactor = Redactor()) throws {
     try ProcessPolicy.validate(request)
     guard helper.path.hasPrefix("/"), FileManager.default.isExecutableFile(atPath: helper.path)
@@ -221,7 +222,9 @@ public final class OwnedProcess: @unchecked Sendable {
         stderrHead.append(chunk.prefix(max(0, 16384 - stderrHead.count)))
         fullStderr.append(chunk.prefix(max(0, fullLimit - fullStderr.count)))
         stderr.append(chunk)
-        if stderr.count > tailLimit * 2 { stderr = Self.compactTail(stderr, keep: tailLimit) }
+        if stderr.count > tailLimit * 2 {
+          stderr = Self.compactTail(stderr, keep: tailLimit + redactionContext)
+        }
       } else {
         stdoutCount += chunk.count
         stdoutHead.append(chunk.prefix(max(0, 16384 - stdoutHead.count)))
@@ -233,7 +236,9 @@ public final class OwnedProcess: @unchecked Sendable {
         if urlBuffer.utf8.count > 8192 { urlBuffer = "" }
         fullStdout.append(chunk.prefix(max(0, fullLimit - fullStdout.count)))
         stdout.append(chunk)
-        if stdout.count > tailLimit * 2 { stdout = Self.compactTail(stdout, keep: tailLimit) }
+        if stdout.count > tailLimit * 2 {
+          stdout = Self.compactTail(stdout, keep: tailLimit + redactionContext)
+        }
       }
     }
   }
@@ -248,7 +253,9 @@ public final class OwnedProcess: @unchecked Sendable {
     }
   }
   private func cleanTail(_ data: Data) -> String {
-    let clean = redactor.clean(String(decoding: data, as: UTF8.self))
+    // Select the visible raw window before masking. Redaction can shorten the
+    // output; it must never pull the incomplete leading context into view.
+    let clean = masked(data, from: max(0, data.count - tailLimit), to: data.count)
     let suffix = Data(clean.utf8.suffix(tailLimit))
     return String(decoding: suffix, as: UTF8.self)
   }
@@ -256,8 +263,7 @@ public final class OwnedProcess: @unchecked Sendable {
   /// surrounding context, so a page boundary cannot split one out of recognition;
   /// offsets stay raw byte positions.
   private func masked(_ buffer: Data, from: Int, to end: Int) -> String {
-    let context = 16_384
-    let low = max(0, from - context), high = min(buffer.count, end + context)
+    let low = max(0, from - redactionContext), high = min(buffer.count, end + redactionContext)
     let base = buffer.startIndex
     let ranges = redactor.sensitiveRanges(buffer.subdata(in: base + low..<base + high))
     var output = Data()
@@ -308,7 +314,9 @@ public final class OwnedProcess: @unchecked Sendable {
           text = masked(full, from: offset, to: end)
           consumed = end - offset
         } else {
-          let availableFrom = max(0, total - tail.count)
+          let bufferStart = max(0, total - tail.count)
+          // The leading bytes are recognition context, not a readable log page.
+          let availableFrom = max(bufferStart, total - tailLimit)
           let effective: Int
           if offset < availableFrom {
             expired = true
@@ -318,7 +326,7 @@ public final class OwnedProcess: @unchecked Sendable {
             effective = offset
           }
           from = effective
-          let local = effective - availableFrom
+          let local = effective - bufferStart
           let end = min(tail.count, local + maxBytes)
           text = masked(tail, from: local, to: end)
           consumed = end - local

@@ -57,7 +57,7 @@ Select the active folder locally before starting the Runtime.
 |---|---|---|---|
 | **OpenAI Secure MCP Tunnel** | Tunnel ID + runtime API key | ChatGPT workspace association | ChatGPT, with no public endpoint |
 
-Luti exposes MCP through the OpenAI tunnel only. Luti downloads the pinned, checksum-verified `tunnel-client`, which connects outbound to OpenAI; nothing listens publicly and there is no OAuth flow. The connection owns a private loopback listener that accepts only a fresh per-connection credential. A connection failure leaves project tools and running jobs alive; reconnect from the Connections page without restarting the runtime.
+Luti exposes MCP through the OpenAI tunnel only. Luti downloads the pinned, checksum-verified `tunnel-client`, which connects outbound to OpenAI; nothing listens publicly and there is no OAuth flow. The connection owns a private loopback listener that accepts only a fresh per-connection credential. Connection failures leave the Runtime and running jobs alive while Luti retries automatically. To change the Tunnel ID or API key while connected or reconnecting, stop the Runtime, save the new configuration, then start again. Stopping ends running jobs and Luti-managed browser sessions. After changing system proxy settings, stop and start the Runtime as well.
 
 ## Capabilities
 

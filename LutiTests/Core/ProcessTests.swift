@@ -499,6 +499,85 @@ import XCTest
     await jobs.shutdown()
   }
 
+  func testCompactedLogSecretsStayRedactedInEveryToolResult() async throws {
+    let secret = "DEMO_CREDENTIAL_0123456789"
+    var output = String(repeating: "ok\n", count: 21_843) + "\n"
+    XCTAssertEqual(output.utf8.count, 65_530)
+    output += "api_key=\(secret)\npassword=你好\(secret)\n"
+    output += String(repeating: "x", count: 131_073 - output.utf8.count - 9) + "SAFE_END\n"
+    // Include cuts in the field name, value and multibyte value after compaction.
+    try await checkCompactedLog(output, offsets: [65_530, 65_537, 65_544, 65_573])
+  }
+
+  func testRedactionCannotExposeTheHiddenLeadingLogContext() async throws {
+    let secret = "DEMO_CREDENTIAL_0123456789"
+    var output = String(repeating: "x", count: 49_146) + "\napi_key=\(secret)\n"
+    output += String(repeating: "password=\(secret)\n", count: 3_000)
+    output = String(output.prefix(131_063)) + "\nSAFE_END\n"
+    // The retained raw buffer starts inside the first key. Redacting the many
+    // later credentials shrinks the text enough to expose it unless the visible
+    // window is chosen before masking.
+    try await checkCompactedLog(output, offsets: [65_537])
+  }
+
+  func testCompactedLogPagesBeyondOneMiBKeepContextPrivate() async throws {
+    let line = "api_key=DEMO_CREDENTIAL_0123456789 password=你好DEMO_CREDENTIAL_0123456789\n"
+    let output = String(repeating: line, count: 16_000) + "SAFE_END\n"
+    XCTAssertGreaterThan(output.utf8.count, 1_048_576 + 65_536)
+    let firstVisible = output.utf8.count - 65_536
+    // 1 MiB is expired; it must advance to the visible tail, not the context.
+    try await checkCompactedLog(output, offsets: [1_048_576, firstVisible, firstVisible + 7],
+                               expiredFrom: firstVisible)
+  }
+
+  private func checkCompactedLog(_ output: String, offsets: [Int], expiredFrom: Int? = nil) async throws {
+    let f = try Fixture(); defer { f.remove() }
+    try f.write("output.log", output)
+    let router = try f.router(execution: true)
+    addTeardownBlock { await router.stop() }
+    func check(_ result: ToolOutput, file: StaticString = #filePath, line: UInt = #line) {
+      XCTAssertFalse(result.isError, result.data.text(), file: file, line: line)
+      // MCP includes both structured output and the text fallback.
+      let text = result.mcp.text()
+      for fragment in ["DEMO", "CREDENTIAL", "0123456789"] {
+        XCTAssertFalse(text.contains(fragment), "Leaked \(fragment)", file: file, line: line)
+      }
+    }
+    let started = await router.callInCurrentProject("run_process", arguments: [
+      "program": "/bin/sh", "args": ["-c", "cat output.log; cat output.log >&2"], "syncWait": 3,
+    ])
+    check(started)
+    let id = try XCTUnwrap(started.data["jobId"].string)
+    let status = await router.callInCurrentProject("job_query", arguments: [
+      "action": "status", "jobId": .string(id), "waitMs": 5_000,
+    ])
+    check(status)
+    XCTAssertEqual(status.data["terminal"], true)
+    for stream in ["stdout", "stderr"] {
+      XCTAssertEqual(status.data[stream + "Bytes"].int, output.utf8.count)
+      XCTAssertTrue(status.data[stream + "Tail"].string?.hasSuffix("SAFE_END\n") == true)
+    }
+    let snapshot = await router.callInCurrentProject("job_query", arguments: ["action": "logs", "jobId": .string(id)])
+    check(snapshot)
+    for offset in offsets {
+      for size in [1, 7, 512] {
+        let page = await router.callInCurrentProject("job_query", arguments: [
+          "action": "logs", "jobId": .string(id), "stdoutOffset": .int(offset),
+          "stderrOffset": .int(offset), "maxBytes": .int(size),
+        ])
+        check(page)
+        for stream in ["stdout", "stderr"] {
+          let delta = page.data["delta"][stream]
+          let expected = max(offset, expiredFrom ?? offset)
+          XCTAssertEqual(delta["fromOffset"].int, expected)
+          XCTAssertEqual(delta["nextOffset"].int, expected + size)
+          if let expiredFrom, offset < expiredFrom { XCTAssertEqual(delta["cursorExpired"], true) }
+        }
+      }
+    }
+    await router.stop()
+  }
+
   func testChangedEnvironmentRejectsIdempotentReplay() async throws {
     let f = try Fixture(); defer { f.remove() }
     let jobs = JobManager(helper: Fixture.helper)

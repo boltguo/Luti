@@ -198,6 +198,63 @@ private actor FixtureProvider: ConnectionProvider {
       #"commands_poll_last_successful_timestamp_seconds{otel_scope_name="controlplane"} 0"#))
   }
 
+  func testLogGapCannotLetOlderSuccessEraseNewPollFailure() {
+    var state = OpenAITunnelProvider.PollState()
+    let now = Date(timeIntervalSince1970: 1_700_000_000)
+    XCTAssertFalse(state.read([["seq": 100, "message": "tunnel metadata fetched"]], now: now))
+    let missed = state.read([[
+      "seq": 202, "message": "poll failed; backing off",
+      "time": "2023-11-14T22:13:19.500Z", "attrs": ["error": "connection refused"],
+    ]], now: now)
+    XCTAssertTrue(missed)
+    state.recordSuccess(now.timeIntervalSince1970 - 20, missedEvents: missed, now: now)
+    XCTAssertTrue(state.controlPlaneReached)
+    XCTAssertEqual(state.pollError, "connection refused")
+    // Re-reading the same batch must not reset the failure's timestamp or state.
+    XCTAssertFalse(state.read([["seq": 202, "message": "poller recovered; polling operational"]], now: now))
+    XCTAssertEqual(state.pollError, "connection refused")
+  }
+
+  func testOnlyNewerRecentMetricsRecoverAMissedPollRecovery() {
+    var state = OpenAITunnelProvider.PollState()
+    let now = Date(timeIntervalSince1970: 1_700_000_000)
+    _ = state.read([["seq": 100, "message": "tunnel metadata fetched"]], now: now)
+    _ = state.read([[
+      "seq": 101, "message": "poll timed out; backing off",
+      "time": "2023-11-14T22:13:00Z",
+    ]], now: now)
+    let missed = state.read([["seq": 202, "message": "unrelated event"]], now: now)
+    XCTAssertTrue(missed)
+    for timestamp in [now.timeIntervalSince1970 - 50, now.timeIntervalSince1970 - 20,
+                      now.timeIntervalSince1970 + 1] {
+      state.recordSuccess(timestamp, missedEvents: missed, now: now)
+      XCTAssertNotNil(state.pollError, "Stale, equal or future metrics cannot prove recovery.")
+    }
+    state.recordSuccess(now.timeIntervalSince1970 - 1, missedEvents: missed, now: now)
+    XCTAssertNil(state.pollError)
+  }
+
+  func testUntimedFailureWaitsForNewEvidenceAndOrderedRecoveryStillWorks() {
+    var state = OpenAITunnelProvider.PollState()
+    let now = Date(timeIntervalSince1970: 1_700_000_000)
+    _ = state.read([["seq": 100, "message": "tunnel metadata fetched"]], now: now)
+    let missed = state.read([["seq": 202, "message": "poll failed; backing off"]], now: now)
+    state.recordSuccess(now.timeIntervalSince1970, missedEvents: missed, now: now)
+    XCTAssertNotNil(state.pollError)
+    _ = state.read([["seq": 203, "message": "poller recovered; polling operational"]], now: now)
+    XCTAssertNil(state.pollError)
+    _ = state.read([["seq": 204, "message": "poll failed; backing off"]], now: now)
+    XCTAssertNotNil(state.pollError, "A subsequent failure must replace the recovery.")
+  }
+
+  func testSuccessfulMetricsCanStillConfirmInitialAuthentication() {
+    var state = OpenAITunnelProvider.PollState()
+    let now = Date(timeIntervalSince1970: 1_700_000_000)
+    state.recordSuccess(now.timeIntervalSince1970 - 1, missedEvents: false, now: now)
+    XCTAssertTrue(state.controlPlaneReached)
+    XCTAssertNil(state.pollError)
+  }
+
   func testStaleRunDirectoriesAreRemovedAtLaunch() throws {
     let f = try Fixture(); defer { f.remove() }
     let stale = f.contextDataRoot.appendingPathComponent("runs/connection-stale", isDirectory: true)
