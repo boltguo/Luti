@@ -29,7 +29,7 @@ flowchart TB
     remote["ChatGPT"]
     tunnel["OpenAI Secure MCP Tunnel<br/>outbound only"]
     luti["Luti on your Mac"]
-    context["Local records<br/>Activity"]
+    context["Local records<br/>Memory · Activity"]
     tools["Local capabilities<br/>Files · Git · Process · Browser"]
     project["One approved project"]
 
@@ -38,7 +38,7 @@ flowchart TB
     luti --> tools --> project
 ```
 
-It can read and edit files, run builds and tests, inspect Git, drive a browser and export artifacts. All of these operations run on your Mac.
+It can read and edit files, run builds and tests, inspect Git, drive a browser, export artifacts, and maintain project memory across AI clients. All of these operations run on your Mac.
 
 ## Get started
 
@@ -62,10 +62,11 @@ OpenAI uses its private, credential-bound loopback listener and outbound `tunnel
 
 ## Capabilities
 
-Luti exposes **24 public MCP tools** across seven domains. MCP uses the folder selected locally, with no `projects`, `memory` or `skills` tool.
+Luti exposes **25 public MCP tools** across seven domains. MCP uses the folder selected locally, with no `projects` or `skills` tool.
 
 | Domain | Public tools | Scope |
 |---|---|---|
+| Memory | `memory` | Project `MEMORY.md` index and topic `.md` decision files (`index`, `read`, `write`, `delete`) |
 | Project | `project_info`, `inspect_project`, `runtime_status` | Current workspace, discovery, runtime state |
 | Files & Code | `list_directory`, `read_files`, `read_image`, `search_project`, `edit_files`, `path_action`, `code_query` | Search, read, edit, move, structured code queries |
 | Process & Jobs | `run_process`, `run_shell`, `job_query`, `job_action` | Builds, tests, long jobs, logs, PTY input, stop |
@@ -75,7 +76,7 @@ Luti exposes **24 public MCP tools** across seven domains. MCP uses the folder s
 
 Project-specific behavior comes from the project's own manifest, instructions, and tasks rather than an expanding public tool set.
 
-Start with `project_info` for the current workspace and `projectToken`. Project writes, command execution, browser mutations and Job input require this token. It changes after selecting a different folder locally or restarting the Runtime; re-observe the intended workspace after a mismatch. Stopping an owned Job remains available without a current token.
+Start with `project_info` for the current workspace and `projectToken`. Project writes, memory mutations (`write`/`delete`), command execution, browser mutations and Job input require this token. It changes after selecting a different folder locally or restarting the Runtime; re-observe the intended workspace after a mismatch. Stopping an owned Job remains available without a current token.
 
 `code_query` starts an installed language server and requires the current `projectToken`; the server may have side effects.
 
@@ -87,7 +88,7 @@ Job results separate process completion from recognized test results and record 
 
 ## Local records
 
-Luti keeps bounded execution activity in `~/.luti/` for diagnostics. Current-run changed paths and job validation stay in memory. It does not persist sessions, memory or file recovery data, and does not write runtime metadata into the project repository.
+Luti stores per-project memory (`MEMORY.md` index and topic `.md` decision files) and bounded execution activity in `~/.luti/`. Current-run changed paths and job validation stay in memory. It does not persist session journals or file recovery data, and does not write runtime metadata into the project repository.
 
 ## Security and privacy
 

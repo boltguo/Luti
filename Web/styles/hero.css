@@ -58,14 +58,18 @@
 .factory__station[aria-pressed="true"] .factory__pad { fill: var(--wash); stroke: var(--tone); }
 .factory__indicator { fill: var(--tone); opacity: .35; transition: opacity 180ms, transform 180ms; transform-box: fill-box; transform-origin: center; }
 .factory__station.is-working .factory__indicator { opacity: 1; transform: scale(1.25); }
-.st-mem__blade, .st-code__sheet, .st-browser__shot { transition: transform 280ms var(--ease-expressive), opacity 220ms; }
-.factory__station.is-acting .st-mem__blade, .factory__station.is-acting .st-code__sheet { transform: translateY(-8px); }
+.st-mem__blade, .st-code__sheet, .st-art__crate, .st-browser__shot { transition: transform 280ms var(--ease-expressive), opacity 220ms; }
+.factory__station.is-acting .st-mem__blade, .factory__station.is-acting .st-code__sheet, .factory__station.is-acting .st-art__crate { transform: translateY(-8px); }
 .st-mem__new { opacity: .55; transition: opacity 220ms; }
 .factory__station.is-acting .st-mem__new, .factory__station[aria-pressed="true"] .st-mem__new { opacity: 1; }
+.st-git__branch { opacity: .5; transition: opacity 220ms; }
+.factory__station.is-acting .st-git__branch, .factory__station[aria-pressed="true"] .st-git__branch { opacity: 1; }
 .st-code__add { opacity: .45; transition: opacity 220ms; }
 .factory__station.is-acting .st-code__add, .factory__station[aria-pressed="true"] .st-code__add { opacity: 1; }
 .st-term__pass { opacity: .45; transition: opacity 220ms; }
 .factory__station.is-acting .st-term__pass, .factory__station[aria-pressed="true"] .st-term__pass { opacity: 1; }
+.st-art__badge { opacity: .5; transition: opacity 220ms; }
+.factory__station.is-acting .st-art__badge, .factory__station[aria-pressed="true"] .st-art__badge { opacity: 1; }
 .st-browser__finder { opacity: 0; transition: opacity 200ms; }
 .factory__station.is-acting .st-browser__finder { opacity: 1; }
 .st-browser__flash { opacity: 0; transition: opacity 110ms; pointer-events: none; }
@@ -108,7 +112,7 @@
   .appbar .menu__trigger { padding-inline: 6px; }
   .appbar a.appbar__icon[href="https://github.com/boltguo/Luti"] { display: none; }
   .factory { margin-inline: 0; width: 100%; }
-  .factory__scene { aspect-ratio: 900 / 1170; height: auto; }
+  .factory__scene { aspect-ratio: 900 / 1360; height: auto; }
   .factory__label { font-size: 24px; }
   .factory__station--hub .factory__label { font-size: 30px; }
   .factory__boundary text { font-size: 18px; }

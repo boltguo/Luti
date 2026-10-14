@@ -29,7 +29,7 @@ flowchart TB
     remote["ChatGPT"]
     tunnel["OpenAI Secure MCP Tunnel<br/>仅出站连接"]
     luti["这台 Mac 上的 Luti"]
-    context["本地记录<br/>Activity"]
+    context["本地记录<br/>Memory · Activity"]
     tools["本地能力<br/>Files · Git · Process · Browser"]
     project["一个已授权项目"]
 
@@ -38,7 +38,7 @@ flowchart TB
     luti --> tools --> project
 ```
 
-它可以读写文件、运行构建和测试、查看 Git、操作浏览器、导出产物。这些操作都在你的 Mac 上完成。
+它可以读写文件、运行构建和测试、查看 Git、操作浏览器、导出产物，并在多个 AI 客户端之间共享项目记忆。这些操作都在你的 Mac 上完成。
 
 ## 快速开始
 
@@ -62,10 +62,11 @@ OpenAI 使用独立的回环监听和每次连接新生成的私有凭据，通�
 
 ## 能力
 
-Luti 对外暴露 **24 个 MCP Tool**，分为 6 个领域。MCP 使用本地选定的文件夹，不提供 `projects`、`memory` 或 `skills` 工具。
+Luti 对外暴露 **25 个 MCP Tool**，分为 7 个领域。MCP 使用本地选定的文件夹，不提供 `projects` 或 `skills` 工具。
 
 | 领域 | Public Tools | 范围 |
 |---|---|---|
+| Memory | `memory` | 项目 `MEMORY.md` 索引与独立 `.md` 决策文档（`index`、`read`、`write`、`delete`） |
 | Project | `project_info`, `inspect_project`, `runtime_status` | 当前目录、发现、Runtime 状态 |
 | Files & Code | `list_directory`, `read_files`, `read_image`, `search_project`, `edit_files`, `path_action`, `code_query` | 搜索、读取、编辑、移动、结构化代码查询 |
 | Process & Jobs | `run_process`, `run_shell`, `job_query`, `job_action` | 构建、测试、长任务、日志、PTY 输入、停止 |
@@ -75,7 +76,7 @@ Luti 对外暴露 **24 个 MCP Tool**，分为 6 个领域。MCP 使用本地选
 
 项目专属能力由项目自己的 manifest、instructions 和 tasks 提供，无需不断增加 Public Tool。
 
-先调用 `project_info`，取得当前目录信息与 `projectToken`。项目写入、命令执行、浏览器修改和 Job 输入需携带该标识；在本地选择其他文件夹或重启 Runtime 后会失效。遇到失配应重新观察并确认目标目录。停止仍归 Runtime 管理的 Job 不受旧标识阻碍。
+先调用 `project_info`，取得当前目录信息与 `projectToken`。项目写入、记忆修改（`write`/`delete`）、命令执行、浏览器修改和 Job 输入需携带该标识；在本地选择其他文件夹或重启 Runtime 后会失效。遇到失配应重新观察并确认目标目录。停止仍归 Runtime 管理的 Job 不受旧标识阻碍。
 
 `code_query` 会启动已安装的语言服务，需要当前 `projectToken`；语言服务可能产生副作用。
 
@@ -87,7 +88,7 @@ Job 结果区分进程完成与识别到的测试结果，并记录有限范围�
 
 ## 本地记录
 
-Luti 只保留有容量限制的执行活动，存放于 `~/.luti/`，用于排查工具调用问题。本次运行的改动文件和任务验证状态保存在内存中。不会保存会话、记忆或文件恢复数据，也不会向项目仓库写入 Runtime 元数据。
+Luti 在 `~/.luti/` 中按项目保存 `MEMORY.md` 索引与独立 `.md` 决策文档，以及有容量限制的执行活动日志。本次运行的改动文件和任务验证状态保存在内存中。不会保存会话记录或文件恢复数据，也不会向项目仓库写入 Runtime 元数据。
 
 ## 安全与隐私
 

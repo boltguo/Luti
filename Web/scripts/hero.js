@@ -16,18 +16,22 @@
   const NS = 'http://www.w3.org/2000/svg';
   const S = Math.tan(Math.PI / 6);
   const clients = ['chatgpt', 'claude', 'grok'];
-  const tools = ['memory', 'code', 'terminal', 'browser'];
+  const tools = ['memory', 'git', 'code', 'terminal', 'browser', 'artifacts'];
   const scenarios = [
     { client: 'chatgpt', tool: 'code' },
     { client: 'claude', tool: 'memory' },
+    { client: 'chatgpt', tool: 'git' },
     { client: 'grok', tool: 'terminal' },
-    { client: 'chatgpt', tool: 'browser' },
+    { client: 'claude', tool: 'browser' },
+    { client: 'grok', tool: 'artifacts' },
   ];
   const toolMeta = {
-    memory: { short: 'git_query' },
+    memory: { short: 'memory' },
+    git: { short: 'git_query' },
     code: { short: 'edit_files' },
     terminal: { short: 'run_process' },
     browser: { short: 'browser_observe' },
+    artifacts: { short: 'export_artifact' },
   };
   const palette = {
     chatgpt: { ink: '#237b65', top: '#def2e7', front: '#87c9aa', side: '#54a98a', wash: '#ecf8f0' },
@@ -35,9 +39,11 @@
     grok: { ink: '#475464', top: '#cad3df', front: '#718095', side: '#465467', wash: '#edf1f6' },
     luti: { ink: '#8761b5', top: '#efe2fa', front: '#c7aadf', side: '#a184bf', wash: '#f6edfc' },
     memory: { ink: '#779250', top: '#edf2d9', front: '#bdcf90', side: '#99b273', wash: '#f5f8e9' },
+    git: { ink: '#c0634b', top: '#fde7e0', front: '#eaa795', side: '#cf7f6a', wash: '#fff3ef' },
     code: { ink: '#507ebc', top: '#e0edfc', front: '#9cbce9', side: '#729bce', wash: '#eef5fd' },
     terminal: { ink: '#ad8434', top: '#fcf0ce', front: '#e6c578', side: '#c7a054', wash: '#fff8e7' },
     browser: { ink: '#388d99', top: '#d9f2f2', front: '#91cdd0', side: '#5baeb8', wash: '#ecf9f8' },
+    artifacts: { ink: '#a45a82', top: '#f8e2ee', front: '#dd9fc0', side: '#bf799f', wash: '#fdf1f7' },
   };
   const t = key => (window.lutiI18n ? window.lutiI18n.t(key) : key);
   const n = value => Math.round(value * 100) / 100;
@@ -112,18 +118,9 @@
 
   const builders = {
     chatgpt(g, c) {
-      // Isometric ChatGPT Studio: emerald pavilion + front chat screen + OpenAI blossom dome
+      // Isometric ChatGPT Studio: clean emerald cube + front chat screen (no roof dome or logo)
       pad(g, c, 60, 52);
       cube(g, -44, -32, 0, 80, 66, 68, c);
-      const [dx, dy] = P(-4, 1, 68);
-      svg('path', { d: `M${dx - 44} ${dy}C${dx - 44} ${dy - 46} ${dx + 44} ${dy - 46} ${dx + 44} ${dy}Q${dx} ${dy + 16} ${dx - 44} ${dy}Z`, fill: c.front, stroke: c.ink, 'stroke-width': 1.3 }, g);
-      // OpenAI 6-petal emblem on dome
-      const badge = svg('g', { transform: `translate(${dx} ${dy - 17}) scale(.8)` }, g);
-      svg('circle', { r: 16, fill: c.ink }, badge);
-      for (let i = 0; i < 6; i++) {
-        svg('ellipse', { cx: 0, cy: -5.5, rx: 5.2, ry: 9, transform: `rotate(${i * 60})`, fill: 'none', stroke: '#ecfff4', 'stroke-width': 1.25 }, badge);
-      }
-      // Chat screen flush on front-left wall (v = 34.5, z = 14..60)
       const scr = face(g, -38, 34.5, 60);
       svg('rect', { width: 66, height: 44, rx: 3.5, fill: '#f8fffb', stroke: c.ink, 'stroke-width': 1.3 }, scr);
       svg('rect', { x: 1, y: 1, width: 64, height: 8, rx: 2.5, fill: c.top }, scr);
@@ -140,18 +137,9 @@
       dock(g, c, true);
     },
     claude(g, c) {
-      // Isometric Claude Atelier: dual-pane Chat + Artifact studio & sunburst medallion
+      // Isometric Claude Studio: clean terracotta cube + dual-pane chat screen (no roof tier or logo)
       pad(g, c, 62, 52);
       cube(g, -46, -32, 0, 82, 66, 66, c);
-      cube(g, -36, -22, 66, 62, 46, 12, c);
-      // Claude 10-ray sunburst medallion on roof
-      const [bx, by] = P(-5, 1, 86);
-      svg('circle', { cx: bx, cy: by, r: 14, fill: '#fff6ec', stroke: c.ink, 'stroke-width': 1.4 }, g);
-      for (let i = 0; i < 10; i++) {
-        const a = (i * Math.PI) / 5;
-        line(g, [bx + Math.cos(a) * 3, by + Math.sin(a) * 3], [bx + Math.cos(a) * 10, by + Math.sin(a) * 10], c.ink, 2.1);
-      }
-      // Dual-pane Claude Workspace Screen flush on front-left wall (v = 34.5, z = 14..58)
       const scr = face(g, -39, 34.5, 58);
       svg('rect', { width: 68, height: 44, rx: 3.5, fill: '#fffaf4', stroke: c.ink, 'stroke-width': 1.3 }, scr);
       svg('rect', { x: 1, y: 1, width: 66, height: 8, rx: 2.5, fill: c.top }, scr);
@@ -171,21 +159,22 @@
       dock(g, c, true);
     },
     grok(g, c) {
-      // Isometric Grok Dark-Mode Console & Orbital Telemetry Tower
-      pad(g, c, 58, 52);
-      cube(g, -36, -30, 0, 72, 60, 14, c);
-      polygon(g, [P(-30, 26, 14), P(32, 26, 14), P(32, 26, 102), P(-30, 26, 76)], c.side, c.ink);
-      polygon(g, [P(32, 26, 14), P(32, -23, 14), P(32, -23, 124), P(32, 26, 102)], c.front, c.ink);
-      polygon(g, [P(-30, -23, 98), P(32, -23, 124), P(32, 26, 102), P(-30, 26, 76)], c.top, c.ink);
-      const scr = face(g, -25, 27, 72);
-      svg('rect', { width: 52, height: 38, rx: 3.5, fill: '#1c2430', stroke: c.ink, 'stroke-width': 1.2 }, scr);
-      svg('path', { d: 'M7 22 20 8M8 9l5 5m4 4 4 4', fill: 'none', stroke: '#fff', 'stroke-width': 2.5, 'stroke-linecap': 'round' }, scr);
-      svg('rect', { x: 24, y: 8, width: 22, height: 6, rx: 2.5, fill: '#4b5f78' }, scr);
-      svg('rect', { x: 22, y: 16.5, width: 24, height: 7.5, rx: 2.5, fill: '#2d3b4e' }, scr);
-      svg('rect', { x: 6, y: 28, width: 40, height: 5.5, rx: 2.5, fill: '#121820', stroke: '#4b5f78', 'stroke-width': .8 }, scr);
-      line(g, [6, -110], [6, -134], c.ink, 2);
-      svg('ellipse', { cx: 6, cy: -134, rx: 34, ry: 10.5, transform: 'rotate(-20 6 -134)', fill: 'none', stroke: c.ink, 'stroke-width': 2.4 }, g);
-      svg('circle', { cx: 6, cy: -134, r: 4.8, fill: '#f8fcff', stroke: c.ink, 'stroke-width': 2, class: 'factory__indicator' }, g);
+      // Isometric Grok Studio: clean slate cube + dark-mode chat screen (no roof antenna or logo)
+      pad(g, c, 60, 52);
+      cube(g, -44, -32, 0, 80, 66, 66, c);
+      const scr = face(g, -38, 34.5, 58);
+      svg('rect', { width: 66, height: 44, rx: 3.5, fill: '#1c2430', stroke: c.ink, 'stroke-width': 1.3 }, scr);
+      svg('rect', { x: 1, y: 1, width: 64, height: 8, rx: 2.5, fill: '#283344' }, scr);
+      for (const [cx, col] of [[5.5, '#e08b7e'], [10.5, '#e8c478'], [15.5, '#7ec29d']]) {
+        svg('circle', { cx, cy: 5, r: 1.5, fill: col }, scr);
+      }
+      svg('rect', { x: 24, y: 12, width: 35, height: 7, rx: 3.2, fill: '#4b5f78' }, scr);
+      svg('rect', { x: 28, y: 14.5, width: 25, height: 2, rx: 1, fill: '#e8eef5' }, scr);
+      svg('rect', { x: 5, y: 21.5, width: 42, height: 10, rx: 3.2, fill: '#263244', stroke: '#4b5f78', 'stroke-width': .9 }, scr);
+      svg('rect', { x: 9, y: 24.2, width: 24, height: 2, rx: 1, fill: '#d6e1ee' }, scr);
+      svg('rect', { x: 9, y: 27.8, width: 32, height: 2, rx: 1, fill: '#7f93ad' }, scr);
+      svg('rect', { x: 5, y: 34.5, width: 56, height: 6.5, rx: 3.2, fill: '#121820', stroke: '#4b5f78', 'stroke-width': .9 }, scr);
+      svg('circle', { cx: 56.5, cy: 37.8, r: 2.2, fill: '#94a8c2', class: 'factory__indicator' }, scr);
       dock(g, c, false);
     },
     luti(g, c) {
@@ -193,13 +182,17 @@
       pad(g, c, 72, 62);
       cube(g, -48, -36, 0, 92, 72, 86, c);
       cube(g, -42, -30, 86, 80, 60, 12, c);
-      // 4 color-coded tool dispatch pads on roof
-      for (const [u, v, col] of [[-28, -18, '#95b06d'], [2, -18, '#6e98cc'], [-28, 2, '#c59d4e'], [2, 2, '#56aab4']]) {
-        polygon(g, [P(u, v, 98.5), P(u + 18, v, 98.5), P(u + 18, v + 13, 98.5), P(u, v + 13, 98.5)], col, c.ink);
+      // 6 color-coded tool dispatch pads on roof
+      for (const [u, v, col] of [
+        [-32, -18, '#95b06d'],
+        [-8, -18, '#d98c78'],
+        [16, -18, '#6e98cc'],
+        [-32, 2, '#c59d4e'],
+        [-8, 2, '#56aab4'],
+        [16, 2, '#c985ab'],
+      ]) {
+        polygon(g, [P(u, v, 98.5), P(u + 16, v, 98.5), P(u + 16, v + 13, 98.5), P(u, v + 13, 98.5)], col, c.ink);
       }
-      const [bx, by] = P(-2, -3, 112);
-      line(g, P(-2, -3, 98), [bx, by], c.ink, 2);
-      svg('circle', { cx: bx, cy: by, r: 5.5, fill: c.ink, class: 'factory__indicator' }, g);
       // Luti Runtime Control Screen flush on upper front-left wall (v = 36.5, z = 34..80)
       const scr = face(g, -39, 36.5, 80);
       svg('rect', { width: 72, height: 44, rx: 4, fill: '#fcf9ff', stroke: c.ink, 'stroke-width': 1.4 }, scr);
@@ -211,8 +204,8 @@
       svg('path', { d: 'M11 17v8h6', fill: 'none', stroke: '#fff', 'stroke-width': 2.4, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, scr);
       svg('rect', { x: 26, y: 14, width: 38, height: 5.5, rx: 2.5, fill: c.top }, scr);
       svg('rect', { x: 26, y: 22, width: 28, height: 5, rx: 2.5, fill: '#dcefe3' }, scr);
-      for (const [idx, col] of ['#779250', '#507ebc', '#ad8434', '#388d99'].entries()) {
-        svg('rect', { x: 6 + idx * 15.5, y: 33, width: 13, height: 6, rx: 2.5, fill: col }, scr);
+      for (const [idx, col] of ['#779250', '#c0634b', '#507ebc', '#ad8434', '#388d99', '#a45a82'].entries()) {
+        svg('rect', { x: 5.5 + idx * 10.4, y: 33, width: 8.6, height: 6, rx: 2, fill: col }, scr);
       }
       // Inbound Tunnel gate & Outbound Tool gate
       cube(g, -22, 36, 0, 28, 18, 26, c);
@@ -249,6 +242,32 @@
       for (const [nx, ny] of [[12, 34], [30, 31], [48, 35]]) {
         svg('circle', { cx: nx, cy: ny, r: 3, fill: '#fff', stroke: c.ink, 'stroke-width': 1.4 }, activeCard);
       }
+      dock(g, c, false);
+    },
+    git(g, c) {
+      // Isometric Project & Git Observatory: Stack Detector + Branch & Commit Graph
+      pad(g, c, 62, 54);
+      cube(g, -44, -32, 0, 86, 64, 70, c);
+      cube(g, -34, -22, 70, 66, 44, 10, c);
+      const scr = face(g, -38, 33, 64);
+      svg('rect', { width: 70, height: 42, rx: 3.5, fill: '#fffaf8', stroke: c.ink, 'stroke-width': 1.3 }, scr);
+      svg('rect', { x: 1, y: 1, width: 68, height: 8, rx: 2.5, fill: c.top }, scr);
+      for (const [cx, col] of [[5.5, '#e08b7e'], [10.5, '#e8c478'], [15.5, '#7ec29d']]) {
+        svg('circle', { cx, cy: 5, r: 1.5, fill: col }, scr);
+      }
+      svg('rect', { x: 22, y: 3.6, width: 26, height: 2.6, rx: 1.3, fill: c.ink }, scr);
+      // Main branch & feature branch graph
+      line(scr, [12, 16], [56, 16], c.side, 2.2);
+      const branch = svg('g', { class: 'st-git__branch' }, scr);
+      svg('path', { d: 'M20 16C26 16 27 27 33 27H47C52 27 53 16 56 16', fill: 'none', stroke: c.ink, 'stroke-width': 2.2, 'stroke-linecap': 'round' }, branch);
+      for (const [cx, cy] of [[14, 16], [26, 16], [56, 16]]) {
+        svg('circle', { cx, cy, r: 3, fill: '#fff', stroke: c.side, 'stroke-width': 1.8 }, scr);
+      }
+      for (const [cx, cy] of [[34, 27], [46, 27]]) {
+        svg('circle', { cx, cy, r: 3.2, fill: c.top, stroke: c.ink, 'stroke-width': 1.8 }, branch);
+      }
+      svg('rect', { x: 8, y: 33, width: 24, height: 5, rx: 2, fill: c.top }, scr);
+      svg('rect', { x: 35, y: 33, width: 26, height: 5, rx: 2, fill: '#dcf0b4' }, branch);
       dock(g, c, false);
     },
     code(g, c) {
@@ -342,6 +361,29 @@
       }
       dock(g, c, false);
     },
+    artifacts(g, c) {
+      // Isometric Artifact Exchange Depot: 3D Resource Crates + Preview/PDF Transfer Screen
+      pad(g, c, 62, 54);
+      cube(g, -44, -32, 0, 86, 64, 66, c);
+      const crate = svg('g', { class: 'st-art__crate' }, g);
+      cube(crate, -28, -18, 66, 54, 36, 18, c);
+      polygon(crate, [P(-6, -18, 84.3), P(4, -18, 84.3), P(4, 18, 84.3), P(-6, 18, 84.3)], '#fff5fa', c.ink);
+      const scr = face(g, -38, 33, 60);
+      svg('rect', { width: 70, height: 40, rx: 3.5, fill: '#fff9fc', stroke: c.ink, 'stroke-width': 1.3 }, scr);
+      svg('rect', { x: 1, y: 1, width: 68, height: 7.5, rx: 2.5, fill: c.top }, scr);
+      for (const [cx, col] of [[5.5, '#e08b7e'], [10.5, '#e8c478'], [15.5, '#7ec29d']]) {
+        svg('circle', { cx, cy: 4.8, r: 1.4, fill: col }, scr);
+      }
+      svg('rect', { x: 5, y: 12, width: 28, height: 22, rx: 2.5, fill: c.top, stroke: c.side, 'stroke-width': .9 }, scr);
+      svg('circle', { cx: 13, cy: 18, r: 2.4, fill: c.ink }, scr);
+      svg('path', { d: 'm8 30 7-7 5 4 5-5 5 8Z', fill: c.front }, scr);
+      const badge = svg('g', { class: 'st-art__badge' }, scr);
+      svg('rect', { x: 38, y: 12, width: 26, height: 10, rx: 2.5, fill: '#dcf0b4', stroke: c.ink, 'stroke-width': .9 }, badge);
+      svg('rect', { x: 42, y: 15.8, width: 18, height: 2.4, rx: 1.2, fill: c.ink }, badge);
+      svg('rect', { x: 38, y: 25, width: 26, height: 9, rx: 2.5, fill: '#fff', stroke: c.side, 'stroke-width': .9 }, scr);
+      svg('rect', { x: 42, y: 28.5, width: 16, height: 2.2, rx: 1.1, fill: c.side }, scr);
+      dock(g, c, false);
+    },
   };
 
   const ports = {
@@ -350,9 +392,11 @@
     grok: { out: P(-8, 52) },
     luti: { in: P(-8, 54), out: P(60, -8) },
     memory: { in: P(-8, 52) },
+    git: { in: P(-8, 52) },
     code: { in: P(-8, 52) },
     terminal: { in: P(-8, 52) },
     browser: { in: P(-8, 52) },
+    artifacts: { in: P(-8, 52) },
   };
 
   for (const node of nodes) {
@@ -365,6 +409,7 @@
   }
 
   let groundRoutes = {};
+  let spurRoutes = [];
   let paths = {};
   let inbound = {};
   let positions = {};
@@ -394,18 +439,20 @@
   function toastAnchor(target) {
     const [x, y] = positions[target];
     const offsets = {
-      chatgpt: [0, -122],
-      claude: [0, -122],
-      grok: [0, -130],
-      luti: [0, -158],
+      chatgpt: [0, -106],
+      claude: [0, -106],
+      grok: [0, -106],
+      luti: [0, -142],
       memory: [4, -144],
+      git: [2, -124],
       code: [6, -142],
-      terminal: [0, -130],
+      terminal: [0, -124],
       browser: [-2, -134],
+      artifacts: [0, -128],
     };
-    const [dx, dy] = offsets[target] || [0, -124];
+    const [dx, dy] = offsets[target] || [0, -120];
     if (compact.matches) {
-      const cx = target === 'chatgpt' || target === 'code' ? 24 : target === 'grok' || target === 'browser' ? -24 : dx;
+      const cx = target === 'chatgpt' || target === 'git' || target === 'terminal' ? 24 : target === 'grok' || target === 'memory' || target === 'code' || target === 'browser' ? -24 : dx;
       return [x + cx, y + dy];
     }
     return [x + dx, y + dy];
@@ -469,41 +516,51 @@
   function layout() {
     positions = {};
     if (!compact.matches) {
-      const origin = [470, 366];
+      const origin = [450, 366];
       const project = p => add(world(p), origin);
       const clientLanes = {
         chatgpt: [[-245, 0], [0, 0]],
         claude: [[-65, -205], [0, -205], [0, 0]],
         grok: [[160, -145], [160, -205], [0, -205], [0, 0]],
-        tunnel: [[0, 0], [0, 205]],
+        tunnel: [[0, 0], [0, 190]],
       };
+      // Open-ended side branches on the left road indicating more AI clients/tools can connect
+      const clientSpurs = [
+        [[-125, 0], [-125, 130], [-195, 130]],
+        [[55, -205], [55, -295]],
+      ];
       groundRoutes = Object.fromEntries(Object.entries(clientLanes).map(([name, ps]) => [name, ps.map(p => plane(project(p)))]));
+      spurRoutes = clientSpurs.map(ps => ps.map(p => plane(project(p))));
       for (const name of clients) position(name, project(clientLanes[name][0]), ports[name].out);
       position('luti', project(clientLanes.tunnel.at(-1)), ports.luti.in);
       const outlet = add(positions.luti, ports.luti.out);
       const local = {
-        memory: [[0, 0], [70, 0], [70, 255]],
-        code: [[0, 0], [70, 0], [280, 0], [280, 275]],
-        browser: [[0, 0], [70, 0], [280, 0], [430, 0], [430, 55]],
-        terminal: [[0, 0], [115, 0], [115, -225], [260, -225], [260, -185]],
+        memory: [[0, 0], [5, 0], [5, 255]],
+        git: [[0, 0], [215, 0], [215, 80]],
+        code: [[0, 0], [125, 0], [125, 280], [265, 280], [265, 370]],
+        artifacts: [[0, 0], [455, 0], [455, 55]],
+        terminal: [[0, 0], [70, 0], [70, -205], [155, -205], [155, -165]],
+        browser: [[0, 0], [260, 0], [260, -235], [385, -235], [385, -195]],
       };
       for (const [name, ps] of Object.entries(local)) {
         groundRoutes[name] = ps.map(p => plane(add(world(p), outlet)));
         position(name, world(groundRoutes[name].at(-1)), ports[name].in);
       }
-      scene.setAttribute('viewBox', '0 0 1600 650');
-      setBoundary(638, 22, 957, 580, 668, 16, 72, 16);
-      tunnelNode.setAttribute('transform', 'translate(513 254)');
+      scene.setAttribute('viewBox', '0 -84 1600 772');
+      setBoundary(602, -62, 994, 742, 634, -70, 72, -70);
+      tunnelNode.setAttribute('transform', 'translate(492 260)');
     } else {
       positions = {
         chatgpt: [140, 205],
         claude: [437, 173],
         grok: [745, 215],
         luti: [410, 514],
-        memory: [699, 675],
-        code: [204, 862],
-        terminal: [444, 1050],
-        browser: [736, 988],
+        memory: [705, 670],
+        git: [204, 790],
+        code: [715, 920],
+        terminal: [210, 1045],
+        browser: [720, 1155],
+        artifacts: [440, 1235],
       };
       const gate = name => add(positions[name], ports[name].out);
       const junction = [232, 405];
@@ -515,14 +572,18 @@
         grok: isoRoute(gate('grok'), junction, 'v'),
         tunnel: isoRoute(junction, entry),
       };
-      const trunk = isoRoute(exit, [446, 734]);
+      spurRoutes = [
+        isoRoute([120, 355], junction),
+        isoRoute([580, 345], [450, 345]),
+      ];
+      const trunk = isoRoute(exit, [446, 920]);
       for (const name of tools) {
         const target = add(positions[name], ports[name].in);
         const approach = [target[0] - 72, target[1] + 72 * S];
         groundRoutes[name] = [...trunk, ...isoRoute(world(trunk.at(-1)), approach).slice(1), plane(target)];
       }
-      scene.setAttribute('viewBox', '0 0 900 1170');
-      setBoundary(55, 367, 789, 779, 84, 354, 50, 43);
+      scene.setAttribute('viewBox', '0 0 900 1360');
+      setBoundary(55, 367, 789, 965, 84, 354, 50, 43);
       tunnelNode.setAttribute('transform', 'translate(141 474)');
     }
     for (const node of nodes) node.setAttribute('transform', `translate(${positions[node.dataset.node].map(n).join(' ')})`);
@@ -548,7 +609,7 @@
   function drawLanes() {
     laneLayer.replaceChildren();
     const ground = svg('g', { transform: `matrix(1 ${S} 1 ${-S} 0 0)`, fill: 'none', 'stroke-linejoin': 'miter', 'stroke-miterlimit': 2 }, laneLayer);
-    const all = Object.values(groundRoutes);
+    const all = [...Object.values(groundRoutes), ...spurRoutes];
     for (const ps of all) svg('path', { d: pathData(ps), stroke: '#bdcbbd', 'stroke-width': 25 }, ground);
     for (const ps of all) svg('path', { d: pathData(ps), stroke: '#f0f4eb', 'stroke-width': 22 }, ground);
     svg('path', { d: pathData(groundRoutes.tunnel), stroke: '#ece4f5', 'stroke-width': 22 }, ground);

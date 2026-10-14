@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 
 <title>Luti — Cloud AI, on your Mac.</title>
-<meta name="description" content="Luti connects cloud AI to your Mac through MCP. Inspect projects, edit code, run builds and tests, and automate Chrome — all within the folder you choose.">
-<meta name="keywords" content="MCP server, Model Context Protocol, macOS, remote MCP, ChatGPT connector, Claude MCP, Grok MCP, OpenAI Secure MCP Tunnel, Cloudflare Tunnel, local AI tools, OAuth">
+<meta name="description" content="Luti connects cloud AI to your Mac through MCP. Share project memory, inspect &amp; edit code, run builds and tests, and automate Chrome — all within the folder you choose.">
+<meta name="keywords" content="MCP server, Model Context Protocol, macOS, remote MCP, project memory, ChatGPT connector, Claude MCP, Grok MCP, OpenAI Secure MCP Tunnel, Cloudflare Tunnel, local AI tools, OAuth">
 <meta name="author" content="Luti">
 <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">
 <meta name="color-scheme" content="light">
@@ -25,15 +25,15 @@
 <meta property="og:locale:alternate" content="zh_CN">
 <meta property="og:locale:alternate" content="ja_JP">
 <meta property="og:title" content="Luti — Cloud AI, on your Mac.">
-<meta property="og:description" content="Luti connects cloud AI to your Mac through MCP. Inspect projects, edit code, run builds and tests, and automate Chrome — all within the folder you choose.">
+<meta property="og:description" content="Luti connects cloud AI to your Mac through MCP. Share project memory, inspect &amp; edit code, run builds and tests, and automate Chrome — all within the folder you choose.">
 <meta property="og:image" content="https://luti.aouos.com/assets/og-image.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="Luti — Cloud AI, on your Mac. 24 local MCP tools for your projects.">
+<meta property="og:image:alt" content="Luti — Cloud AI, on your Mac. 25 local MCP tools for your projects.">
 
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Luti — Cloud AI, on your Mac.">
-<meta name="twitter:description" content="Luti connects cloud AI to your Mac through MCP. Inspect projects, edit code, run builds and tests, and automate Chrome — all within the folder you choose.">
+<meta name="twitter:description" content="Luti connects cloud AI to your Mac through MCP. Share project memory, inspect &amp; edit code, run builds and tests, and automate Chrome — all within the folder you choose.">
 <meta name="twitter:image" content="https://luti.aouos.com/assets/og-image.png">
 
 <link rel="icon" href="assets/luti-icon.png" type="image/png">
@@ -71,9 +71,10 @@
       "url": "https://luti.aouos.com/",
       "image": "https://luti.aouos.com/assets/og-image.png",
       "publisher": { "@id": "https://luti.aouos.com/#org" },
-      "description": "Luti connects cloud AI to your Mac through MCP. Inspect projects, edit code, run builds and tests, and automate Chrome — all within the folder you choose.",
+      "description": "Luti connects cloud AI to your Mac through MCP. Share project memory, inspect & edit code, run builds and tests, and automate Chrome — all within the folder you choose.",
       "featureList": [
-        "24 MCP tools across Project, Files & Code, Process & Jobs, Git, Browser, and Artifacts",
+        "25 MCP tools across Memory, Project, Files & Code, Process & Jobs, Git, Browser, and Artifacts",
+        "Project-scoped memory with MEMORY.md index and topic Markdown decision files shared across AI clients",
         "Scoped strictly to the single local project folder selected on your Mac",
         "OpenAI Secure MCP Tunnel and Cloudflare Tunnel with project-bound OAuth",
         "Zero repository footprint and no Luti relay servers"
@@ -175,7 +176,7 @@
   </div>
 
   <div class="factory" id="factory">
-    <svg class="factory__scene" id="factoryScene" viewBox="0 0 1600 650" role="group" aria-label="AI clients, Tunnel, Luti and your local tools">
+    <svg class="factory__scene" id="factoryScene" viewBox="0 -84 1600 772" role="group" aria-label="AI clients, Tunnel, Luti and your local tools">
       <defs>
         <filter id="factoryShadow" x="-18%" y="-18%" width="136%" height="146%">
           <feDropShadow dx="0" dy="6" stdDeviation="7" flood-color="#1e2b26" flood-opacity="0.11"/>
@@ -190,9 +191,9 @@
         </symbol>
       </defs>
       <g class="factory__boundary" aria-hidden="true">
-        <rect id="factoryBoundary" x="644" y="22" width="930" height="580" rx="25"/>
-        <text id="factoryWorkspace" x="674" y="16" data-i18n="factory.workspace">ON YOUR MAC</text>
-        <text id="factoryRemote" x="72" y="16" data-i18n="factory.remote">YOUR AI, ANYWHERE</text>
+        <rect id="factoryBoundary" x="602" y="-62" width="994" height="742" rx="25"/>
+        <text id="factoryWorkspace" x="634" y="-70" data-i18n="factory.workspace">ON YOUR MAC</text>
+        <text id="factoryRemote" x="72" y="-70" data-i18n="factory.remote">YOUR AI, ANYWHERE</text>
       </g>
       <g id="factoryRoutes" aria-hidden="true"></g>
       <g id="factoryStations">
@@ -200,10 +201,12 @@
         <g class="factory__station" data-client="claude" data-node="claude" role="button" tabindex="0" aria-pressed="false"><g class="factory__art"></g><text class="factory__label">Claude</text></g>
         <g class="factory__station" data-client="grok" data-node="grok" role="button" tabindex="0" aria-pressed="false"><g class="factory__art"></g><text class="factory__label">Grok</text></g>
         <g class="factory__station factory__station--hub" data-node="luti" role="button" tabindex="0" aria-pressed="false"><g class="factory__art"></g><text class="factory__label">Luti</text></g>
-        <g class="factory__station" data-node="memory" role="button" tabindex="0" aria-pressed="false"><g class="factory__art"></g><text class="factory__label" data-i18n="factory.memory">project &amp; git</text></g>
+        <g class="factory__station" data-node="memory" role="button" tabindex="0" aria-pressed="false"><g class="factory__art"></g><text class="factory__label" data-i18n="factory.memory">memory</text></g>
+        <g class="factory__station" data-node="git" role="button" tabindex="0" aria-pressed="false"><g class="factory__art"></g><text class="factory__label" data-i18n="factory.git">project &amp; git</text></g>
         <g class="factory__station" data-node="code" role="button" tabindex="0" aria-pressed="true"><g class="factory__art"></g><text class="factory__label" data-i18n="factory.code">files &amp; code</text></g>
         <g class="factory__station" data-node="terminal" role="button" tabindex="0" aria-pressed="false"><g class="factory__art"></g><text class="factory__label" data-i18n="factory.terminal">terminal</text></g>
         <g class="factory__station" data-node="browser" role="button" tabindex="0" aria-pressed="false"><g class="factory__art"></g><text class="factory__label" data-i18n="factory.browser">browser</text></g>
+        <g class="factory__station" data-node="artifacts" role="button" tabindex="0" aria-pressed="false"><g class="factory__art"></g><text class="factory__label" data-i18n="factory.artifacts">artifacts</text></g>
       </g>
       <g class="factory__tunnel" id="factoryTunnel" transform="translate(545 323)" aria-hidden="true">
         <rect class="factory__tunnel-pill" x="-78" y="-21" width="156" height="34" rx="17"/>
@@ -232,43 +235,61 @@
     <header class="section__head reveal">
       <p class="section__label" data-i18n="caps.label">Local capabilities</p>
       <h2 class="section__title" data-i18n="caps.title">From code changes to a working preview.</h2>
-      <p class="section__lede" data-i18n="caps.lede">Twenty-four MCP tools built for real software workflows. Your AI thinks in the cloud; Luti runs the steps on your Mac.</p>
+      <p class="section__lede" data-i18n="caps.lede">Twenty-five MCP tools built for real software workflows. Your AI thinks in the cloud; Luti runs the steps and keeps project memory on your Mac.</p>
     </header>
 
-    <div class="grid grid--4 reveal">
+    <div class="grid grid--3 reveal">
       <article class="card">
-        <h3 class="card__title"><span class="icon-circle" data-tone="purple"><svg><use href="#i-git"/></svg></span><span data-i18n="caps.task1">Inspect project &amp; Git</span></h3>
-        <p class="card__body" data-i18n="caps.body1">Detect stacks, frameworks, and runtime state automatically. Review Git status, diffs, commit logs, and blame — strictly read-only.</p>
+        <h3 class="card__title"><span class="icon-circle" data-tone="purple"><svg><use href="#i-brain"/></svg></span><span data-i18n="caps.task1">Project memory</span></h3>
+        <p class="card__body" data-i18n="caps.body1">Maintain a MEMORY.md index and topic .md decision files shared across AI clients so architectural context persists across conversations.</p>
         <div class="chips chips--plain">
-          <span class="chip">inspect_project</span><span class="chip">git_query</span>
+          <span class="chip">memory</span>
         </div>
       </article>
       <article class="card">
-        <h3 class="card__title"><span class="icon-circle" data-tone="green"><svg><use href="#i-file"/></svg></span><span data-i18n="caps.task2">Read &amp; edit code</span></h3>
-        <p class="card__body" data-i18n="caps.body2">Search files, query symbols and diagnostics, and apply structured code edits across your selected project folder.</p>
+        <h3 class="card__title"><span class="icon-circle" data-tone="blue"><svg><use href="#i-git"/></svg></span><span data-i18n="caps.task2">Inspect project &amp; Git</span></h3>
+        <p class="card__body" data-i18n="caps.body2">Detect tech stacks, frameworks, and runtime state automatically. Query Git status, diffs, commit logs, and blame — strictly read-only.</p>
         <div class="chips chips--plain">
-          <span class="chip">edit_files</span><span class="chip">code_query</span>
+          <span class="chip">project_info</span><span class="chip">inspect_project</span><span class="chip">git_query</span>
         </div>
       </article>
       <article class="card">
-        <h3 class="card__title"><span class="icon-circle" data-tone="orange"><svg><use href="#i-terminal"/></svg></span><span data-i18n="caps.task3">Run builds &amp; tests</span></h3>
-        <p class="card__body" data-i18n="caps.body3">Launch builds, test suites, and dev servers as managed background jobs. Stream logs, answer interactive prompts, or stop a job anytime.</p>
+        <h3 class="card__title"><span class="icon-circle" data-tone="green"><svg><use href="#i-file"/></svg></span><span data-i18n="caps.task3">Read &amp; edit code</span></h3>
+        <p class="card__body" data-i18n="caps.body3">Browse directories, search files, query symbols and diagnostics, and apply structured edits across your selected project folder.</p>
         <div class="chips chips--plain">
-          <span class="chip">run_process</span><span class="chip">job_query</span>
+          <span class="chip">read_files</span><span class="chip">edit_files</span><span class="chip">code_query</span>
         </div>
       </article>
       <article class="card">
-        <h3 class="card__title"><span class="icon-circle" data-tone="pink"><svg><use href="#i-globe"/></svg></span><span data-i18n="caps.task4">Verify in Chrome</span></h3>
-        <p class="card__body" data-i18n="caps.body4">Open local previews, click through UI flows, capture screenshots or PDFs, inspect console and network activity, and exchange artifacts.</p>
+        <h3 class="card__title"><span class="icon-circle" data-tone="orange"><svg><use href="#i-terminal"/></svg></span><span data-i18n="caps.task4">Run builds &amp; tests</span></h3>
+        <p class="card__body" data-i18n="caps.body4">Launch builds, test suites, and dev servers as managed background jobs. Stream logs, answer interactive prompts, or stop a job anytime.</p>
         <div class="chips chips--plain">
-          <span class="chip">browser_observe</span><span class="chip">export_artifact</span>
+          <span class="chip">run_process</span><span class="chip">run_shell</span><span class="chip">job_query</span>
+        </div>
+      </article>
+      <article class="card">
+        <h3 class="card__title"><span class="icon-circle" data-tone="pink"><svg><use href="#i-globe"/></svg></span><span data-i18n="caps.task5">Verify in Chrome</span></h3>
+        <p class="card__body" data-i18n="caps.body5">Open local previews, click through UI flows, capture screenshots or PDFs, and inspect console errors, network requests, and dialogs.</p>
+        <div class="chips chips--plain">
+          <span class="chip">browser_session</span><span class="chip">browser_observe</span><span class="chip">browser_action</span>
+        </div>
+      </article>
+      <article class="card">
+        <h3 class="card__title"><span class="icon-circle" data-tone="yellow"><svg><use href="#i-package"/></svg></span><span data-i18n="caps.task6">Exchange artifacts</span></h3>
+        <p class="card__body" data-i18n="caps.body6">Return screenshots, PDFs, and build outputs to the AI conversation as MCP resources, or import generated files back into your project.</p>
+        <div class="chips chips--plain">
+          <span class="chip">export_artifact</span><span class="chip">import_artifact</span>
         </div>
       </article>
     </div>
 
     <details class="disclose reveal">
-      <summary data-i18n="tools.all">All 24 MCP tools</summary>
+      <summary data-i18n="tools.all">All 25 MCP tools</summary>
       <div class="disclose__body">
+        <div class="disclose__group">
+          <p class="disclose__name" data-i18n="tools.t1">Memory</p>
+          <div class="chips"><span class="chip">memory</span></div>
+        </div>
         <div class="disclose__group">
           <p class="disclose__name" data-i18n="tools.t2">Project</p>
           <div class="chips"><span class="chip">project_info</span><span class="chip">inspect_project</span><span class="chip">runtime_status</span></div>

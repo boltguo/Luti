@@ -29,7 +29,7 @@ flowchart TB
     remote["ChatGPT"]
     tunnel["OpenAI Secure MCP Tunnel<br/>送信方向のみ"]
     luti["このMac上のLuti"]
-    context["ローカル記録<br/>Activity"]
+    context["ローカル記録<br/>Memory · Activity"]
     tools["ローカル機能<br/>Files · Git · Process · Browser"]
     project["承認済みの1プロジェクト"]
 
@@ -38,7 +38,7 @@ flowchart TB
     luti --> tools --> project
 ```
 
-ファイルの読み書き、ビルドやテスト、Gitの確認、ブラウザの操作、成果物の書き出しに対応します。これらの操作はすべてMac上で実行されます。
+ファイルの読み書き、ビルドやテスト、Gitの確認、ブラウザの操作、成果物の書き出し、AI間でのプロジェクトメモリの共有に対応します。これらの操作はすべてMac上で実行されます。
 
 ## クイックスタート
 
@@ -62,10 +62,11 @@ OpenAI は接続ごとの新しい Credential と専用 Loopback Listener を使
 
 ## 機能
 
-Lutiは6領域・**24個のPublic MCP Tool**を公開します。MCPはローカルで選択したフォルダを使用し、`projects`、`memory`、`skills`のToolは公開しません。
+Lutiは7領域・**25個のPublic MCP Tool**を公開します。MCPはローカルで選択したフォルダを使用し、`projects`、`skills`のToolは公開しません。
 
 | Domain | Public Tools | 範囲 |
 |---|---|---|
+| Memory | `memory` | プロジェクトの `MEMORY.md` インデックスとトピック別 `.md` 決定ファイル（`index`, `read`, `write`, `delete`） |
 | Project | `project_info`, `inspect_project`, `runtime_status` | 現在のWorkspace、Discovery、Runtime状態 |
 | Files & Code | `list_directory`, `read_files`, `read_image`, `search_project`, `edit_files`, `path_action`, `code_query` | 検索、読み取り、編集、移動、構造化コード照会 |
 | Process & Jobs | `run_process`, `run_shell`, `job_query`, `job_action` | Build、Test、長時間Job、Log、PTY入力、停止 |
@@ -75,7 +76,7 @@ Lutiは6領域・**24個のPublic MCP Tool**を公開します。MCPはローカ
 
 プロジェクト固有の動作は、そのプロジェクトのmanifest、instructions、tasksで定義します。Public Toolを増やす必要はありません。
 
-最初に `project_info` を呼び出して、現在のWorkspaceと `projectToken` を取得します。Projectへの書き込み、コマンド実行、Browserの変更、Job入力にはこの値が必要です。ローカルで別のフォルダを選択するかRuntimeを再起動すると失効するため、不一致の場合は対象Workspaceを再確認してください。所有するJobの停止は古い値によって妨げられません。
+最初に `project_info` を呼び出して、現在のWorkspaceと `projectToken` を取得します。Projectへの書き込み、Memoryの更新（`write`/`delete`）、コマンド実行、Browserの変更、Job入力にはこの値が必要です。ローカルで別のフォルダを選択するかRuntimeを再起動すると失効するため、不一致の場合は対象Workspaceを再確認してください。所有するJobの停止は古い値によって妨げられません。
 
 `code_query` はインストール済みの言語サーバーを起動するため、現在の `projectToken` が必要です。言語サーバーは副作用を伴う場合があります。
 
@@ -87,7 +88,7 @@ Jobの結果はプロセス終了と認識したテスト結果を分け、限�
 
 ## ローカル記録
 
-Lutiは容量を制限した実行履歴だけを`~/.luti/`に保存します。現在の実行で変更したファイルとJobの検証状態はメモリに保持します。Session、Memory、ファイル復元データを保存せず、プロジェクト内にもRuntimeメタデータを書き込みません。
+Lutiはプロジェクトごとのメモリ（`MEMORY.md` インデックスとトピック別 `.md` 決定ファイル）および容量を制限した実行履歴を`~/.luti/`に保存します。現在の実行で変更したファイルとJobの検証状態はメモリに保持します。Sessionやファイル復元データは保存せず、プロジェクト内にもRuntimeメタデータを書き込みません。
 
 ## セキュリティとプライバシー
 
