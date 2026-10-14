@@ -243,3 +243,26 @@
 "cloudflare.noApps" = "このプロジェクトとドメインで承認されたアプリはありません。";
 "cloudflare.revoke" = "取り消す";
 "cloudflare.clearNotice" = "保存したドメインと Tunnel Token を削除します。既存のアプリ承認は削除前に下で取り消せます。承認は 30 日後に期限切れになります。";
+
+/* Project memory */
+"context.memory" = "メモリ";
+"context.memoryDescription" = "プロジェクトの決定と規約";
+"context.refresh" = "更新";
+"context.search" = "プロジェクトメモリを検索";
+"context.includeHistory" = "置き換えられた事実を含める";
+"context.revision" = "ソースリビジョン %ld";
+"context.updated" = "%@に更新";
+"context.noMemories" = "一致するプロジェクトメモリはありません";
+"context.loadMore" = "さらに読み込む";
+"context.supersedes" = "%@を置き換え";
+"context.kind.architecture" = "アーキテクチャ";
+"context.kind.decision" = "決定";
+"context.kind.convention" = "規約";
+"context.kind.constraint" = "制約";
+"context.kind.security" = "セキュリティ";
+"context.kind.pitfall" = "落とし穴";
+"context.kind.goal" = "目標";
+"context.kind.rationale" = "理由";
+"context.state.active" = "有効";
+"context.state.superseded" = "置き換え済み";
+"context.state.forgotten" = "忘却済み";

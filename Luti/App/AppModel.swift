@@ -245,6 +245,18 @@ import Observation
     await activityLoad?.value
   }
 
+  func clearProjectMemory(_ project: ApprovedProject) async throws {
+    guard !active, !contextBusy, activeProject == project else {
+      throw Failure.invalid("Stop the runtime before clearing the selected folder's memory.")
+    }
+    contextBusy = true
+    defer { contextBusy = false }
+    let root = contextDataRoot
+    try await Task.detached(priority: .utility) {
+      try ProjectMemoryStore(project: project, dataRoot: root, validateMemory: false).clear()
+    }.value
+  }
+
   /// Keychain first, then defaults: a rejected Keychain write leaves the saved
   /// configuration exactly as it was.
   @discardableResult

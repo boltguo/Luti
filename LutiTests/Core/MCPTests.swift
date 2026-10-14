@@ -46,9 +46,9 @@ import XCTest
     XCTAssertEqual(initResult.json["result"]["protocolVersion"], "2025-11-25")
     let list = await endpoint.handle(try request("tools/list"))
     let tools = try XCTUnwrap(list.json["result"]["tools"].array)
-    XCTAssertEqual(tools.count, 24)
+    XCTAssertEqual(tools.count, 25)
     XCTAssertNil(tools.first { $0["name"] == "projects" })
-    XCTAssertNil(tools.first { $0["name"] == "memory" })
+    XCTAssertNotNil(tools.first { $0["name"] == "memory" })
     XCTAssertNotNil(tools.first { $0["name"] == "project_info" })
     let readFiles = try XCTUnwrap(tools.first { $0["name"] == "read_files" })
     XCTAssertEqual(readFiles["inputSchema"]["properties"]["endLine"]["default"], .null)
@@ -93,7 +93,7 @@ import XCTest
       for modern in [false, true] {
         let list = await endpoint.handle(try request("tools/list", modern: modern))
         let tools = try XCTUnwrap(list.json["result"]["tools"].array)
-        XCTAssertEqual(tools.count, 24)
+        XCTAssertEqual(tools.count, 25)
         XCTAssertFalse(tools.contains { desktopTools.contains($0["name"].string ?? "") })
         for tool in desktopTools {
           let response = await endpoint.handle(try request("tools/call",
@@ -142,11 +142,10 @@ import XCTest
       for modern in [false, true] {
         let list = await endpoint.handle(try request("tools/list", modern: modern))
         let tools = try XCTUnwrap(list.json["result"]["tools"].array)
-        XCTAssertEqual(tools.count, 24)
+        XCTAssertEqual(tools.count, 25)
         XCTAssertNil(tools.first { $0["name"] == "projects" })
-        XCTAssertNil(tools.first { $0["name"] == "memory" })
+        XCTAssertNotNil(tools.first { $0["name"] == "memory" })
         XCTAssertNil(tools.first { $0["name"] == "skills" })
-        XCTAssertFalse(JSONValue.array(tools).text().contains("memory("))
         XCTAssertFalse(JSONValue.array(tools).text().contains("projects("))
         let before = await endpoint.handle(try request("tools/call", params: ["name": "project_info"], modern: modern))
         let info = before.json["result"]["structuredContent"]
@@ -155,7 +154,7 @@ import XCTest
         XCTAssertNotNil(info["projectToken"].string)
         XCTAssertEqual(info["approvedProjectCount"], .null)
         XCTAssertEqual(info["enabledProjectCount"], .null)
-        XCTAssertEqual(info["context"], .null)
+        XCTAssertNotNil(info["context"]["projectKey"].string)
         XCTAssertFalse(info.text().contains(second.root.path))
         let disabled: [(String, JSONValue)] = [
           ("skills", ["action": "list"]),
@@ -163,18 +162,19 @@ import XCTest
           ("projects", ["action": "list"]),
           ("projects", ["action": "current"]),
           ("projects", ["action": "switch", "projectId": "b", "projectToken": info["projectToken"]]),
-          ("memory", ["action": "recall"]),
-          ("memory", ["action": "recent"]),
           ("memory", ["action": "sessions"]),
-          ("memory", ["action": "remember", "kind": "goal", "content": "Must not persist", "projectToken": info["projectToken"]]),
-          ("memory", ["action": "forget", "memoryId": "memory_fixture", "expectedRevision": 1, "projectToken": info["projectToken"]]),
         ]
         for (name, arguments) in disabled {
           let denied = await endpoint.handle(try request("tools/call", params: [
             "name": .string(name), "arguments": arguments,
           ], modern: modern))
-          XCTAssertEqual(denied.status, 400, name)
-          XCTAssertEqual(denied.json["error"]["code"], -32602, name)
+          if name == "memory" {
+            XCTAssertEqual(denied.status, 200, name)
+            XCTAssertEqual(denied.json["result"]["isError"], true, name)
+          } else {
+            XCTAssertEqual(denied.status, 400, name)
+            XCTAssertEqual(denied.json["error"]["code"], -32602, name)
+          }
         }
         let after = await endpoint.handle(try request("tools/call", params: ["name": "project_info"], modern: modern))
         XCTAssertEqual(after.json["result"]["structuredContent"], info)
@@ -186,8 +186,8 @@ import XCTest
       }
       await endpoint.shutdown()
     }
-    let memory = await router.call("memory", arguments: ["action": "recall"])
-    XCTAssertTrue(memory.isError)
+    let memory = await router.call("memory", arguments: ["action": "index"])
+    XCTAssertFalse(memory.isError)
   }
   func testModernHeaderMismatch() async throws {
     let f = try Fixture()
@@ -388,7 +388,7 @@ import XCTest
     await endpoint.shutdown()
   }
   func testActionSchemasShareBoundariesAndNeverInjectForeignDefaults() throws {
-    XCTAssertEqual(ToolCatalog.names.count, 24)
+    XCTAssertEqual(ToolCatalog.names.count, 25)
     for (name, contracts) in ActionContracts.rules where ToolCatalog.names.contains(name) {
       let definition = try XCTUnwrap(ToolCatalog.definitions.first { $0["name"].string == name })
       let schema = definition["inputSchema"]

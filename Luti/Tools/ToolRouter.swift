@@ -2,6 +2,8 @@ import Foundation
 
 private struct ProjectRuntimeContext: Sendable {
   let project: ApprovedProject
+  let projectKey: String
+  let dataRoot: URL
   let projectToken = "project_" + UUID().uuidString.lowercased()
   let workspace: WorkspaceFiles
   let jobs: JobManager
@@ -13,6 +15,8 @@ private struct ProjectRuntimeContext: Sendable {
   init(project: ApprovedProject, workspace: WorkspaceFiles, jobs: JobManager,
        redactor: Redactor, dataRoot: URL, helper: URL) {
     self.project = project
+    self.projectKey = LutiPaths.projectKey(for: project.url)
+    self.dataRoot = dataRoot
     self.workspace = workspace
     self.jobs = jobs
     let artifacts = ArtifactStore()
@@ -48,6 +52,15 @@ public actor ToolRouter {
   var browser: BrowserProvider { context.browser }
   var code: CodeQueryService { context.code }
   var projectToken: String { context.projectToken }
+  var memoryStore: ProjectMemoryStore {
+    get throws {
+      try ProjectMemoryStore(project: context.project, dataRoot: context.dataRoot, redactor: redactor)
+    }
+  }
+
+  func memorySource(_ grant: ToolGrant) -> MemorySource {
+    MemorySource.model(grant: grant, redactor: redactor)
+  }
 
   public init(
     workspace: WorkspaceFiles, jobs: JobManager,
@@ -121,7 +134,7 @@ public actor ToolRouter {
       try validateProjectBinding(name, arguments: value)
       try Task.checkCancellation()
       let arguments = ProjectBindingContract.acceptsToken(name) ? value.removing(["projectToken"]) : value
-      output = try await dispatch(name, arguments)
+      output = try await dispatch(name, arguments, grant: grant)
       if !output.isError {
         lastSuccess = Date()
         recordTouchedFiles(tool: name, result: output.data)
@@ -182,6 +195,9 @@ public actor ToolRouter {
     }
 
     switch name {
+    case "memory":
+      return ActivityDescriptor(
+        action: action, targetType: "memory", target: value["file"].string ?? "MEMORY.md")
     case "project_info":
       return ActivityDescriptor(action: nil, targetType: "project", target: "")
     case "runtime_status":
@@ -270,6 +286,9 @@ public actor ToolRouter {
     }
   }
   private func activitySummary(_ name: String, _ output: ToolOutput) -> String {
+    if name == "memory" {
+      return output.isError ? "Project memory operation failed." : "Project memory operation completed."
+    }
     if let summary = output.data["summary"].string, !summary.isEmpty { return summary }
     if output.data["testSummary"] != .null {
       let tests = output.data["testSummary"]
@@ -387,6 +406,10 @@ public actor ToolRouter {
     if output.data["submitted"] == true || output.data["observeAgain"] == true {
       return "submitted"
     }
+    if name == "memory" {
+      return (output.data["created"] == true || output.data["updated"] == true || output.data["deleted"] == true)
+        ? "confirmed" : "none"
+    }
     let mutations: Set<String> = [
       "edit_files", "path_action", "import_artifact", "run_process", "run_shell", "job_action",
       "browser_session", "browser_action", "browser_transfer",
@@ -419,7 +442,8 @@ public actor ToolRouter {
     try executionPolicy.authorize(capability)
   }
 
-  private func dispatch(_ name: String, _ value: JSONValue) async throws -> ToolOutput {
+  private func dispatch(_ name: String, _ value: JSONValue, grant: ToolGrant) async throws -> ToolOutput {
+    if name == "memory" { return try memoryTool(value, grant: grant) }
     if let output = try await extendedTool(name, value) { return output }
     switch name {
     case "project_info":
@@ -429,7 +453,12 @@ public actor ToolRouter {
         info
           .adding("projectId", .string(context.project.id))
           .adding("generation", .int(1))
-          .adding("projectToken", .string(context.projectToken)))
+          .adding("projectToken", .string(context.projectToken))
+          .adding("context", [
+            "projectKey": .string(context.projectKey),
+            "indexFile": "MEMORY.md",
+            "discovery": "Use memory(action=\"index\") to read MEMORY.md, then read/write topic .md files as needed.",
+          ]))
     case "runtime_status":
       _ = try Arguments(value, allowed: [])
       return ToolOutput([

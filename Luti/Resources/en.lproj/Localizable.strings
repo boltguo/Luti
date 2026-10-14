@@ -243,3 +243,26 @@
 "cloudflare.noApps" = "No apps have been approved for this project and domain.";
 "cloudflare.revoke" = "Revoke";
 "cloudflare.clearNotice" = "Remove the saved domain and Tunnel Token. Existing app approvals can be revoked below before clearing; they expire after 30 days.";
+
+/* Project memory */
+"context.memory" = "Memory";
+"context.memoryDescription" = "Project decisions and conventions";
+"context.refresh" = "Refresh";
+"context.search" = "Search project memories";
+"context.includeHistory" = "Include superseded facts";
+"context.revision" = "Source revision %ld";
+"context.updated" = "Updated %@";
+"context.noMemories" = "No matching project memories";
+"context.loadMore" = "Load more";
+"context.supersedes" = "Supersedes %@";
+"context.kind.architecture" = "Architecture";
+"context.kind.decision" = "Decision";
+"context.kind.convention" = "Convention";
+"context.kind.constraint" = "Constraint";
+"context.kind.security" = "Security";
+"context.kind.pitfall" = "Pitfall";
+"context.kind.goal" = "Goal";
+"context.kind.rationale" = "Rationale";
+"context.state.active" = "Active";
+"context.state.superseded" = "Superseded";
+"context.state.forgotten" = "Forgotten";

@@ -13,6 +13,7 @@ enum ProjectBindingContract {
 
   static func requiresToken(_ name: String, arguments: JSONValue) -> Bool {
     requiredTools.contains(name)
+      || (name == "memory" && ["write", "delete"].contains(arguments["action"].string ?? ""))
       || (name == "job_action" && arguments["action"] == "input")
   }
 }
@@ -87,6 +88,7 @@ public enum ToolCatalog {
       "reportPath": string("Optional project-relative JUnit XML report written by this command. Luti does not change the command or configure a reporter. An unchanged pre-existing report is not proof of this run."),
     ]
     let base: [JSONValue] = [
+      memoryDefinition,
       tool(
         "project_info",
         "Start here for the current locally selected workspace and projectToken. Includes top-level files and safety boundaries."),

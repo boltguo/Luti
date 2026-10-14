@@ -243,3 +243,26 @@
 "cloudflare.noApps" = "当前项目和域名尚未授权任何应用。";
 "cloudflare.revoke" = "撤销授权";
 "cloudflare.clearNotice" = "移除保存的域名和 Tunnel Token。已有应用授权可在清除前于下方撤销；授权会在 30 天后到期。";
+
+/* Project memory */
+"context.memory" = "记忆";
+"context.memoryDescription" = "项目决策与约定";
+"context.refresh" = "刷新";
+"context.search" = "搜索项目记忆";
+"context.includeHistory" = "显示被替代的记忆";
+"context.revision" = "来源版本 %ld";
+"context.updated" = "更新于 %@";
+"context.noMemories" = "暂无匹配的项目记忆";
+"context.loadMore" = "加载更多";
+"context.supersedes" = "替代 %@";
+"context.kind.architecture" = "架构";
+"context.kind.decision" = "决策";
+"context.kind.convention" = "约定";
+"context.kind.constraint" = "约束";
+"context.kind.security" = "安全";
+"context.kind.pitfall" = "易错点";
+"context.kind.goal" = "目标";
+"context.kind.rationale" = "原因";
+"context.state.active" = "有效";
+"context.state.superseded" = "已替代";
+"context.state.forgotten" = "已遗忘";

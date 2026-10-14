@@ -30,10 +30,14 @@ struct ProjectsView: View {
 private struct ProjectDetailView: View {
   let model: AppModel
   let project: ApprovedProject
+  @State private var showingMemory = false
   @State private var showingActivity = false
+  @State private var memoryCount: Int?
 
   var body: some View {
-    if showingActivity {
+    if showingMemory {
+      ProjectMemoryView(model: model, project: project, back: { showingMemory = false })
+    } else if showingActivity {
       ProjectActivityView(model: model, project: project, back: { showingActivity = false })
     } else {
       rootPage
@@ -54,13 +58,24 @@ private struct ProjectDetailView: View {
         iconTone: .purple
       ) { EmptyView() }
 
-      MDNavigationRow(
-        title: L10n.text("context.activity"), symbol: "list.bullet.rectangle",
-        subtitle: L10n.text("context.activityDescription"), iconTone: .green
-      ) {
-        showingActivity = true
+      MDList {
+        MDNavigationRow(
+          title: L10n.text("context.memory"), symbol: "brain",
+          subtitle: L10n.text("context.memoryDescription"),
+          detail: memoryCount.map(String.init), position: .first, iconTone: .blue
+        ) {
+          showingMemory = true
+        }
+        .accessibilityIdentifier("project-memory")
+
+        MDNavigationRow(
+          title: L10n.text("context.activity"), symbol: "list.bullet.rectangle",
+          subtitle: L10n.text("context.activityDescription"), position: .last, iconTone: .green
+        ) {
+          showingActivity = true
+        }
+        .accessibilityIdentifier("project-activity")
       }
-      .accessibilityIdentifier("project-activity")
 
       MDSection(title: L10n.text("projects.projectActions")) {
         MDButtonRun {
@@ -97,5 +112,17 @@ private struct ProjectDetailView: View {
         InlineNotice(text: L10n.text("projects.stopRuntimeToEditProject"), icon: "lock")
       }
     }
+    .task(id: model.lastCall) {
+      await reloadMemoryCount()
+    }
+  }
+
+  private func reloadMemoryCount() async {
+    let root = model.contextDataRoot
+    let count = try? await Task.detached(priority: .utility) {
+      try ProjectMemoryStore(project: project, dataRoot: root).snapshot().memoryCount
+    }.value
+    guard !Task.isCancelled else { return }
+    memoryCount = count
   }
 }

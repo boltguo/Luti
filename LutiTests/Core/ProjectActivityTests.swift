@@ -18,7 +18,7 @@ import XCTest
     let remote = ToolGrant.remote(RequestContext(transport: .openAI, clientID: "openai-tunnel",
       clientName: "Host", authorizationID: UUID()))
     for permission in [ToolGrant.local, remote] {
-      for tool in ["projects", "memory", "skills"] {
+      for tool in ["projects", "skills"] {
         let result = await router.call(tool, arguments: ["action": "list"], grant: permission)
         XCTAssertTrue(result.isError)
       }

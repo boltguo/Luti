@@ -103,6 +103,10 @@
 		F7948282ECEB814F7E3DF53E /* Luti/Core/PrivateFiles.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A5E1048090D4982EB02D1D3 /* Luti/Core/PrivateFiles.swift */; };
 		F799A3CDF636FDD8EBFE9DB0 /* Luti/Core/Primitives.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84602EDC9195414E16E5F0E3 /* Luti/Core/Primitives.swift */; };
 		FA36D59DD76A910506E3B025 /* Luti/Core/Processes/OwnedProcess.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D63BD03697420FAA1565448 /* Luti/Core/Processes/OwnedProcess.swift */; };
+		FB1000000000000000000001 /* Luti/Core/Runtime/ProjectMemoryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA1000000000000000000001 /* Luti/Core/Runtime/ProjectMemoryStore.swift */; };
+		FB1000000000000000000002 /* Luti/Tools/MemoryTool.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA1000000000000000000002 /* Luti/Tools/MemoryTool.swift */; };
+		FB1000000000000000000003 /* Luti/Features/Projects/ProjectMemoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA1000000000000000000003 /* Luti/Features/Projects/ProjectMemoryView.swift */; };
+		FB1000000000000000000004 /* LutiTests/Core/ProjectMemoryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA1000000000000000000004 /* LutiTests/Core/ProjectMemoryTests.swift */; };
 		FE309333D9B130590844E98A /* Luti/UI/Components/MDSelectionControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96AD40F390699FD126B54DE3 /* Luti/UI/Components/MDSelectionControls.swift */; };
 		FF22E9F1F2BF8955B2E840EA /* Luti/Core/Workspace/WorkspaceRead.swift in Sources */ = {isa = PBXBuildFile; fileRef = D66A9FA3C88C794199B56D90 /* Luti/Core/Workspace/WorkspaceRead.swift */; };
 		10C6D0A7B4A02A67D9F4FC59 /* Luti/App/CloudflareConnectionModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6246FFB19C6FB784755BB5F /* Luti/App/CloudflareConnectionModel.swift */; };
@@ -253,6 +257,10 @@
 		B91F838EA49DAA08C9183054 /* Luti/Core/Connections/CloudflareInstaller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/Core/Connections/CloudflareInstaller.swift; sourceTree = SOURCE_ROOT; };
 		B700429F6242A9C7F044DE75 /* Luti/Core/Connections/CloudflareTunnelProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/Core/Connections/CloudflareTunnelProvider.swift; sourceTree = SOURCE_ROOT; };
 		BB010513BFBA6E85402473C2 /* Luti/Core/OAuth/OAuthContract.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/Core/OAuth/OAuthContract.swift; sourceTree = SOURCE_ROOT; };
+		FA1000000000000000000001 /* Luti/Core/Runtime/ProjectMemoryStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/Core/Runtime/ProjectMemoryStore.swift; sourceTree = SOURCE_ROOT; };
+		FA1000000000000000000002 /* Luti/Tools/MemoryTool.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/Tools/MemoryTool.swift; sourceTree = SOURCE_ROOT; };
+		FA1000000000000000000003 /* Luti/Features/Projects/ProjectMemoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/Features/Projects/ProjectMemoryView.swift; sourceTree = SOURCE_ROOT; };
+		FA1000000000000000000004 /* LutiTests/Core/ProjectMemoryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LutiTests/Core/ProjectMemoryTests.swift; sourceTree = SOURCE_ROOT; };
 		70D376C39972671888C8590F /* Luti/Core/OAuth/OAuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/Core/OAuth/OAuthService.swift; sourceTree = SOURCE_ROOT; };
 		ACF887D4E0949B21F2DB4701 /* Luti/Features/Configuration/CloudflareConnectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Luti/Features/Configuration/CloudflareConnectionView.swift; sourceTree = SOURCE_ROOT; };
 		44CBF79E56E0C86303C8B7AA /* LutiTests/Core/OAuthTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LutiTests/Core/OAuthTests.swift; sourceTree = SOURCE_ROOT; };
@@ -392,6 +400,7 @@
 				F1487F33D89AC8B9D4E71033 /* Skills */,
 				5E9B873DA6C45E7A07D59D25 /* Luti/Tools/AdditionalToolCatalog.swift */,
 				F8B1207E89DC2746EF18C73B /* Luti/Tools/ExtendedTools.swift */,
+				FA1000000000000000000002 /* Luti/Tools/MemoryTool.swift */,
 				107F97446CE772ED1C795109 /* Luti/Tools/ToolCatalog.swift */,
 				A92200000000000000000002 /* Luti/Tools/ActionContracts.swift */,
 				10933F1984A4EEDC91A55D31 /* Luti/Tools/ToolRouter.swift */,
@@ -409,6 +418,7 @@
 				E7612F932AC349918F720007 /* ConnectionProviderTests.swift */,
 				F2C0A34CEE031F42AF4743A9 /* LutiTests/Core/ExecutionPolicyTests.swift */,
 				6788AB81F7C1FD4B410B512D /* LutiTests/Core/ProjectActivityTests.swift */,
+				FA1000000000000000000004 /* LutiTests/Core/ProjectMemoryTests.swift */,
 				7443EAC777B665D3545C73AA /* LutiTests/Core/CoreTests.swift */,
 				33B9FD70D146EB5000E0D261 /* LutiTests/Core/ExtendedToolTests.swift */,
 				B151DAD7B55DB352450D368A /* LutiTests/Core/GitTests.swift */,
@@ -527,6 +537,7 @@
 			isa = PBXGroup;
 			children = (
 				D8936182371B48E5960A1434 /* Luti/Core/Runtime/ActivityStore.swift */,
+				FA1000000000000000000001 /* Luti/Core/Runtime/ProjectMemoryStore.swift */,
 				1833D748F3BB41F05FA06078 /* Luti/Core/Runtime/RuntimeCore.swift */,
 				F0A000000000000000000001 /* Luti/Core/Runtime/ToolGrant.swift */,
 				28F758B28746F6BB8E590177 /* Luti/Core/Connections/TunnelClientInstaller.swift */,
@@ -631,6 +642,7 @@
 			isa = PBXGroup;
 			children = (
 				4A9F255DF4667B3C5504943C /* Luti/Features/Projects/ProjectActivityView.swift */,
+				FA1000000000000000000003 /* Luti/Features/Projects/ProjectMemoryView.swift */,
 				E3A970194035461DA98E6102 /* Luti/Features/Projects/ProjectsView.swift */,
 			);
 			path = Projects;
@@ -829,6 +841,7 @@
 				1109458BFC4D28600522838E /* LutiTests/Core/ProjectEnablementTests.swift in Sources */,
 				58F1FA24CB6D3F3969B68AD1 /* LutiTests/Core/ConnectionRuntimeTests.swift in Sources */,
 				1E4F83B37B27D672D77063FD /* LutiTests/Core/ProjectActivityTests.swift in Sources */,
+				FB1000000000000000000004 /* LutiTests/Core/ProjectMemoryTests.swift in Sources */,
 				82C769B4A79BF251F03131BA /* LutiTests/Browser/BrowserIntegrationTests.swift in Sources */,
 				B56DED318D193D51FA7C3C58 /* LutiTests/Core/CoreTests.swift in Sources */,
 				ED66A24882DABBD5AEB1DAE2 /* LutiTests/Core/ExtendedToolTests.swift in Sources */,
@@ -871,6 +884,7 @@
 				89FDB273C39D006F9D15E13D /* Luti/Core/Connections/OpenAITunnelProvider.swift in Sources */,
 				BF2AC2E496F172EA348631BA /* Luti/Core/Connections/ConnectionManager.swift in Sources */,
 				3E6BA51B78C4D8D3C605C90A /* Luti/Features/Projects/ProjectActivityView.swift in Sources */,
+				FB1000000000000000000003 /* Luti/Features/Projects/ProjectMemoryView.swift in Sources */,
 				F0B000000000000000000001 /* Luti/Core/Runtime/ToolGrant.swift in Sources */,
 				E3A970194035461DA98E6101 /* Luti/Features/Projects/ProjectsView.swift in Sources */,
 				FE309333D9B130590844E98A /* Luti/UI/Components/MDSelectionControls.swift in Sources */,
@@ -885,6 +899,7 @@
 				FA36D59DD76A910506E3B025 /* Luti/Core/Processes/OwnedProcess.swift in Sources */,
 				09D029F74CAA5E3785B53EE0 /* Luti/Core/Processes/ProcessPolicy.swift in Sources */,
 				CAABB5AC102457A3EA098B3D /* Luti/Core/Runtime/ActivityStore.swift in Sources */,
+				FB1000000000000000000001 /* Luti/Core/Runtime/ProjectMemoryStore.swift in Sources */,
 				CF88A7328C2581458CB5E017 /* Luti/Core/Runtime/RuntimeCore.swift in Sources */,
 				90333C5502D8DB18691EF9BE /* Luti/Core/Connections/TunnelClientInstaller.swift in Sources */,
 				BACDCFB65801B859A063AF61 /* Luti/Core/Workspace/UnifiedPatch.swift in Sources */,
@@ -913,6 +928,7 @@
 				4824816CB4749B65F1FC21B2 /* Luti/Tools/Project/ProjectInspector.swift in Sources */,
 				A6F687838337FD03CA2BA065 /* Luti/Tools/AdditionalToolCatalog.swift in Sources */,
 				EA9A0DD7A284219121078D1A /* Luti/Tools/ExtendedTools.swift in Sources */,
+				FB1000000000000000000002 /* Luti/Tools/MemoryTool.swift in Sources */,
 				DFC4661F74620D39AFF662AD /* Luti/Tools/ToolCatalog.swift in Sources */,
 				A92200000000000000000001 /* Luti/Tools/ActionContracts.swift in Sources */,
 				7B1E2257B59393AFB41A5043 /* Luti/Tools/ToolRouter.swift in Sources */,
