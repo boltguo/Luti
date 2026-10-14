@@ -3,7 +3,6 @@ import SwiftUI
 struct HomeView: View {
   let model: AppModel
   let openProjects: () -> Void
-  let openConnection: () -> Void
 
   var body: some View {
     MDPage {
@@ -30,23 +29,56 @@ struct HomeView: View {
     }
   }
 
+  private struct EnabledConnectionItem: Identifiable {
+    let id: ConnectionProviderID
+    let status: String
+  }
+
+  private var enabledConnections: [EnabledConnectionItem] {
+    var items: [EnabledConnectionItem] = []
+    if model.openAIEnabled {
+      items.append(EnabledConnectionItem(
+        id: .openAI,
+        status: L10n.text(model.connectionStatusKey)))
+    }
+    if model.cloudflare.enabled {
+      items.append(EnabledConnectionItem(
+        id: .cloudflare,
+        status: L10n.text(model.cloudflare.authorization.pending.isEmpty
+          ? model.cloudflare.statusKey : "cloudflare.pending")))
+    }
+    return items
+  }
+
   private var connectionSection: some View {
     MDSection(title: L10n.text("common.connection")) {
-      MDNavigationRow(
-        title: ConnectionProviderID.openAI.title,
-        symbol: ConnectionProviderID.openAI.symbol,
-        subtitle: model.savedTunnelID.isEmpty ? nil : model.savedTunnelID,
-        detail: L10n.text(model.connectionStatusKey),
-        iconTone: ConnectionProviderID.openAI.iconTone,
-        accessory: nil,
-        action: openConnection)
-      if model.cloudflare.enabled || model.cloudflare.configured {
-        MDNavigationRow(
-          title: ConnectionProviderID.cloudflare.title, symbol: "cloud",
-          subtitle: model.cloudflare.savedDomain,
-          detail: L10n.text(model.cloudflare.authorization.pending.isEmpty
-            ? model.cloudflare.statusKey : "cloudflare.pending"),
-          iconTone: .yellow, accessory: nil, action: openConnection)
+      MDList {
+        if enabledConnections.isEmpty {
+          MDListRow(
+            title: L10n.text("common.disabled"),
+            symbol: "link",
+            iconTone: .gray
+          ) {
+            Text(L10n.text("connection.notConfigured"))
+              .font(.system(size: 12))
+              .foregroundStyle(MDTheme.onSurfaceVariant)
+              .lineLimit(1)
+          }
+        } else {
+          ForEach(Array(enabledConnections.enumerated()), id: \.element.id) { index, item in
+            MDListRow(
+              title: item.id.title,
+              symbol: item.id.symbol,
+              position: MDListRowPosition(index: index, count: enabledConnections.count),
+              iconTone: item.id.iconTone
+            ) {
+              Text(item.status)
+                .font(.system(size: 12))
+                .foregroundStyle(MDTheme.onSurfaceVariant)
+                .lineLimit(1)
+            }
+          }
+        }
       }
     }
     .accessibilityIdentifier("home-connection")
@@ -56,7 +88,7 @@ struct HomeView: View {
     VStack(spacing: 22) {
       MDExpressiveIconSurface(
         symbol: runtimeSymbol, size: 92,
-        animating: [.preparing, .starting, .stopping].contains(model.phase))
+        animating: true)
         .accessibilityElement()
         .accessibilityLabel(statusTitle)
 

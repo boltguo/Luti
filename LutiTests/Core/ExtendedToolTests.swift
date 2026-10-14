@@ -157,6 +157,7 @@ import SwiftUI
             f.defaults.removeObject(forKey: "connection.openai.tunnelID")
           }
           model.tunnelID = failed ? "tunnel_preview0000000000000000000000000" : ""
+          model.openAIEnabled = failed
           model.apiKeySaved = failed
           model.connection = failed
             ? ConnectionSnapshot(state: .failed, message: "The remote connection is unavailable.", providerID: .openAI)
@@ -170,7 +171,7 @@ import SwiftUI
           } else if state.hasPrefix("project-") {
             page = AnyView(ProjectsView(model: model))
           } else {
-            page = AnyView(HomeView(model: model, openProjects: {}, openConnection: {}))
+            page = AnyView(HomeView(model: model, openProjects: {}))
           }
           let root = page.frame(width: 460, height: 736)
             .background(MDTheme.surface).foregroundStyle(MDTheme.onSurface)

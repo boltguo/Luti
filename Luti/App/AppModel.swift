@@ -8,6 +8,9 @@ import Observation
   var activeProject: ApprovedProject?
   var project: URL? { activeProject?.url }
   var tunnelID: String
+  var openAIEnabled: Bool {
+    didSet { defaults.set(openAIEnabled, forKey: Self.openAIEnabledKey) }
+  }
   var apiKeyDraft = ""
   var apiKeySaved = false
   var activity: [ActivityEvent] = []
@@ -43,6 +46,7 @@ import Observation
   @ObservationIgnored private var connectionRetryAllowed = true
   private static let selectedFolderKey = "selectedFolder"
   private static let tunnelIDKey = "connection.openai.tunnelID"
+  private static let openAIEnabledKey = "connection.openai.enabled"
   /// Set by Start, cleared by an explicit Stop; Quit and update relaunch keep it.
   private static let resumeKey = "runtime.resumeOnLaunch"
   var active: Bool { [.preparing, .starting, .running, .stopping].contains(phase) }
@@ -51,30 +55,35 @@ import Observation
   var connectionConfigured: Bool {
     apiKeySaved && (try? ConnectionContract.validateTunnelID(savedTunnelID)) != nil
   }
+  var openAICanLaunch: Bool {
+    openAIEnabled && connectionConfigured && !hasUnsavedConnection && !savingConnection
+  }
   var connectionStatusKey: String {
     if connection.state != .stopped { return "connection.state." + connection.state.rawValue }
     return connectionConfigured ? "connection.state.stopped" : "connection.notConfigured"
   }
   var reachableConnection: ConnectionSnapshot {
-    if connection.state == .ready || !cloudflare.enabled { return connection }
-    if cloudflare.connection.state == .ready || !connectionConfigured { return cloudflare.connection }
+    if openAIEnabled && connection.state == .ready { return connection }
+    if cloudflare.enabled && cloudflare.connection.state == .ready { return cloudflare.connection }
+    if openAIEnabled && (!cloudflare.enabled || connectionConfigured) { return connection }
+    if cloudflare.enabled { return cloudflare.connection }
     return connection
   }
-  var anyConnectionConfigured: Bool { connectionConfigured || cloudflare.canLaunch }
+  var anyConnectionConfigured: Bool { openAICanLaunch || cloudflare.canLaunch }
   /// Save and clear are async Keychain operations; while one runs, nothing may
   /// start, connect or edit against configuration that is about to change.
   var canStart: Bool {
     !active && !contextBusy && !savingConnection && !cloudflare.saving && activeProject != nil
   }
   /// Start when at least one saved client path is usable. Both may run together.
-  var canLaunch: Bool { canStart && ((connectionConfigured && !hasUnsavedConnection) || cloudflare.canLaunch) }
+  var canLaunch: Bool { canStart && (openAICanLaunch || cloudflare.canLaunch) }
   var canEditConnection: Bool {
     !savingConnection && !connectionBusy && !connection.state.isActive
       && ![.preparing, .starting, .stopping].contains(phase)
   }
   var canConnect: Bool {
-    phase == .running && !savingConnection && !connectionBusy && !connection.state.isActive
-      && connectionConfigured && !hasUnsavedConnection
+    phase == .running && openAIEnabled && !savingConnection && !connectionBusy
+      && !connection.state.isActive && connectionConfigured && !hasUnsavedConnection
   }
   init(contextDataRoot: URL = LutiPaths.root, defaults: UserDefaults = .standard,
        credentials: KeychainClient? = nil,
@@ -86,7 +95,13 @@ import Observation
     let credentials = credentials ?? (defaults == .standard ? .live : .empty)
     self.credentials = credentials
     self.makeProvider = makeProvider
-    tunnelID = defaults.string(forKey: Self.tunnelIDKey) ?? ""
+    let savedTunnel = defaults.string(forKey: Self.tunnelIDKey) ?? ""
+    tunnelID = savedTunnel
+    if defaults.object(forKey: Self.openAIEnabledKey) != nil {
+      openAIEnabled = defaults.bool(forKey: Self.openAIEnabledKey)
+    } else {
+      openAIEnabled = !savedTunnel.isEmpty
+    }
     if let data = defaults.data(forKey: Self.selectedFolderKey) {
       activeProject = try? JSONDecoder().decode(ApprovedProject.self, from: data)
     }
@@ -252,6 +267,7 @@ import Observation
       tunnelID = id
       apiKeyDraft = ""
       apiKeySaved = true
+      openAIEnabled = true
       connection = .stopped
       connectionSettingsError = nil
       connectionError = nil
@@ -276,6 +292,7 @@ import Observation
       tunnelID = ""
       apiKeyDraft = ""
       apiKeySaved = false
+      openAIEnabled = false
       connection = .stopped
       connectionSettingsError = nil
       connectionError = nil
@@ -333,7 +350,7 @@ import Observation
         self.phase = .running
         self.detail = "Project runtime is running."
         LocalLogStore.runtime("info", "Local folder runtime started.")
-        if self.connectionConfigured { self.connectRemote() }
+        if self.openAICanLaunch { self.connectRemote() }
         self.cloudflare.start(router: runtime.router, project: root, helper: Self.processHelper)
       } catch {
         if let owned { await owned.stop() }

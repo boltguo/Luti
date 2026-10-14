@@ -201,6 +201,7 @@
 "connection.notConfigured" = "未設定";
 
 /* OpenAI Secure MCP Tunnel */
+"openai.enabled" = "OpenAI Tunnel を有効にする";
 "connection.enterAPIKey" = "保存する前にRuntime API Keyを入力してください。";
 "connection.pasteAPIKey" = "OpenAIのランタイムAPIキーを貼り付け";
 "provider.openTunnelSettings" = "Tunnel設定を開く";
@@ -223,12 +224,22 @@
 "cloudflare.setup" = "Cloudflare でリモート管理の Tunnel を作成し、ドメインの公開ホスト名を下のローカルサービスに接続します。ドメインと Tunnel Token をここに保存してください。";
 "cloudflare.originService" = "Cloudflare サービス：";
 "cloudflare.dashboard" = "Cloudflare ダッシュボードを開く ↗";
+"provider.openCloudflareDashboard" = "Cloudflare Tunnelを開く";
+"provider.cloudflare.step1.title" = "Cloudflare Tunnelを作成する";
+"provider.cloudflare.step1.detail" = "CloudflareのTunnel設定でリモート管理のCloudflaredトンネルを作成または選択し、Tunnel Tokenをコピーします。";
+"provider.cloudflare.step2.title" = "公開ホスト名を転送する";
+"provider.cloudflare.step2.detail" = "HTTPSドメインのPublic Hostnameを追加し、サービスURLを http://127.0.0.1:39393 に設定します。";
+"provider.cloudflare.step3.title" = "Lutiで設定を完了する";
+"provider.cloudflare.step3.detail" = "上にHTTPSドメインとTunnel Tokenを入力して保存します。有効にすると、Lutiの実行中に自動接続します。";
+"provider.cloudflare.step4.title" = "AIクライアントに追加して承認する";
+"provider.cloudflare.step4.detail" = "/mcp URLをOAuth対応のカスタムMCPとして追加し、このMacの下部で承認リクエストを許可します。";
 "cloudflare.pending" = "この Mac での承認待ち";
 "cloudflare.verify" = "ブラウザの確認コードとコールバックドメインを照合してください。アプリ名はクライアントの申告であり、本人確認済みの情報ではありません。";
 "cloudflare.access" = "このプロジェクトのファイル、コマンド、ブラウザツールへのアクセスを許可します。コマンドは現在の macOS ユーザー権限で実行されます。";
 "cloudflare.deny" = "拒否";
 "cloudflare.allow" = "アクセスを許可";
 "cloudflare.apps" = "承認済みアプリ";
+"cloudflare.noAppsTitle" = "承認済みアプリなし";
 "cloudflare.noApps" = "このプロジェクトとドメインで承認されたアプリはありません。";
 "cloudflare.revoke" = "取り消す";
 "cloudflare.clearNotice" = "保存したドメインと Tunnel Token を削除します。既存のアプリ承認は削除前に下で取り消せます。承認は 30 日後に期限切れになります。";

@@ -62,6 +62,18 @@ import XCTest
         "activity.browserActionExecuted",
         "activity.browserConditionConfirmed",
         "activity.browserConditionNotMet",
+        "openai.enabled",
+        "cloudflare.enabled",
+        "cloudflare.noAppsTitle",
+        "provider.openCloudflareDashboard",
+        "provider.cloudflare.step1.title",
+        "provider.cloudflare.step1.detail",
+        "provider.cloudflare.step2.title",
+        "provider.cloudflare.step2.detail",
+        "provider.cloudflare.step3.title",
+        "provider.cloudflare.step3.detail",
+        "provider.cloudflare.step4.title",
+        "provider.cloudflare.step4.detail",
       ] {
         let value = bundle.localizedString(forKey: key, value: "__MISSING__", table: nil)
         XCTAssertNotEqual(value, "__MISSING__", "\(language): \(key)")

@@ -201,6 +201,7 @@
 "connection.notConfigured" = "未配置";
 
 /* OpenAI Secure MCP Tunnel */
+"openai.enabled" = "启用 OpenAI Tunnel";
 "connection.enterAPIKey" = "请先填写 Runtime API Key 再保存。";
 "connection.pasteAPIKey" = "粘贴 OpenAI 运行 API Key";
 "provider.openTunnelSettings" = "打开 Tunnel 设置";
@@ -223,12 +224,22 @@
 "cloudflare.setup" = "在 Cloudflare 创建远程管理的 Tunnel，为你的域名添加公开主机名，指向下方的本地服务，然后在这里保存域名和 Tunnel Token。";
 "cloudflare.originService" = "Cloudflare 服务地址：";
 "cloudflare.dashboard" = "打开 Cloudflare 控制台 ↗";
+"provider.openCloudflareDashboard" = "打开 Cloudflare Tunnel";
+"provider.cloudflare.step1.title" = "创建 Cloudflare Tunnel";
+"provider.cloudflare.step1.detail" = "在 Cloudflare 的 Tunnel 页面创建或选择远程管理的 Cloudflared 隧道，并复制生成的 Tunnel Token。";
+"provider.cloudflare.step2.title" = "配置公开域名转发";
+"provider.cloudflare.step2.detail" = "为该隧道添加 Public Hostname，绑定你的 HTTPS 域名，并将服务地址指向 http://127.0.0.1:39393。";
+"provider.cloudflare.step3.title" = "回到 Luti 完成设置";
+"provider.cloudflare.step3.detail" = "在上方填入 HTTPS 域名和 Tunnel Token 并保存。开启后 Luti 运行时会自动连接。";
+"provider.cloudflare.step4.title" = "在 AI 客户端中添加并授权";
+"provider.cloudflare.step4.detail" = "将生成的 /mcp 地址添加为自定义 MCP 服务，认证方式选择 OAuth，然后在下方批准本机授权请求。";
 "cloudflare.pending" = "等待本机授权";
 "cloudflare.verify" = "请核对浏览器中的验证码和回调域名。应用名称由客户端提供，不代表身份已验证。";
 "cloudflare.access" = "允许访问当前项目的文件、命令及浏览器工具。命令以你当前的 macOS 用户权限运行。";
 "cloudflare.deny" = "拒绝";
 "cloudflare.allow" = "允许访问";
 "cloudflare.apps" = "已授权应用";
+"cloudflare.noAppsTitle" = "暂无授权应用";
 "cloudflare.noApps" = "当前项目和域名尚未授权任何应用。";
 "cloudflare.revoke" = "撤销授权";
 "cloudflare.clearNotice" = "移除保存的域名和 Tunnel Token。已有应用授权可在清除前于下方撤销；授权会在 30 天后到期。";

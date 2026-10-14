@@ -6,7 +6,20 @@ struct OpenAIConnectionView: View {
   @State private var confirmClearConfiguration = false
 
   var body: some View {
-    VStack(alignment: .leading, spacing: 22) {
+    VStack(alignment: .leading, spacing: 20) {
+      MDListRow(
+        title: L10n.text("openai.enabled"),
+        symbol: ConnectionProviderID.openAI.symbol,
+        iconTone: ConnectionProviderID.openAI.iconTone
+      ) {
+        MDSwitch(
+          isOn: $model.openAIEnabled,
+          label: L10n.text("openai.enabled")
+        )
+        .disabled(!model.canEditConnection)
+        .accessibilityIdentifier("openai-enabled")
+      }
+
       if let message = model.connectionError
         ?? (model.connection.state == .failed ? model.connection.message : nil)
       {
@@ -107,7 +120,7 @@ struct OpenAIConnectionView: View {
 
 private struct OpenAISetupGuide: View {
   var body: some View {
-    ProviderDetailCard(title: L10n.text("connection.setupGuide")) {
+    MDDisclosure(title: L10n.text("connection.setupGuide")) {
       VStack(alignment: .leading, spacing: 16) {
         ForEach(1...4, id: \.self) { step in
           SetupStep(
@@ -131,35 +144,6 @@ private struct OpenAISetupGuide: View {
         .buttonStyle(MDConnectedButtonStyle(kind: .tonal, position: .last))
       }
       .frame(maxWidth: .infinity)
-    }
-  }
-}
-
-private struct SetupStep: View {
-  let number: Int
-  let title: String
-  let detail: String
-
-  var body: some View {
-    HStack(alignment: .top, spacing: 12) {
-      Text(String(number))
-        .font(.system(size: 12, weight: .semibold))
-        .foregroundStyle(MDTheme.onPrimaryContainer)
-        .frame(width: 26, height: 26)
-        .background(MDTheme.primaryContainer, in: Circle())
-        .accessibilityHidden(true)
-
-      VStack(alignment: .leading, spacing: 3) {
-        Text(title)
-          .font(.system(size: 13, weight: .semibold))
-          .foregroundStyle(MDTheme.onSurface)
-
-        Text(detail)
-          .font(.system(size: 12))
-          .foregroundStyle(MDTheme.onSurfaceVariant)
-          .fixedSize(horizontal: false, vertical: true)
-      }
-      .frame(maxWidth: .infinity, alignment: .leading)
     }
   }
 }

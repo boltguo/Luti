@@ -53,3 +53,32 @@ struct ProviderInfoCallout: View {
     }
   }
 }
+
+struct SetupStep: View {
+  let number: Int
+  let title: String
+  let detail: String
+
+  var body: some View {
+    HStack(alignment: .top, spacing: 12) {
+      Text(String(number))
+        .font(.system(size: 12, weight: .semibold))
+        .foregroundStyle(MDTheme.onPrimaryContainer)
+        .frame(width: 26, height: 26)
+        .background(MDTheme.primaryContainer, in: Circle())
+        .accessibilityHidden(true)
+
+      VStack(alignment: .leading, spacing: 3) {
+        Text(title)
+          .font(.system(size: 13, weight: .semibold))
+          .foregroundStyle(MDTheme.onSurface)
+
+        Text(detail)
+          .font(.system(size: 12))
+          .foregroundStyle(MDTheme.onSurfaceVariant)
+          .fixedSize(horizontal: false, vertical: true)
+      }
+      .frame(maxWidth: .infinity, alignment: .leading)
+    }
+  }
+}

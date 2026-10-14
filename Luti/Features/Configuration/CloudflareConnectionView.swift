@@ -13,74 +13,87 @@ struct CloudflareConnectionView: View {
 
   var body: some View {
     VStack(alignment: .leading, spacing: 20) {
-      Toggle(L10n.text("cloudflare.enabled"), isOn: $connection.enabled)
+      MDListRow(
+        title: L10n.text("cloudflare.enabled"),
+        symbol: ConnectionProviderID.cloudflare.symbol,
+        iconTone: ConnectionProviderID.cloudflare.iconTone
+      ) {
+        MDSwitch(
+          isOn: $connection.enabled,
+          label: L10n.text("cloudflare.enabled")
+        )
         .disabled(model.active || connection.saving)
         .accessibilityIdentifier("cloudflare-enabled")
-
-      VStack(alignment: .leading, spacing: 16) {
-        MDInput(title: L10n.text("cloudflare.domain")) {
-          TextField("https://mcp.example.com", text: $connection.domain)
-            .autocorrectionDisabled()
-            .accessibilityIdentifier("cloudflare-domain")
-        }
-        MDInput(title: "Tunnel Token") {
-          SecureField(connection.tokenSaved
-            ? L10n.text("connection.savedLeaveBlankKeepCurrentToken") : L10n.text("cloudflare.token"),
-            text: $connection.tokenDraft)
-            .autocorrectionDisabled()
-            .accessibilityIdentifier("cloudflare-token")
-        }
-        MDButtonRun {
-          if connection.configured {
-            Button(role: .destructive) { confirmClear = true } label: {
-              Text(L10n.text("connection.clearConfiguration")).frame(maxWidth: .infinity)
-            }
-            .buttonStyle(MDConnectedButtonStyle(kind: .tonal, position: .first))
-          }
-          Button { Task { await connection.save(project: model.project) } } label: {
-            Text(L10n.text("connection.saveConfiguration")).frame(maxWidth: .infinity)
-          }
-          .buttonStyle(MDConnectedButtonStyle(kind: .filled, position: connection.configured ? .last : .single))
-          .disabled(!connection.hasUnsavedChanges)
-          .accessibilityIdentifier("cloudflare-save")
-        }
       }
-      .disabled(model.active || connection.saving)
 
-      if model.active {
-        ProviderInfoCallout(text: L10n.text("connection.stopToEdit"), symbol: "lock", tone: .gray)
-      }
       if let error = connection.error {
-        InlineNotice(text: error, icon: "exclamationmark.triangle", color: MDTheme.error)
+        ProviderInfoCallout(text: error, symbol: "exclamationmark.triangle", tone: .red)
           .textSelection(.enabled)
       }
 
-      if connection.configured {
-        HStack {
-          Label(L10n.text(connection.statusKey), systemImage: connection.connection.state == .ready ? "checkmark.circle" : "cloud")
-          Spacer()
-          Button {
-            NSPasteboard.general.clearContents()
-            NSPasteboard.general.setString(connection.endpoint, forType: .string)
-          } label: { Label(L10n.text("cloudflare.copy"), systemImage: "doc.on.doc") }
-            .buttonStyle(.borderless)
+      VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 16) {
+          MDInput(title: L10n.text("cloudflare.domain")) {
+            TextField("https://mcp.example.com", text: $connection.domain)
+              .autocorrectionDisabled()
+              .accessibilityIdentifier("cloudflare-domain")
+          }
+          MDInput(title: "Tunnel Token") {
+            SecureField(connection.tokenSaved
+              ? L10n.text("connection.savedLeaveBlankKeepCurrentToken") : L10n.text("cloudflare.token"),
+              text: $connection.tokenDraft)
+              .autocorrectionDisabled()
+              .accessibilityIdentifier("cloudflare-token")
+          }
+          MDButtonRun {
+            if connection.configured {
+              Button(role: .destructive) { confirmClear = true } label: {
+                Text(L10n.text("connection.clearConfiguration")).frame(maxWidth: .infinity)
+              }
+              .buttonStyle(MDConnectedButtonStyle(kind: .tonal, position: .first))
+            }
+            Button { Task { await connection.save(project: model.project) } } label: {
+              Text(L10n.text("connection.saveConfiguration")).frame(maxWidth: .infinity)
+            }
+            .buttonStyle(MDConnectedButtonStyle(kind: .filled, position: connection.configured ? .last : .single))
+            .disabled(!connection.hasUnsavedChanges)
+            .accessibilityIdentifier("cloudflare-save")
+          }
         }
-        Text(connection.endpoint).font(.system(.body, design: .monospaced)).textSelection(.enabled)
-          .accessibilityIdentifier("cloudflare-endpoint")
-        Text(L10n.text("cloudflare.connectGuide"))
-          .font(.footnote).foregroundStyle(MDTheme.onSurfaceVariant)
-      } else {
-        Text(L10n.text("cloudflare.setup"))
-          .font(.footnote).foregroundStyle(MDTheme.onSurfaceVariant)
-      }
-      HStack(alignment: .top) {
-        Text(L10n.text("cloudflare.originService")).font(.footnote)
-        Text(CloudflareContract.localService).font(.system(.footnote, design: .monospaced)).textSelection(.enabled)
-      }
-      Link(L10n.text("cloudflare.dashboard"), destination: URL(string: "https://one.dash.cloudflare.com/")!)
-        .font(.footnote)
+        .disabled(model.active || connection.saving)
 
-      Divider()
+        if model.active {
+          ProviderInfoCallout(text: L10n.text("connection.stopToEdit"), symbol: "lock", tone: .gray)
+        }
+      }
+
+      if connection.configured {
+        VStack(alignment: .leading, spacing: 10) {
+          MDListRow(
+            title: connection.endpoint,
+            symbol: connection.connection.state == .ready ? "checkmark.circle" : "link",
+            subtitle: L10n.text(connection.statusKey),
+            iconTone: connection.connection.state == .ready ? .green : .yellow,
+            textLineLimit: 1
+          ) {
+            Button {
+              NSPasteboard.general.clearContents()
+              NSPasteboard.general.setString(connection.endpoint, forType: .string)
+            } label: {
+              Label(L10n.text("cloudflare.copy"), systemImage: "doc.on.doc")
+            }
+            .buttonStyle(MDButtonStyle(kind: .tonal))
+          }
+          .accessibilityIdentifier("cloudflare-endpoint")
+
+          Text(L10n.text("cloudflare.connectGuide"))
+            .font(.system(size: 12))
+            .foregroundStyle(MDTheme.onSurfaceVariant)
+        }
+      } else {
+        CloudflareSetupGuide()
+      }
+
       authorizations
     }
     .sheet(isPresented: $confirmClear) {
@@ -92,53 +105,88 @@ struct CloudflareConnectionView: View {
   }
 
   private var authorizations: some View {
-    VStack(alignment: .leading, spacing: 16) {
+    VStack(alignment: .leading, spacing: 20) {
       if !connection.authorization.pending.isEmpty {
-        Text(L10n.text("cloudflare.pending")).font(.headline)
-        Text(L10n.text("cloudflare.verify"))
-          .font(.footnote).foregroundStyle(MDTheme.onSurfaceVariant)
-        ForEach(connection.authorization.pending) { request in
-          VStack(alignment: .leading, spacing: 10) {
-            HStack {
-              Text(request.client.name).font(.headline)
-              Spacer()
-              Text(request.verification).font(.system(.title3, design: .monospaced).weight(.semibold))
-            }
-            Text(request.redirect).font(.footnote).textSelection(.enabled)
-            Text(L10n.text("cloudflare.access")).font(.footnote).foregroundStyle(MDTheme.onSurfaceVariant)
-            MDButtonRun {
-              Button { Task { await connection.decide(request.id, allow: false) } } label: {
-                Text(L10n.text("cloudflare.deny")).frame(maxWidth: .infinity)
-              }.buttonStyle(MDConnectedButtonStyle(kind: .tonal, position: .first))
-              Button { Task { await connection.decide(request.id, allow: true) } } label: {
-                Text(L10n.text("cloudflare.allow")).frame(maxWidth: .infinity)
-              }.buttonStyle(MDConnectedButtonStyle(kind: .filled, position: .last))
+        MDSection(title: L10n.text("cloudflare.pending")) {
+          VStack(alignment: .leading, spacing: 12) {
+            Text(L10n.text("cloudflare.verify"))
+              .font(.system(size: 12))
+              .foregroundStyle(MDTheme.onSurfaceVariant)
+            ForEach(connection.authorization.pending) { request in
+              VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                  Text(request.client.name).font(.headline)
+                  Spacer()
+                  Text(request.verification).font(.system(.title3, design: .monospaced).weight(.semibold))
+                }
+                Text(request.redirect).font(.footnote).textSelection(.enabled)
+                Text(L10n.text("cloudflare.access")).font(.footnote).foregroundStyle(MDTheme.onSurfaceVariant)
+                MDButtonRun {
+                  Button { Task { await connection.decide(request.id, allow: false) } } label: {
+                    Text(L10n.text("cloudflare.deny")).frame(maxWidth: .infinity)
+                  }.buttonStyle(MDConnectedButtonStyle(kind: .tonal, position: .first))
+                  Button { Task { await connection.decide(request.id, allow: true) } } label: {
+                    Text(L10n.text("cloudflare.allow")).frame(maxWidth: .infinity)
+                  }.buttonStyle(MDConnectedButtonStyle(kind: .filled, position: .last))
+                }
+              }
+              .padding(16)
+              .background(MDTheme.surfaceContainerLow, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
             }
           }
-          .padding(16)
-          .background(MDTheme.surfaceContainerLow, in: RoundedRectangle(cornerRadius: 16))
         }
       }
-      Text(L10n.text("cloudflare.apps")).font(.headline)
-      Text(model.activeProject?.name ?? L10n.text("projects.noProjectsYet"))
-        .font(.footnote).foregroundStyle(MDTheme.onSurfaceVariant)
-      if connection.authorization.applications.isEmpty {
-        Text(L10n.text("cloudflare.noApps")).font(.footnote).foregroundStyle(MDTheme.onSurfaceVariant)
-      }
-      ForEach(connection.authorization.applications) { app in
-        HStack(spacing: 12) {
-          Image(systemName: "app.connected.to.app.below.fill").foregroundStyle(MDTheme.primary)
-          VStack(alignment: .leading, spacing: 4) {
-            Text(app.name).font(.body.weight(.medium))
-            Text(app.callbackHost).font(.caption).foregroundStyle(MDTheme.onSurfaceVariant)
+
+      MDSection(title: L10n.text("cloudflare.apps")) {
+        if connection.authorization.applications.isEmpty {
+          MDEmptyState(
+            title: L10n.text("cloudflare.noAppsTitle"),
+            message: L10n.text("cloudflare.noApps"),
+            symbol: "app.connected.to.app.below.fill")
+        } else {
+          MDList {
+            ForEach(Array(connection.authorization.applications.enumerated()), id: \.element.id) { index, app in
+              MDListRow(
+                title: app.name,
+                symbol: "app.connected.to.app.below.fill",
+                subtitle: app.callbackHost,
+                position: MDListRowPosition(index: index, count: connection.authorization.applications.count),
+                iconTone: .purple
+              ) {
+                Button(L10n.text("cloudflare.revoke"), role: .destructive) {
+                  Task { await connection.revoke(app.id) }
+                }
+                .buttonStyle(MDButtonStyle(kind: .tonal))
+              }
+            }
           }
-          Spacer()
-          Button(L10n.text("cloudflare.revoke"), role: .destructive) {
-            Task { await connection.revoke(app.id) }
-          }.buttonStyle(.borderless)
         }
       }
     }
     .accessibilityIdentifier("cloudflare-authorizations")
+  }
+}
+
+private struct CloudflareSetupGuide: View {
+  var body: some View {
+    MDDisclosure(title: L10n.text("connection.setupGuide")) {
+      VStack(alignment: .leading, spacing: 16) {
+        ForEach(1...4, id: \.self) { step in
+          SetupStep(
+            number: step,
+            title: L10n.text("provider.cloudflare.step\(step).title"),
+            detail: L10n.text("provider.cloudflare.step\(step).detail"))
+        }
+      }
+
+      MDButtonRun {
+        Link(destination: URL(string: "https://dash.cloudflare.com/?to=/:account/tunnels")!) {
+          Label(L10n.text("provider.openCloudflareDashboard"), systemImage: "arrow.up.right")
+            .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(MDConnectedButtonStyle(kind: .tonal, position: .single))
+      }
+      .frame(maxWidth: .infinity)
+    }
   }
 }

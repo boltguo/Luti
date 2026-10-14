@@ -510,41 +510,58 @@ private struct MDIconButtonStyle: ButtonStyle {
 /// Secondary content can expand without becoming another large rounded list item.
 struct MDDisclosure<Content: View>: View {
   let title: String
-  var symbol = "info.circle"
+  var symbol = "book.pages"
+  var iconTone: MDIconTone = .blue
   @ViewBuilder let content: Content
   @State private var expanded = false
-  @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+  private let shape = RoundedRectangle(cornerRadius: 20, style: .continuous)
 
   var body: some View {
-    VStack(alignment: .leading, spacing: 10) {
+    VStack(alignment: .leading, spacing: 14) {
       Button {
-        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.16)) { expanded.toggle() }
-      } label: {
-        HStack(spacing: 12) {
-          Image(systemName: symbol).frame(width: 24)
-          Text(title).font(.system(size: 14, weight: .semibold))
-          Spacer()
-          Image(systemName: expanded ? "chevron.up" : "chevron.down")
-            .font(.system(size: 11, weight: .semibold))
+        var transaction = Transaction()
+        transaction.disablesAnimations = true
+        withTransaction(transaction) {
+          expanded.toggle()
         }
-        .padding(.horizontal, 12).frame(minHeight: 44)
-        .contentShape(Rectangle())
-      }
-      .buttonStyle(MDFlatActionStyle())
-      .accessibilityValue(expanded ? L10n.text("ui.expanded") : L10n.text("ui.collapsed"))
-      if expanded { content }
-    }
-  }
-}
+      } label: {
+        HStack(alignment: .center, spacing: 12) {
+          Image(systemName: symbol)
+            .font(.system(size: 18, weight: .medium))
+            .foregroundStyle(iconTone.foreground)
+            .frame(width: 36, height: 36)
+            .background(iconTone.container, in: Circle())
+            .accessibilityHidden(true)
 
-private struct MDFlatActionStyle: ButtonStyle {
-  @State private var hovered = false
-  func makeBody(configuration: Configuration) -> some View {
-    configuration.label
-      .foregroundStyle(MDTheme.onSurface)
-      .background(MDTheme.primary.opacity(configuration.isPressed ? 0.12 : hovered ? 0.06 : 0),
-                  in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-      .onHover { hovered = $0 }
+          Text(title)
+            .font(.system(size: 14, weight: .medium))
+            .foregroundStyle(MDTheme.onSurface)
+            .lineLimit(1)
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+          Image(systemName: "chevron.down")
+            .font(.system(size: 11, weight: .semibold))
+            .foregroundStyle(MDTheme.onSurfaceVariant)
+            .rotationEffect(.degrees(expanded ? 180 : 0))
+            .accessibilityHidden(true)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .frame(maxWidth: .infinity, minHeight: 56, alignment: .leading)
+        .background(MDTheme.surfaceContainerLow, in: shape)
+        .contentShape(shape)
+      }
+      .buttonStyle(.plain)
+      .accessibilityValue(expanded ? L10n.text("ui.expanded") : L10n.text("ui.collapsed"))
+
+      if expanded {
+        VStack(alignment: .leading, spacing: 14) {
+          content
+        }
+        .padding(.horizontal, 4)
+      }
+    }
   }
 }
 
@@ -807,12 +824,11 @@ struct MDExpressiveIconSurface: View {
   var size: CGFloat = 92
   var animating = true
 
-  @Environment(\.accessibilityReduceMotion) private var reduceMotion
   @State private var startedAt = Date()
 
   var body: some View {
     ZStack {
-      if reduceMotion || !animating {
+      if !animating {
         MDExpressiveLoadingShape(phase: 0)
           .fill(MDTheme.primaryContainer)
       } else {
@@ -1062,6 +1078,7 @@ struct MDSwitch: View {
   @Binding var isOn: Bool
   var label: String
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
+  @Environment(\.isEnabled) private var isEnabled
 
   var body: some View {
     Button {
@@ -1099,6 +1116,7 @@ struct MDSwitch: View {
       .animation(reduceMotion ? nil : .easeInOut(duration: 0.16), value: isOn)
     }
     .buttonStyle(.plain)
+    .opacity(isEnabled ? 1 : 0.38)
     .accessibilityLabel(label)
     .accessibilityValue(isOn ? L10n.text("common.enabled") : L10n.text("common.disabled"))
   }

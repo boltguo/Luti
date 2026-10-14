@@ -37,8 +37,6 @@ struct MainWindowView: View {
         case .home:
           HomeView(model: model, openProjects: {
             selectedTab = .projects
-          }, openConnection: {
-            selectedTab = .configuration
           })
         case .configuration: ConfigurationView(model: model)
         case .projects: ProjectsView(model: model)
