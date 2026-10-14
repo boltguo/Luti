@@ -1,28 +1,4 @@
 (() => {
-  const root = document.documentElement;
-  const sw = document.getElementById('themeSwitch');
-  let stored;
-  try { stored = localStorage.getItem('luti-theme'); } catch {}
-
-  const systemDark = matchMedia('(prefers-color-scheme: dark)');
-  const isDark = () => (root.dataset.theme === 'auto' ? systemDark.matches : root.dataset.theme === 'dark');
-
-  function apply(theme) {
-    root.dataset.theme = theme;
-    sw.setAttribute('aria-checked', String(isDark()));
-  }
-
-  apply(stored === 'dark' || stored === 'light' ? stored : 'auto');
-  systemDark.addEventListener('change', () => {
-    if (root.dataset.theme === 'auto') sw.setAttribute('aria-checked', String(systemDark.matches));
-  });
-
-  sw.addEventListener('click', () => {
-    const next = isDark() ? 'light' : 'dark';
-    try { localStorage.setItem('luti-theme', next); } catch {}
-    apply(next);
-  });
-
   const bar = document.getElementById('appbar');
   const sentinel = document.createElement('div');
   sentinel.className = 'appbar__sentinel';
