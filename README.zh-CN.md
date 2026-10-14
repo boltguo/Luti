@@ -22,43 +22,88 @@
 
 ## Luti 能做什么
 
-Luti 把 AI 客户端连接到一个已授权项目。AI Host 负责推理和编排；Luti 在本机运行工具，并管理项目边界与权限。
-
-```mermaid
-flowchart TB
-    remote["ChatGPT"]
-    tunnel["OpenAI Secure MCP Tunnel<br/>仅出站连接"]
-    luti["这台 Mac 上的 Luti"]
-    context["本地记录<br/>Memory · Activity"]
-    tools["本地能力<br/>Files · Git · Process · Browser"]
-    project["一个已授权项目"]
-
-    remote --> tunnel --> luti
-    luti --> context --> project
-    luti --> tools --> project
-```
-
-它可以读写文件、运行构建和测试、查看 Git、操作浏览器、导出产物，并在多个 AI 客户端之间共享项目记忆。这些操作都在你的 Mac 上完成。
+Luti 把 AI 客户端连接到一个已授权项目。AI Host 负责推理和编排；Luti 在本机运行工具，并管理项目边界与权限。它可以读写文件、运行构建和测试、查看 Git、操作浏览器、导出产物，并在多个 AI 客户端之间共享项目记忆。这些操作都在你的 Mac 上完成。
 
 ## 快速开始
 
 1. **安装 Luti。** 从最新 GitHub Release 下载已签名的 DMG，或从源码构建。
 2. **添加文件夹。** 在 **Projects** 中选择一个文件夹，默认完全访问。移除后回到空状态，可重新添加。
-3. **配置 OpenAI Tunnel。** 保存 OpenAI Platform 中的 Tunnel ID 和运行 API Key，连接会随 Runtime 自动启动。
-4. **在 ChatGPT 中使用。** 在 [ChatGPT Plugins](https://chatgpt.com/plugins) 点击 **+** > **Add custom MCP server**，选择 **Tunnel** 并选中你的 Tunnel ID。
-
-启动 Runtime 前在本地选定文件夹。
+3. **配置连接方式。** 在 **Connections** 中配置 **OpenAI Secure MCP Tunnel** 或 **Cloudflare Tunnel**（两者可单独或同时启用）。
+4. **启动并连接。** 启动本地 Runtime 后，在 AI 客户端中添加对应的 MCP 服务即可开始使用。
 
 **升级到 1.2.0：** 已保存为 1.1 格式的设置和凭据继续保留。1.0.x 旧数据的自动迁移和清理已移除。从 1.0.x 直接升级，或此前迁移未完成的用户，需要重新选择项目文件夹并保存 Tunnel ID 和 API Key。
 
-## 连接方式
+## 连接方式与配置教程
 
 | 连接 | 需要提供 | 认证 | 适合场景 |
 |---|---|---|---|
 | **OpenAI Secure MCP Tunnel** | Tunnel ID + 运行 API Key | ChatGPT 工作区关联 | ChatGPT，无需公开入口 |
-| **Cloudflare Tunnel** | HTTPS 域名 + Tunnel Token | OAuth，在本机批准 | 通过固定公开地址连接的自定义 MCP 客户端 |
+| **Cloudflare Tunnel** | HTTPS 域名 + Tunnel Token | OAuth，在本机弹窗批准 | 通过固定公开地址连接的自定义 MCP 客户端 |
 
 OpenAI 使用独立的回环监听和每次连接新生成的私有凭据，通过 `tunnel-client` 主动出站连接。Cloudflare 为固定 HTTPS 域名单独提供 OAuth 保护的入口。任意一种连接配置完成即可启动，两种连接也可同时运行；传输失败会重连，不重启项目任务。修改配置前先停止 Runtime；停止会结束 Job 和浏览器会话。参见 [Cloudflare 配置与本机授权](docs/cloudflare.md)。
+
+### 1. OpenAI Secure MCP Tunnel（ChatGPT）
+
+1. **创建 Secure MCP Tunnel**：在 [OpenAI Platform Tunnel 设置](https://platform.openai.com/settings/organization/tunnels) 中新建 Tunnel，并关联要使用的 ChatGPT 工作区（需 `Tunnels Read + Manage` 权限）。
+2. **创建运行 API Key**：在 [OpenAI API Keys](https://platform.openai.com/api-keys) 创建供 `tunnel-client` 使用的 API Key（需 `Tunnels Read + Use` 权限）。
+3. **回到 Luti 完成设置**：填入 Tunnel ID 和 Runtime API Key 并保存，Luti 运行时会自动连接。
+4. **在 ChatGPT 中添加**：在 [ChatGPT Plugins](https://chatgpt.com/plugins) 点击 **+** > **Add custom MCP server**，Connection 选择 **Tunnel**，选中你的 Tunnel ID（创建期间保持 Luti 处于连接状态）。
+
+### 2. Cloudflare Tunnel（标准 Web OAuth 客户端，如 ChatGPT / Claude / Grok / Gemini）
+
+1. **创建 Cloudflare Tunnel**：在 [Cloudflare Tunnel 控制台](https://one.dash.cloudflare.com/) 创建或选择远程管理的 Cloudflared 隧道，复制生成的 Tunnel Token。
+2. **配置公开域名转发**：为该隧道添加 Public Hostname，绑定你的 HTTPS 域名（如 `https://mcp.example.com`），并将服务地址指向 `http://127.0.0.1:39393`。
+3. **回到 Luti 完成设置**：填入 HTTPS 域名和 Tunnel Token 并保存。开启后 Luti 运行时会自动连接。
+4. **在 AI 客户端中添加并授权**：将生成的 `https://<你的域名>/mcp` 地址添加为自定义 MCP 服务，认证方式选择 **OAuth**，核对浏览器验证码后在 Luti 弹出的授权窗口中点击 **允许访问**。
+
+### 3. 无回调后端的沙盒客户端（Python 手动 OAuth 接入）
+
+适用于跑在容器/沙盒中、没有公网回调后端的 AI Agent：客户端生成授权链接 → 用户在浏览器打开并在 Luti 弹窗点允许 → 用户把浏览器跳转后的完整回调 URL 粘回给客户端 → 客户端用 `code` 换取 token 并调用 `/mcp`。
+
+1. **服务发现与动态注册（DCR）**
+   - 发现端点：`GET /.well-known/oauth-authorization-server` 与 `GET /.well-known/oauth-protected-resource/mcp`
+   - 注册客户端：`POST /oauth/register`（JSON Body：`"client_name"`、`"redirect_uris": ["https://..."]`、`"grant_types": ["authorization_code", "refresh_token"]`、`"response_types": ["code"]`、`"scope": "mcp"`、`"token_endpoint_auth_method": "none"`），保存返回的 `client_id`（`luti_` 前缀）。沙盒客户端可填写合法的 `https://` 回调地址占位，靠手动粘回 URL 提取 `code`。
+2. **生成 PKCE 授权链接并交由用户批准**
+   - 生成 `verifier` 与 `S256` 的 `code_challenge` 及随机 `state` 并持久化保存，拼接 `/oauth/authorize?response_type=code&client_id=...&redirect_uri=...&scope=mcp&state=...&code_challenge=...&code_challenge_method=S256&resource=https://<你的域名>/mcp`。
+   - **以代码块/纯文本发送链接**（不要发成可点击卡片，防止聊天平台预抓取导致重复发起授权）。用户在浏览器打开并在 Luti 弹窗批准后，将跳转后的完整回调 URL（含 `?code=...&state=...`）粘回。
+3. **换取与刷新 Token（关键避坑）**
+   - **一次性轮换与重放保护**：`access_token` 有效期 3600 秒（不透明 Token，有效期内请直接复用，不要每次调用都刷新）。`refresh_token` 为**一次性轮换**，每次刷新返回新 Token 对后旧 `refresh_token` 立即作废，**必须立即以 `0600` 权限落盘新值**；若重复提交已作废的旧 `refresh_token`，服务端会判定凭据泄露并**自动吊销整条授权**（网络超时未拿到响应时切勿盲目用旧 `refresh_token` 重试）。
+   - **调用 `/mcp`**：先发送 `initialize` + `notifications/initialized`，再调用 `tools/list` / `tools/call`（修改类工具需先从 `project_info` 获取 `projectToken`）。
+
+```python
+import base64, hashlib, json, secrets, urllib.parse, urllib.request
+
+BASE, UA = "https://mcp.example.com", "Mozilla/5.0"
+RES, CID, REDIRECT = f"{BASE}/mcp", "<client_id>", "<注册时的 redirect_uri>"
+
+def build_auth_url():
+    verifier = base64.urlsafe_b64encode(secrets.token_bytes(32)).rstrip(b"=").decode()
+    challenge = base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).rstrip(b"=").decode()
+    state = secrets.token_urlsafe(16)
+    qs = urllib.parse.urlencode({
+        "response_type": "code", "client_id": CID, "redirect_uri": REDIRECT,
+        "scope": "mcp", "state": state, "code_challenge": challenge,
+        "code_challenge_method": "S256", "resource": RES,
+    })
+    return f"{BASE}/oauth/authorize?{qs}", verifier, state
+
+def exchange_or_refresh(form):
+    data = urllib.parse.urlencode({"client_id": CID, "resource": RES, **form}).encode()
+    req = urllib.request.Request(f"{BASE}/oauth/token", data=data,
+        headers={"Content-Type": "application/x-www-form-urlencoded", "User-Agent": UA})
+    return json.load(urllib.request.urlopen(req, timeout=25))  # 立即持久化新的 access_token 与 refresh_token
+
+def mcp_call(access_token, method, params=None, mid=1):
+    body = json.dumps({"jsonrpc": "2.0", "id": mid, "method": method, "params": params or {}}).encode()
+    req = urllib.request.Request(RES, data=body, headers={
+        "Content-Type": "application/json", "Accept": "application/json, text/event-stream",
+        "Authorization": f"Bearer {access_token}", "User-Agent": UA})
+    raw = urllib.request.urlopen(req, timeout=30).read().decode()
+    for line in raw.splitlines():
+        if line.startswith("data:"):
+            return json.loads(line[5:])
+    return json.loads(raw)
+```
 
 ## 能力
 

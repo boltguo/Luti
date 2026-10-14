@@ -1,13 +1,12 @@
 import Foundation
 
-/// One issuer and one locally selected project. No global singleton, background
+/// One issuer for this Mac's Luti instance. No global singleton, background
 /// timer, network metadata fetch, or per-request Keychain lookup. Only hashes of
 /// high-entropy credentials are persisted; native consent is the sole grant path.
 public actor OAuthService {
   private struct State: Codable {
     var version = 1
     let resource: String
-    let project: String
     var clients: [OAuthClient] = []
     var grants: [OAuthGrant] = []
   }
@@ -33,7 +32,7 @@ public actor OAuthService {
   private var registrationCredits = 8.0
   private var creditTime: Date
 
-  init(origin: URL, project: String, file: URL? = nil, now: @escaping @Sendable () -> Date = { Date() }) throws {
+  init(origin: URL, file: URL? = nil, now: @escaping @Sendable () -> Date = { Date() }) throws {
     self.origin = try CloudflareContract.origin(origin.absoluteString)
     self.file = file
     self.now = now
@@ -43,15 +42,15 @@ public actor OAuthService {
       try PrivateFiles.directory(file.deletingLastPathComponent())
       if try PrivateFiles.exists(file) {
         let loaded = try JSONCoding.decode(State.self, PrivateFiles.read(file, max: 4_194_304))
-        guard loaded.version == 1, loaded.resource == resource, loaded.project == project,
+        guard loaded.version == 1, loaded.resource == resource,
           loaded.clients.count <= 64, loaded.grants.count <= 32,
           loaded.grants.allSatisfy({ $0.spentRefreshHashes.count <= 1024 })
-        else { throw Failure.invalid("The saved Cloudflare authorizations do not match this project and domain.") }
+        else { throw Failure.invalid("The saved Cloudflare authorizations do not match this domain.") }
         state = loaded
         return
       }
     }
-    state = State(resource: resource, project: project)
+    state = State(resource: resource)
   }
 
   func snapshot() -> OAuthSnapshot {
@@ -114,13 +113,32 @@ public actor OAuthService {
   }
 
   func grant(for bearer: String) -> ToolGrant? {
-    guard enabled, (32...256).contains(bearer.utf8.count) else { return nil }
+    authenticate(bearer).grant
+  }
+
+  func authenticate(_ bearer: String) -> (grant: ToolGrant?, reason: String) {
+    guard enabled else { return (nil, "oauth_stopped") }
+    let count = bearer.utf8.count
     let hash = OAuthContract.hash(bearer)
-    guard let grant = state.grants.first(where: {
-      $0.expiresAt > now() && $0.accessExpiresAt > now() && Budget.constantTimeEqual($0.accessHash, hash)
-    }), let client = state.clients.first(where: { $0.id == grant.clientID }) else { return nil }
-    return .remote(RequestContext(transport: .cloudflare, clientID: client.id,
-      clientName: client.name, authorizationID: grant.id))
+    let prefix = String(hash.prefix(12))
+    guard (32...256).contains(count) else {
+      return (nil, "bearer_length_invalid(bytes=\(count),presented_sha256=\(prefix))")
+    }
+    let active = state.grants.filter { $0.expiresAt > now() && $0.accessExpiresAt > now() }
+    if let grant = active.first(where: { Budget.constantTimeEqual($0.accessHash, hash) }),
+      let client = state.clients.first(where: { $0.id == grant.clientID })
+    {
+      return (.remote(RequestContext(transport: .cloudflare, clientID: client.id,
+        clientName: client.name, authorizationID: grant.id)), "")
+    }
+    let expected = active.map { String($0.accessHash.prefix(12)) }.joined(separator: ",")
+    return (nil, "bearer_hash_mismatch(bytes=\(count),presented_sha256=\(prefix),expected_sha256=[\(expected)])")
+  }
+
+  private func validResource(_ value: String?) -> Bool {
+    guard let value, !value.isEmpty else { return true }
+    let trimmed = value.hasSuffix("/") ? String(value.dropLast()) : value
+    return trimmed == resource || trimmed == origin.absoluteString
   }
 
   private func commit(_ draft: State) throws {
@@ -240,7 +258,7 @@ public actor OAuthService {
     guard form["response_type"] == "code", form["code_challenge_method"] == "S256",
       let challenge = form["code_challenge"], challenge.utf8.count == 43,
       challenge.utf8.allSatisfy({ (65...90).contains($0) || (97...122).contains($0) || (48...57).contains($0) || $0 == 45 || $0 == 95 }),
-      form["resource"] == resource, form["scope"] == nil || form["scope"] == "mcp"
+      validResource(form["resource"]), form["scope"] == nil || form["scope"] == "mcp"
     else { return redirectReply(redirect, state: form["state"], result: "error", value: "invalid_request") }
     // A re-attempt from the same client replaces its previous undecided request so
     // a user who closed the browser tab can reconnect immediately while still holding at most 1 slot.
@@ -302,7 +320,7 @@ public actor OAuthService {
       }
       return json(200, [:])
     }
-    guard form["resource"] == resource else { return failure(400, "invalid_target") }
+    guard validResource(form["resource"]) else { return failure(400, "invalid_target") }
     if form["grant_type"] == "authorization_code" {
       guard let raw = form["code"], let code = codes.removeValue(forKey: OAuthContract.hash(raw)),
         code.clientID == id, code.redirect == form["redirect_uri"], code.expiresAt > now(),
@@ -333,12 +351,14 @@ public actor OAuthService {
 
   private func issue(_ index: Int) throws -> HTTPReply {
     let access = Budget.token(), refresh = Budget.token()
+    let accessHash = OAuthContract.hash(access)
     var draft = state
     if !draft.grants[index].refreshHash.isEmpty { draft.grants[index].spentRefreshHashes.append(draft.grants[index].refreshHash) }
-    draft.grants[index].accessHash = OAuthContract.hash(access)
+    draft.grants[index].accessHash = accessHash
     draft.grants[index].accessExpiresAt = now().addingTimeInterval(OAuthContract.accessSeconds)
     draft.grants[index].refreshHash = OAuthContract.hash(refresh)
     try commit(draft)
+    LocalLogStore.runtime("info", "OAuth issued access_sha256=\(accessHash.prefix(12)) client=\(draft.grants[index].clientID.prefix(17))")
     return json(200, ["access_token": .string(access), "token_type": "Bearer", "expires_in": 3600,
       "refresh_token": .string(refresh), "scope": "mcp"])
   }

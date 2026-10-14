@@ -100,10 +100,18 @@ public actor MCPDispatcher {
     if let id { body = body.adding("id", id) }
     return reply(status, body)
   }
-  private func unauthorized() -> HTTPReply {
-    let challenge = oauth.map { "Bearer resource_metadata=\"\($0.metadataURL)\", scope=\"mcp\"" }
+  private func unauthorized(_ description: String? = nil) -> HTTPReply {
+    if let description, oauth != nil {
+      LocalLogStore.runtime("warning", "MCP unauthorized: \(description)")
+    }
+    var challenge = oauth.map { "Bearer resource_metadata=\"\($0.metadataURL)\", scope=\"mcp\"" }
       ?? "Bearer realm=\"Luti\""
-    return reply(401, ["error": "unauthorized"], extra: ["WWW-Authenticate": challenge])
+    var body: JSONValue = ["error": "unauthorized"]
+    if let description {
+      challenge += ", error=\"invalid_token\", error_description=\"\(description)\""
+      body = body.adding("error_description", .string(description))
+    }
+    return reply(401, body, extra: ["WWW-Authenticate": challenge])
   }
   public func handle(_ request: HTTPRequest) async -> HTTPReply {
     guard enabled else { return error(503, -32603, "Runtime stopped") }
@@ -128,13 +136,18 @@ public actor MCPDispatcher {
       return error(403, -32600, "Origin is not allowed")
     }
     if let oauth, OAuthContract.paths.contains(path) { return await oauth.handle(request) }
-    guard let auth = request.headers["authorization"]?.first, auth.hasPrefix("Bearer "), auth.utf8.count <= 8192 else {
-      return unauthorized()
+    guard let rawAuth = request.headers["authorization"]?.first else {
+      return unauthorized(oauth != nil ? "missing_authorization_header" : nil)
     }
-    let presented = String(auth.dropFirst(7))
+    let auth = rawAuth.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard auth.utf8.count <= 8192, auth.prefix(7).lowercased() == "bearer " else {
+      return unauthorized(oauth != nil ? "invalid_authorization_scheme(bytes=\(auth.utf8.count))" : nil)
+    }
+    let presented = String(auth.dropFirst(7)).trimmingCharacters(in: .whitespacesAndNewlines)
     let grant: ToolGrant
     if let oauth {
-      guard let authenticated = await oauth.grant(for: presented) else { return unauthorized() }
+      let result = await oauth.authenticate(presented)
+      guard let authenticated = result.grant else { return unauthorized(result.reason) }
       guard enabled, !Task.isCancelled else { return HTTPReply(status: 503) }
       grant = authenticated
     } else {

@@ -5,6 +5,8 @@ struct CloudflareConnectionView: View {
   let model: AppModel
   @Bindable var connection: CloudflareConnectionModel
   @State private var confirmClear = false
+  @State private var copied = false
+  @State private var copyRevision = 0
 
   init(model: AppModel) {
     self.model = model
@@ -58,7 +60,7 @@ struct CloudflareConnectionView: View {
               }
               .buttonStyle(MDConnectedButtonStyle(kind: .tonal, position: .first))
             }
-            Button { Task { await connection.save(project: model.project) } } label: {
+            Button { Task { await connection.save() } } label: {
               Text(L10n.text("connection.saveConfiguration")).frame(maxWidth: .infinity)
             }
             .buttonStyle(MDConnectedButtonStyle(kind: .filled, position: connection.configured ? .last : .single))
@@ -74,27 +76,28 @@ struct CloudflareConnectionView: View {
       }
 
       if connection.configured {
-        VStack(alignment: .leading, spacing: 10) {
-          MDListRow(
-            title: connection.endpoint,
-            symbol: connection.connection.state == .ready ? "checkmark.circle" : "link",
-            subtitle: L10n.text(connection.statusKey),
-            iconTone: connection.connection.state == .ready ? .green : .yellow,
-            textLineLimit: 1
+        MDListRow(
+          title: connection.endpoint,
+          symbol: connection.connection.state == .ready ? "checkmark.circle" : "link",
+          subtitle: L10n.text(connection.statusKey),
+          iconTone: connection.connection.state == .ready ? .green : .yellow,
+          textLineLimit: 1
+        ) {
+          MDIconActionButton(
+            symbol: copied ? "checkmark" : "doc.on.doc",
+            label: L10n.text("cloudflare.copy")
           ) {
-            Button {
-              NSPasteboard.general.clearContents()
-              NSPasteboard.general.setString(connection.endpoint, forType: .string)
-            } label: {
-              Label(L10n.text("cloudflare.copy"), systemImage: "doc.on.doc")
-            }
-            .buttonStyle(MDButtonStyle(kind: .tonal))
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(connection.endpoint, forType: .string)
+            copied = true
+            copyRevision += 1
           }
-          .accessibilityIdentifier("cloudflare-endpoint")
-
-          Text(L10n.text("cloudflare.connectGuide"))
-            .font(.system(size: 12))
-            .foregroundStyle(MDTheme.onSurfaceVariant)
+        }
+        .accessibilityIdentifier("cloudflare-endpoint")
+        .task(id: copyRevision) {
+          guard copied else { return }
+          try? await Task.sleep(for: .seconds(2))
+          copied = false
         }
       } else {
         CloudflareSetupGuide()
@@ -111,59 +114,26 @@ struct CloudflareConnectionView: View {
   }
 
   private var authorizations: some View {
-    VStack(alignment: .leading, spacing: 20) {
-      if !connection.authorization.pending.isEmpty {
-        MDSection(title: L10n.text("cloudflare.pending")) {
-          VStack(alignment: .leading, spacing: 12) {
-            Text(L10n.text("cloudflare.verify"))
-              .font(.system(size: 12))
-              .foregroundStyle(MDTheme.onSurfaceVariant)
-            ForEach(connection.authorization.pending) { request in
-              VStack(alignment: .leading, spacing: 10) {
-                HStack {
-                  Text(request.client.name).font(.headline)
-                  Spacer()
-                  Text(request.verification).font(.system(.title3, design: .monospaced).weight(.semibold))
-                }
-                Text(request.redirect).font(.footnote).textSelection(.enabled)
-                Text(L10n.text("cloudflare.access")).font(.footnote).foregroundStyle(MDTheme.onSurfaceVariant)
-                MDButtonRun {
-                  Button { Task { await connection.decide(request.id, allow: false) } } label: {
-                    Text(L10n.text("cloudflare.deny")).frame(maxWidth: .infinity)
-                  }.buttonStyle(MDConnectedButtonStyle(kind: .tonal, position: .first))
-                  Button { Task { await connection.decide(request.id, allow: true) } } label: {
-                    Text(L10n.text("cloudflare.allow")).frame(maxWidth: .infinity)
-                  }.buttonStyle(MDConnectedButtonStyle(kind: .filled, position: .last))
-                }
+    MDSection(title: L10n.text("cloudflare.apps")) {
+      if connection.authorization.applications.isEmpty {
+        MDEmptyState(
+          title: L10n.text("cloudflare.noAppsTitle"),
+          message: L10n.text("cloudflare.noApps"),
+          symbol: "app.connected.to.app.below.fill")
+      } else {
+        MDList {
+          ForEach(Array(connection.authorization.applications.enumerated()), id: \.element.id) { index, app in
+            MDListRow(
+              title: app.name,
+              symbol: "app.connected.to.app.below.fill",
+              subtitle: app.callbackHost,
+              position: MDListRowPosition(index: index, count: connection.authorization.applications.count),
+              iconTone: .purple
+            ) {
+              Button(L10n.text("cloudflare.revoke"), role: .destructive) {
+                Task { await connection.revoke(app.id) }
               }
-              .padding(16)
-              .background(MDTheme.surfaceContainerLow, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-            }
-          }
-        }
-      }
-
-      MDSection(title: L10n.text("cloudflare.apps")) {
-        if connection.authorization.applications.isEmpty {
-          MDEmptyState(
-            title: L10n.text("cloudflare.noAppsTitle"),
-            message: L10n.text("cloudflare.noApps"),
-            symbol: "app.connected.to.app.below.fill")
-        } else {
-          MDList {
-            ForEach(Array(connection.authorization.applications.enumerated()), id: \.element.id) { index, app in
-              MDListRow(
-                title: app.name,
-                symbol: "app.connected.to.app.below.fill",
-                subtitle: app.callbackHost,
-                position: MDListRowPosition(index: index, count: connection.authorization.applications.count),
-                iconTone: .purple
-              ) {
-                Button(L10n.text("cloudflare.revoke"), role: .destructive) {
-                  Task { await connection.revoke(app.id) }
-                }
-                .buttonStyle(MDButtonStyle(kind: .tonal))
-              }
+              .buttonStyle(MDButtonStyle(kind: .tonal))
             }
           }
         }

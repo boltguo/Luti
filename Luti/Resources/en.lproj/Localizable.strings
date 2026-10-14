@@ -184,6 +184,8 @@
 
 "settings.activityDescription" = "View recent tool calls and activity.";
 "settings.aboutLuti" = "About Luti";
+"settings.website" = "Website";
+"settings.github" = "GitHub";
 "settings.versionAndComponents" = "Version and third-party components";
 "settings.thirdPartyComponents" = "Third-party Components";
 
@@ -220,7 +222,6 @@
 "cloudflare.domain" = "HTTPS domain";
 "cloudflare.token" = "Paste the Cloudflare Tunnel Token";
 "cloudflare.copy" = "Copy MCP URL";
-"cloudflare.connectGuide" = "Start Luti, add this URL as a custom MCP server in your AI client, and choose OAuth. Approve the request below on this Mac.";
 "cloudflare.setup" = "Create a remotely managed tunnel in Cloudflare and add a public hostname for your domain. Route it to the local service below, then save its domain and Tunnel Token here.";
 "cloudflare.originService" = "Cloudflare service:";
 "cloudflare.dashboard" = "Open Cloudflare dashboard ↗";
@@ -232,15 +233,18 @@
 "provider.cloudflare.step3.title" = "Finish setup in Luti";
 "provider.cloudflare.step3.detail" = "Enter the HTTPS domain and Tunnel Token above and save. When enabled, Luti connects automatically while running.";
 "provider.cloudflare.step4.title" = "Add in your AI client and approve";
-"provider.cloudflare.step4.detail" = "Add the /mcp URL as a custom MCP server with OAuth, then approve the local request below on this Mac.";
+"provider.cloudflare.step4.detail" = "Add the /mcp URL as a custom MCP server with OAuth, then approve the authorization prompt in Luti on this Mac.";
 "cloudflare.pending" = "Waiting for local approval";
+"approval.allowConnection" = "Allow connection?";
+"approval.requestingAccessMac" = "%@ is requesting access to this Mac.";
+"approval.moreRequestsWaiting" = "%ld more requests waiting";
 "cloudflare.verify" = "Match the code and callback domain with your browser. The application name is supplied by the client and is not a verified identity.";
 "cloudflare.access" = "Allow access to this project’s files, commands and browser tools. Commands run with your current macOS user permissions.";
 "cloudflare.deny" = "Deny";
 "cloudflare.allow" = "Allow access";
 "cloudflare.apps" = "Authorized apps";
 "cloudflare.noAppsTitle" = "No Authorized Apps";
-"cloudflare.noApps" = "No apps have been approved for this project and domain.";
+"cloudflare.noApps" = "No apps have been approved for this domain.";
 "cloudflare.revoke" = "Revoke";
 "cloudflare.clearNotice" = "Remove the saved domain and Tunnel Token. Existing app approvals can be revoked below before clearing; they expire after 30 days.";
 

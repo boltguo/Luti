@@ -128,6 +128,9 @@ enum BrowserArguments {
       }
     }
     if fields.contains("fullPage") { result = result.adding("fullPage", .bool(try a.flag("fullPage", default: false))) }
+    if fields.contains("maxDimension") {
+      result = result.adding("maxDimension", .int(try a.integer("maxDimension", default: 1600, range: 320...2048)))
+    }
     return result
   }
 }

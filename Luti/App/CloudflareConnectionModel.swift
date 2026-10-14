@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import Observation
 
@@ -27,6 +28,7 @@ import Observation
   @ObservationIgnored private var failures = 0
   @ObservationIgnored private var retryAllowed = true
   @ObservationIgnored private var closing: Task<Void, Never>?
+  @ObservationIgnored private var announcedApprovals: Set<UUID> = []
   private static let domainKey = "connection.cloudflare.v2.domain"
   private static let enabledKey = "connection.cloudflare.v2.enabled"
   private struct Context {
@@ -58,7 +60,7 @@ import Observation
     tokenSaved = (try? credentials.exists(CloudflareContract.tokenAccount)) ?? true
   }
 
-  func save(project: URL?) async {
+  func save() async {
     guard context == nil, !busy, !saving, closing == nil else { return }
     saving = true
     defer { saving = false }
@@ -78,7 +80,7 @@ import Observation
       tokenSaved = true
       enabled = true
       error = nil
-      loadAuthorizations(project: project)
+      loadAuthorizations()
     } catch { self.error = Failure.safe(error).localizedDescription }
   }
 
@@ -95,13 +97,13 @@ import Observation
       tokenSaved = false
       enabled = false
       error = nil
-      loadAuthorizations(project: nil)
+      loadAuthorizations()
     } catch { self.error = Failure.safe(error).localizedDescription }
   }
 
-  /// Also works while stopped, so approved apps can be reviewed and revoked
-  /// without publishing a listener. Changing projects never reuses another grant.
-  func loadAuthorizations(project: URL?) {
+  /// Also works while stopped or before a project is selected, so approved apps
+  /// persist across project changes and can be reviewed or revoked at any time.
+  func loadAuthorizations() {
     guard context == nil else { return }
     loading?.cancel()
     generation = UUID()
@@ -109,16 +111,18 @@ import Observation
     let old = service
     service = nil
     authorization = OAuthSnapshot()
-    guard let project, let origin = try? CloudflareContract.origin(savedDomain) else {
+    announcedApprovals.removeAll()
+    guard let origin = try? CloudflareContract.origin(savedDomain) else {
       loading = Task { await old?.shutdown() }
       return
     }
-    let file = authorizationFile(origin: origin, project: project)
+    let dataRoot = self.dataRoot
     loading = Task { [weak self] in
       await old?.shutdown()
       do {
         let service = try await Task.detached(priority: .utility) {
-          try OAuthService(origin: origin, project: LutiPaths.projectKey(for: project), file: file)
+          let file = Self.authorizationFile(dataRoot: dataRoot, origin: origin)
+          return try OAuthService(origin: origin, file: file)
         }.value
         await service.shutdown()
         let snapshot = await service.snapshot()
@@ -132,9 +136,36 @@ import Observation
     }
   }
 
-  private func authorizationFile(origin: URL, project: URL) -> URL {
-    let key = OAuthContract.hash(origin.absoluteString + "\n" + LutiPaths.projectKey(for: project))
-    return dataRoot.appendingPathComponent("cloudflare-authorizations-v2/" + key + ".json")
+  private struct ResourceHeader: Decodable {
+    let resource: String
+  }
+
+  nonisolated private static func authorizationFile(dataRoot: URL, origin: URL) -> URL {
+    let dir = dataRoot.appendingPathComponent("cloudflare-authorizations-v2")
+    let target = dir.appendingPathComponent(OAuthContract.hash(origin.absoluteString) + ".json")
+    if !FileManager.default.fileExists(atPath: target.path) {
+      let resource = origin.absoluteString + "/mcp"
+      let candidates = (try? FileManager.default.contentsOfDirectory(
+        at: dir, includingPropertiesForKeys: [.contentModificationDateKey], options: [.skipsHiddenFiles]
+      )) ?? []
+      let matching = candidates
+        .filter { $0.pathExtension == "json" && $0.lastPathComponent != target.lastPathComponent }
+        .sorted {
+          let lhs = (try? $0.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
+          let rhs = (try? $1.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
+          return lhs > rhs
+        }
+      for candidate in matching {
+        if let data = try? PrivateFiles.read(candidate, max: 4_194_304),
+          let header = try? JSONDecoder().decode(ResourceHeader.self, from: data),
+          header.resource == resource
+        {
+          try? FileManager.default.moveItem(at: candidate, to: target)
+          break
+        }
+      }
+    }
+    return target
   }
 
   func start(router: ToolRouter, project: URL, helper: URL) {
@@ -154,6 +185,7 @@ import Observation
     let oldService = service
     service = nil
     authorization.pending = []
+    announcedApprovals.removeAll()
     busy = true
     error = nil
     retryAllowed = true
@@ -173,9 +205,10 @@ import Observation
           throw Failure.invalid("Save a Cloudflare Tunnel Token before connecting.")
         }
         let origin = try CloudflareContract.origin(self.savedDomain)
-        let file = self.authorizationFile(origin: origin, project: context.project)
+        let dataRoot = self.dataRoot
         let service = try await Task.detached(priority: .utility) {
-          try OAuthService(origin: origin, project: LutiPaths.projectKey(for: context.project), file: file)
+          let file = Self.authorizationFile(dataRoot: dataRoot, origin: origin)
+          return try OAuthService(origin: origin, file: file)
         }.value
         guard !Task.isCancelled, self.generation == revision else { await service.shutdown(); throw CancellationError() }
         self.service = service
@@ -212,6 +245,11 @@ import Observation
     guard revision == generation else { return }
     if let state, state != connection { connection = state }
     if let authorizations, authorizations != authorization { authorization = authorizations }
+    let pendingIDs = Set(authorization.pending.map(\.id))
+    if !pendingIDs.subtracting(announcedApprovals).isEmpty {
+      NSApplication.shared.activate(ignoringOtherApps: true)
+    }
+    announcedApprovals = pendingIDs
     if connection.state == .ready { failures = 0; error = nil }
     guard context != nil, connection.state == .failed, !busy, retryAllowed, canLaunch else { retryAt = nil; return }
     guard let due = retryAt else {
@@ -227,6 +265,8 @@ import Observation
 
   func decide(_ id: UUID, allow: Bool) async {
     guard let service else { return }
+    authorization.pending.removeAll { $0.id == id }
+    announcedApprovals.remove(id)
     do { try await service.decide(id, allow: allow) }
     catch { self.error = Failure.safe(error).localizedDescription }
     await refresh()
@@ -264,9 +304,10 @@ import Observation
     busy = false
     connection = .stopped
     authorization.pending = []
+    announcedApprovals.removeAll()
     if previousProject != nil { error = nil }
-    if self.service == nil, let previousProject {
-      loadAuthorizations(project: previousProject)
+    if self.service == nil {
+      loadAuthorizations()
     }
   }
 }

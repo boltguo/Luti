@@ -49,6 +49,8 @@ import XCTest
         "menu.checkForUpdates",
         "settings.updates",
         "settings.automaticUpdateChecks",
+        "settings.website",
+        "settings.github",
         "projects.noProjectsYet",
         "projects.projectFolder",
         "projects.removeProject",
@@ -74,6 +76,9 @@ import XCTest
         "provider.cloudflare.step3.detail",
         "provider.cloudflare.step4.title",
         "provider.cloudflare.step4.detail",
+        "approval.allowConnection",
+        "approval.requestingAccessMac",
+        "approval.moreRequestsWaiting",
       ] {
         let value = bundle.localizedString(forKey: key, value: "__MISSING__", table: nil)
         XCTAssertNotEqual(value, "__MISSING__", "\(language): \(key)")

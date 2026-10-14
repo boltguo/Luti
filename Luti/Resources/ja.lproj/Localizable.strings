@@ -184,6 +184,8 @@
 
 "settings.activityDescription" = "最近のツール呼び出しと実行履歴を確認します。";
 "settings.aboutLuti" = "Lutiについて";
+"settings.website" = "ウェブサイト";
+"settings.github" = "GitHub";
 "settings.versionAndComponents" = "バージョンとサードパーティコンポーネント";
 "settings.thirdPartyComponents" = "サードパーティコンポーネント";
 
@@ -220,7 +222,6 @@
 "cloudflare.domain" = "HTTPS ドメイン";
 "cloudflare.token" = "Cloudflare Tunnel Token を貼り付け";
 "cloudflare.copy" = "MCP URL をコピー";
-"cloudflare.connectGuide" = "Luti を起動し、AI クライアントのカスタム MCP にこの URL を追加して OAuth を選びます。この Mac で下のリクエストを承認してください。";
 "cloudflare.setup" = "Cloudflare でリモート管理の Tunnel を作成し、ドメインの公開ホスト名を下のローカルサービスに接続します。ドメインと Tunnel Token をここに保存してください。";
 "cloudflare.originService" = "Cloudflare サービス：";
 "cloudflare.dashboard" = "Cloudflare ダッシュボードを開く ↗";
@@ -232,15 +233,18 @@
 "provider.cloudflare.step3.title" = "Lutiで設定を完了する";
 "provider.cloudflare.step3.detail" = "上にHTTPSドメインとTunnel Tokenを入力して保存します。有効にすると、Lutiの実行中に自動接続します。";
 "provider.cloudflare.step4.title" = "AIクライアントに追加して承認する";
-"provider.cloudflare.step4.detail" = "/mcp URLをOAuth対応のカスタムMCPとして追加し、このMacの下部で承認リクエストを許可します。";
+"provider.cloudflare.step4.detail" = "/mcp URLをOAuth対応のカスタムMCPとして追加し、このMacのLutiに表示される確認ダイアログで許可します。";
 "cloudflare.pending" = "この Mac での承認待ち";
+"approval.allowConnection" = "接続を許可しますか？";
+"approval.requestingAccessMac" = "%@がこのMacへのアクセスを求めています。";
+"approval.moreRequestsWaiting" = "ほかに%ld件のリクエストが待機中";
 "cloudflare.verify" = "ブラウザの確認コードとコールバックドメインを照合してください。アプリ名はクライアントの申告であり、本人確認済みの情報ではありません。";
 "cloudflare.access" = "このプロジェクトのファイル、コマンド、ブラウザツールへのアクセスを許可します。コマンドは現在の macOS ユーザー権限で実行されます。";
 "cloudflare.deny" = "拒否";
 "cloudflare.allow" = "アクセスを許可";
 "cloudflare.apps" = "承認済みアプリ";
 "cloudflare.noAppsTitle" = "承認済みアプリなし";
-"cloudflare.noApps" = "このプロジェクトとドメインで承認されたアプリはありません。";
+"cloudflare.noApps" = "このドメインで承認されたアプリはありません。";
 "cloudflare.revoke" = "取り消す";
 "cloudflare.clearNotice" = "保存したドメインと Tunnel Token を削除します。既存のアプリ承認は削除前に下で取り消せます。承認は 30 日後に期限切れになります。";
 

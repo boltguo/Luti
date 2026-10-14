@@ -57,7 +57,7 @@ enum ActionContracts {
         backend: "browser_wait", note: "Choose one condition; omitted means state=load."),
       "snapshot": Rule(["tabId"], scoped.union(["depth"]), readOnly: true,
         backend: "browser_snapshot", note: scopeNote),
-      "screenshot": Rule(["tabId"], scoped.union(["fullPage"]), readOnly: true,
+      "screenshot": Rule(["tabId"], scoped.union(["fullPage", "maxDimension"]), readOnly: true,
         backend: "browser_screenshot", note: scopeNote + " Scoped capture excludes fullPage=true."),
     ],
     "browser_action": [

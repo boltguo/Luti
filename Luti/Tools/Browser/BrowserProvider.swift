@@ -99,8 +99,8 @@ actor BrowserProvider {
       let file = scratch.appendingPathComponent(filename)
       defer { try? FileManager.default.removeItem(at: file) }
       let bytes = try PrivateFiles.read(file, max: ArtifactStore.maxBytes)
-      let preview = try ImagePreview.make(bytes)
-      let artifact = try await artifacts.insert(bytes, name: "browser-screenshot.png", mimeType: "image/png")
+      let preview = try ImagePreview.make(bytes, maxDimension: rpcArguments["maxDimension"].int ?? 1600)
+      let artifact = try await artifacts.insert(bytes, name: Self.screenshotName(), mimeType: "image/png")
       return ToolOutput([
         "tabId": result["tabId"], "url": result["url"],
         "scoped": result["scoped"], "scopeRef": result["scopeRef"],
@@ -143,5 +143,12 @@ actor BrowserProvider {
     rpc = nil
     if let scratch { try? FileManager.default.removeItem(at: scratch) }
     scratch = nil
+  }
+
+  static func screenshotName(at date: Date = Date()) -> String {
+    let formatter = DateFormatter()
+    formatter.locale = Locale(identifier: "en_US_POSIX")
+    formatter.dateFormat = "yyyyMMdd-HHmmss-SSS"
+    return "browser-screenshot-\(formatter.string(from: date)).png"
   }
 }

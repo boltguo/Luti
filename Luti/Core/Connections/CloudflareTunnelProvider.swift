@@ -30,7 +30,7 @@ public actor CloudflareTunnelProvider: ConnectionProvider {
       guard !stopped else { throw CancellationError() }
       _ = try await process.prepareDirectory()
       try await process.launch(binary: binary, helper: helper, args: [
-        "tunnel", "--no-autoupdate", "--metrics", "127.0.0.1:0", "--loglevel", "info", "--output", "json", "run",
+        "tunnel", "--no-autoupdate", "--protocol", "http2", "--metrics", "127.0.0.1:0", "--loglevel", "info", "--output", "json", "run",
       ], environment: ["TUNNEL_TOKEN": token], secrets: [token])
       self.token = nil
       let deadline = ContinuousClock.now.advanced(by: .seconds(45))

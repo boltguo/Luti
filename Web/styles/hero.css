@@ -116,7 +116,7 @@
   .factory__label { font-size: 24px; }
   .factory__station--hub .factory__label { font-size: 30px; }
   .factory__boundary text { font-size: 18px; }
-  .factory__tunnel text { font-size: 17px; }
+  .factory__tunnel text { font-size: 14.5px; }
   .factory__tunnel .factory__caption { display: none; }
   :root:lang(zh) .hero h1 { font-size: clamp(31px, 8.3vw, 45px); }
   :root:lang(ja) .hero h1 { font-size: clamp(30px, 8.1vw, 44px); }

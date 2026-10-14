@@ -58,7 +58,7 @@ private final class OAuthClock: @unchecked Sendable {
   }
 
   func testNativeApprovalPKCEAttributionAndRevocation() async throws {
-    let service = try OAuthService(origin: origin, project: "project-a")
+    let service = try OAuthService(origin: origin)
     let client = try await register(service)
     let code = try await approveCode(service, client: client)
     let tokens = await exchange(service, client: client, code: code)
@@ -79,7 +79,7 @@ private final class OAuthClock: @unchecked Sendable {
   }
 
   func testRegistrationWithoutOptionalClientNameStillRequiresNativeConsent() async throws {
-    let service = try OAuthService(origin: origin, project: "a")
+    let service = try OAuthService(origin: origin)
     let response = await service.handle(HTTPRequest(path: "/oauth/register", headers: ["content-type": ["application/json"]],
       body: try JSONValue.object(["redirect_uris": [.string(redirect)], "token_endpoint_auth_method": "none"]).data()))
     XCTAssertEqual(response.status, 201)
@@ -92,7 +92,7 @@ private final class OAuthClock: @unchecked Sendable {
   }
 
   func testCodeIsSingleUseAndRequiresCorrectPKCE() async throws {
-    let service = try OAuthService(origin: origin, project: "a")
+    let service = try OAuthService(origin: origin)
     let client = try await register(service)
     let code = try await approveCode(service, client: client)
     let wrong = await exchange(service, client: client, code: code, verifier: String(repeating: "x", count: 64))
@@ -107,7 +107,7 @@ private final class OAuthClock: @unchecked Sendable {
   }
 
   func testRefreshRotationRejectsWrongResourceAndRevokesFamilyOnReplay() async throws {
-    let service = try OAuthService(origin: origin, project: "a")
+    let service = try OAuthService(origin: origin)
     let client = try await register(service)
     let code = try await approveCode(service, client: client)
     let tokens = await exchange(service, client: client, code: code)
@@ -128,7 +128,7 @@ private final class OAuthClock: @unchecked Sendable {
 
   func testNoApprovalRouteAndPendingRequestsAreBoundedAndExpire() async throws {
     let clock = OAuthClock()
-    let service = try OAuthService(origin: origin, project: "a", now: { clock.now() })
+    let service = try OAuthService(origin: origin, now: { clock.now() })
     var clients: [JSONValue] = []
     for _ in 0..<16 {
       clients.append(try await register(service))
@@ -170,7 +170,7 @@ private final class OAuthClock: @unchecked Sendable {
 
   func testRegistrationAndAuthorizeFloodCannotStarveTokenExchangeOrRefresh() async throws {
     let clock = OAuthClock()
-    let service = try OAuthService(origin: origin, project: "a", now: { clock.now() })
+    let service = try OAuthService(origin: origin, now: { clock.now() })
     let legitimate = try await register(service)
     let code = try await approveCode(service, client: legitimate)
 
@@ -206,7 +206,7 @@ private final class OAuthClock: @unchecked Sendable {
   }
 
   func testDenialAndWaitTicketAreOneUse() async throws {
-    let service = try OAuthService(origin: origin, project: "a")
+    let service = try OAuthService(origin: origin)
     let client = try await register(service)
     let begin = await authorize(service, client: client)
     let request = await service.snapshot().pending[0]
@@ -220,10 +220,10 @@ private final class OAuthClock: @unchecked Sendable {
     XCTAssertTrue(snapshot.applications.isEmpty)
   }
 
-  func testPersistentHashesAreProjectAndIssuerBoundAndFailClosed() async throws {
+  func testPersistentHashesAreIssuerBoundAndSurviveProjectChanges() async throws {
     let f = try Fixture(); defer { f.remove() }
     let file = f.contextDataRoot.appendingPathComponent("oauth.json")
-    let service = try OAuthService(origin: origin, project: "a", file: file)
+    let service = try OAuthService(origin: origin, file: file)
     let client = try await register(service)
     let code = try await approveCode(service, client: client)
     let tokens = await exchange(service, client: client, code: code)
@@ -234,38 +234,57 @@ private final class OAuthClock: @unchecked Sendable {
     await service.shutdown()
     let stopped = await service.grant(for: token)
     XCTAssertNil(stopped)
-    let reopened = try OAuthService(origin: origin, project: "a", file: file)
+    let reopened = try OAuthService(origin: origin, file: file)
     let grant = await reopened.grant(for: token)
     XCTAssertNotNil(grant)
-    XCTAssertThrowsError(try OAuthService(origin: origin, project: "b", file: file))
-    XCTAssertThrowsError(try OAuthService(origin: URL(string: "https://other.example.com")!, project: "a", file: file))
+    XCTAssertThrowsError(try OAuthService(origin: URL(string: "https://other.example.com")!, file: file))
     try await reopened.revoke(grant!.context!.authorizationID)
-    let again = try OAuthService(origin: origin, project: "a", file: file)
+    let again = try OAuthService(origin: origin, file: file)
     let missing = await again.grant(for: token)
     XCTAssertNil(missing)
     try PrivateFiles.atomicWrite(Data("not-json".utf8), to: file)
-    XCTAssertThrowsError(try OAuthService(origin: origin, project: "a", file: file))
+    XCTAssertThrowsError(try OAuthService(origin: origin, file: file))
   }
 
   func testDispatcherRequiresOAuthAndChecksHostOriginAndDuplicateHeaders() async throws {
     let f = try Fixture(); defer { f.remove() }
-    let service = try OAuthService(origin: origin, project: "a")
+    let service = try OAuthService(origin: origin)
     let dispatcher = MCPDispatcher(authentication: .oauth(service), port: 39393, router: try f.router())
     let body = try JSONValue.object(["jsonrpc": "2.0", "id": 1, "method": "tools/list"]).data()
     var headers = ["host": ["mcp.example.com"], "content-type": ["application/json"], "accept": ["application/json, text/event-stream"]]
     let unauthenticated = await dispatcher.handle(HTTPRequest(headers: headers, body: body))
     XCTAssertEqual(unauthenticated.status, 401)
+    XCTAssertEqual(unauthenticated.json["error_description"], "missing_authorization_header")
     XCTAssertTrue(unauthenticated.headers["WWW-Authenticate"]?.contains(service.metadataURL) == true)
     let metadata = await dispatcher.handle(HTTPRequest(method: "GET", path: "/.well-known/oauth-protected-resource/mcp", headers: headers, body: Data()))
     XCTAssertEqual(metadata.json["resource"], .string(resource))
     let approve = await dispatcher.handle(HTTPRequest(path: "/oauth/approve", headers: headers, body: Data()))
     XCTAssertEqual(approve.status, 404)
     let client = try await register(service)
-    let code = try await approveCode(service, client: client)
-    let token = await exchange(service, client: client, code: code)
-    headers["authorization"] = ["Bearer " + token.json["access_token"].string!]
+    let withoutResource = await service.handle(HTTPRequest(method: "GET", path: "/oauth/authorize?" + form([
+      "client_id": client["client_id"].string!, "redirect_uri": redirect, "response_type": "code",
+      "code_challenge": OAuthContract.challenge(verifier), "code_challenge_method": "S256",
+    ]), headers: [:], body: Data()))
+    XCTAssertEqual(withoutResource.status, 303)
+    let pendingList = await service.snapshot().pending
+    let pending = try XCTUnwrap(pendingList.last)
+    try await service.decide(pending.id, allow: true)
+    let finish = await service.handle(HTTPRequest(method: "GET", path: withoutResource.headers["Location"]!, headers: [:], body: Data()))
+    let components = try XCTUnwrap(URLComponents(string: finish.headers["Location"]!))
+    let code = try XCTUnwrap(try OAuthContract.form(components.percentEncodedQuery!)["code"])
+    let token = await post(service, "/oauth/token", [
+      "client_id": client["client_id"].string!, "grant_type": "authorization_code",
+      "code": code, "redirect_uri": redirect, "code_verifier": verifier,
+    ])
+    XCTAssertEqual(token.status, 200)
+    headers["authorization"] = ["bearer " + token.json["access_token"].string! + "\n"]
     let valid = await dispatcher.handle(HTTPRequest(headers: headers, body: body))
     XCTAssertEqual(valid.status, 200)
+    headers["authorization"] = ["Bearer " + String(repeating: "0", count: 64)]
+    let mismatch = await dispatcher.handle(HTTPRequest(headers: headers, body: body))
+    XCTAssertEqual(mismatch.status, 401)
+    XCTAssertTrue(mismatch.json["error_description"].string?.contains("bearer_hash_mismatch") == true)
+    headers["authorization"] = ["Bearer " + token.json["access_token"].string!]
     headers["host"] = ["attacker.example.com"]
     let badHost = await dispatcher.handle(HTTPRequest(headers: headers, body: body))
     XCTAssertEqual(badHost.status, 403)
@@ -285,7 +304,7 @@ private final class OAuthClock: @unchecked Sendable {
   func testConfidentialClientAuthenticationAndCodeExpiry() async throws {
     for method in ["client_secret_basic", "client_secret_post"] {
       let clock = OAuthClock()
-      let service = try OAuthService(origin: origin, project: "a", now: { clock.now() })
+      let service = try OAuthService(origin: origin, now: { clock.now() })
       let client = try await register(service, method: method)
       let code = try await approveCode(service, client: client)
       var values = ["client_id": client["client_id"].string!, "grant_type": "authorization_code", "code": code,
@@ -328,7 +347,7 @@ private final class OAuthClock: @unchecked Sendable {
   func testFailedPersistenceCannotIssueAnAuthorization() async throws {
     let f = try Fixture(); defer { f.remove() }
     let file = f.contextDataRoot.appendingPathComponent("grants.json")
-    let service = try OAuthService(origin: origin, project: "a", file: file)
+    let service = try OAuthService(origin: origin, file: file)
     let client = try await register(service)
     _ = await authorize(service, client: client)
     let pending = await service.snapshot().pending[0]
@@ -343,17 +362,17 @@ private final class OAuthClock: @unchecked Sendable {
 
   func testCloudflareSettingsAreAtomicAndCanStartWithoutOpenAI() async throws {
     let f = try Fixture(); defer { f.remove() }
-    let keychain = FixtureKeychain(failedSaves: 1)
+    let keychain = FixtureKeychain(values: [:], failedSaves: 1)
     let model = AppModel(contextDataRoot: f.contextDataRoot, defaults: f.defaults, credentials: keychain.client)
     model.addProject(f.root)
     let cf = model.cloudflare
     cf.domain = origin.absoluteString
     cf.tokenDraft = String(repeating: "a", count: 80)
-    await cf.save(project: f.root)
+    await cf.save()
     XCTAssertEqual(cf.savedDomain, "")
     XCTAssertFalse(cf.tokenSaved)
     XCTAssertFalse(model.canLaunch)
-    await cf.save(project: f.root)
+    await cf.save()
     XCTAssertEqual(cf.savedDomain, origin.absoluteString)
     XCTAssertTrue(cf.tokenSaved)
     XCTAssertTrue(cf.enabled)
@@ -369,7 +388,7 @@ private final class OAuthClock: @unchecked Sendable {
 
   func testStopRacingCloudflareStartRetiresOAuthAndJoinsOwnership() async throws {
     let f = try Fixture(); defer { f.remove() }
-    let service = try OAuthService(origin: origin, project: "a")
+    let service = try OAuthService(origin: origin)
     let manager = ConnectionManager(router: try f.router())
     let provider = SuspendedCloudflare()
     let start = Task { try await manager.connect(provider, oauth: service) }

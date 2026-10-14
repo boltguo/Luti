@@ -35,6 +35,7 @@
   };
   const palette = {
     chatgpt: { ink: '#237b65', top: '#def2e7', front: '#87c9aa', side: '#54a98a', wash: '#ecf8f0' },
+    gemini: { ink: '#3b68c4', top: '#e2ecfe', front: '#94b5f2', side: '#658ee0', wash: '#eef4ff' },
     claude: { ink: '#ba6645', top: '#fbe5d6', front: '#e8ac87', side: '#cc8561', wash: '#fff2e7' },
     grok: { ink: '#475464', top: '#cad3df', front: '#718095', side: '#465467', wash: '#edf1f6' },
     luti: { ink: '#8761b5', top: '#efe2fa', front: '#c7aadf', side: '#a184bf', wash: '#f6edfc' },
@@ -132,6 +133,25 @@
       svg('rect', { x: 5, y: 21.5, width: 42, height: 10, rx: 3.2, fill: '#eaf8f0', stroke: c.side, 'stroke-width': .9 }, scr);
       svg('rect', { x: 9, y: 24.2, width: 24, height: 2, rx: 1, fill: c.ink }, scr);
       svg('rect', { x: 9, y: 27.8, width: 32, height: 2, rx: 1, fill: c.side }, scr);
+      svg('rect', { x: 5, y: 34.5, width: 56, height: 6.5, rx: 3.2, fill: '#fff', stroke: c.side, 'stroke-width': .9 }, scr);
+      svg('circle', { cx: 56.5, cy: 37.8, r: 2.2, fill: c.ink, class: 'factory__indicator' }, scr);
+      dock(g, c, true);
+    },
+    gemini(g, c) {
+      // Isometric Gemini Studio: clean cobalt cube + front multimodal chat screen
+      pad(g, c, 60, 52);
+      cube(g, -44, -32, 0, 80, 66, 66, c);
+      const scr = face(g, -38, 34.5, 58);
+      svg('rect', { width: 66, height: 44, rx: 3.5, fill: '#f8faff', stroke: c.ink, 'stroke-width': 1.3 }, scr);
+      svg('rect', { x: 1, y: 1, width: 64, height: 8, rx: 2.5, fill: c.top }, scr);
+      for (const [cx, col] of [[5.5, '#e08b7e'], [10.5, '#e8c478'], [15.5, '#7ec29d']]) {
+        svg('circle', { cx, cy: 5, r: 1.5, fill: col }, scr);
+      }
+      svg('rect', { x: 24, y: 12, width: 35, height: 7, rx: 3.2, fill: c.front }, scr);
+      svg('rect', { x: 28, y: 14.5, width: 25, height: 2, rx: 1, fill: '#fff' }, scr);
+      svg('rect', { x: 5, y: 21.5, width: 44, height: 10, rx: 3.2, fill: '#edf3ff', stroke: c.side, 'stroke-width': .9 }, scr);
+      svg('rect', { x: 9, y: 24.2, width: 26, height: 2, rx: 1, fill: c.ink }, scr);
+      svg('rect', { x: 9, y: 27.8, width: 34, height: 2, rx: 1, fill: c.side }, scr);
       svg('rect', { x: 5, y: 34.5, width: 56, height: 6.5, rx: 3.2, fill: '#fff', stroke: c.side, 'stroke-width': .9 }, scr);
       svg('circle', { cx: 56.5, cy: 37.8, r: 2.2, fill: c.ink, class: 'factory__indicator' }, scr);
       dock(g, c, true);
@@ -386,26 +406,33 @@
     },
   };
 
+  const scaleOf = name => (name === 'luti' ? 0.9 : 0.84);
+  const scaledPort = (u, v, s = 0.84) => P(u, v).map(c => n(c * s));
+
   const ports = {
-    chatgpt: { out: P(52, -8) },
-    claude: { out: P(52, -8) },
-    grok: { out: P(-8, 52) },
-    luti: { in: P(-8, 54), out: P(60, -8) },
-    memory: { in: P(-8, 52) },
-    git: { in: P(-8, 52) },
-    code: { in: P(-8, 52) },
-    terminal: { in: P(-8, 52) },
-    browser: { in: P(-8, 52) },
-    artifacts: { in: P(-8, 52) },
+    chatgpt: { out: scaledPort(52, -8) },
+    gemini: { out: scaledPort(52, -8) },
+    claude: { out: scaledPort(52, -8) },
+    grok: { out: scaledPort(-8, 52) },
+    luti: { in: scaledPort(-8, 54, 0.9), out: scaledPort(60, -8, 0.9) },
+    memory: { in: scaledPort(-8, 52) },
+    git: { in: scaledPort(-8, 52) },
+    code: { in: scaledPort(-8, 52) },
+    terminal: { in: scaledPort(-8, 52) },
+    browser: { in: scaledPort(-8, 52) },
+    artifacts: { in: scaledPort(-8, 52) },
   };
 
   for (const node of nodes) {
     const name = node.dataset.node;
     const c = palette[name];
+    const s = scaleOf(name);
     node.style.setProperty('--tone', c.ink);
     node.style.setProperty('--wash', c.wash);
-    builders[name](node.querySelector('.factory__art'), c);
-    node.querySelector('.factory__label').setAttribute('y', name === 'luti' ? 91 : 83);
+    const art = node.querySelector('.factory__art');
+    art.setAttribute('transform', `scale(${s})`);
+    builders[name](art, c);
+    node.querySelector('.factory__label').setAttribute('y', n((name === 'luti' ? 91 : 83) * s + 4));
   }
 
   let groundRoutes = {};
@@ -439,18 +466,19 @@
   function toastAnchor(target) {
     const [x, y] = positions[target];
     const offsets = {
-      chatgpt: [0, -106],
-      claude: [0, -106],
-      grok: [0, -106],
-      luti: [0, -142],
-      memory: [4, -144],
-      git: [2, -124],
-      code: [6, -142],
-      terminal: [0, -124],
-      browser: [-2, -134],
-      artifacts: [0, -128],
+      chatgpt: [0, -92],
+      gemini: [0, -92],
+      claude: [0, -92],
+      grok: [0, -92],
+      luti: [0, -130],
+      memory: [4, -124],
+      git: [2, -108],
+      code: [5, -122],
+      terminal: [0, -108],
+      browser: [-2, -116],
+      artifacts: [0, -110],
     };
-    const [dx, dy] = offsets[target] || [0, -120];
+    const [dx, dy] = offsets[target] || [0, -105];
     if (compact.matches) {
       const cx = target === 'chatgpt' || target === 'git' || target === 'terminal' ? 24 : target === 'grok' || target === 'memory' || target === 'code' || target === 'browser' ? -24 : dx;
       return [x + cx, y + dy];
@@ -504,11 +532,6 @@
     return [s.a[0] + (s.b[0] - s.a[0]) * tNorm, s.a[1] + (s.b[1] - s.a[1]) * tNorm];
   }
   const pathData = points => points.map((p, i) => (i ? 'L' : 'M') + p.map(n).join(' ')).join('');
-  function isoRoute(a, b, first = 'u') {
-    const u = plane(a);
-    const v = plane(b);
-    return [u, first === 'u' ? [v[0], u[1]] : [u[0], v[1]], v];
-  }
   function position(name, gate, port) {
     positions[name] = [gate[0] - port[0], gate[1] - port[1]];
   }
@@ -526,12 +549,13 @@
       };
       // Open-ended side branches on the left road indicating more AI clients/tools can connect
       const clientSpurs = [
-        [[-125, 0], [-125, 130], [-195, 130]],
+        [[-125, 0], [-125, 225], [-210, 225]],
         [[55, -205], [55, -295]],
       ];
       groundRoutes = Object.fromEntries(Object.entries(clientLanes).map(([name, ps]) => [name, ps.map(p => plane(project(p)))]));
       spurRoutes = clientSpurs.map(ps => ps.map(p => plane(project(p))));
       for (const name of clients) position(name, project(clientLanes[name][0]), ports[name].out);
+      position('gemini', project(clientSpurs[0].at(-1)), ports.gemini.out);
       position('luti', project(clientLanes.tunnel.at(-1)), ports.luti.in);
       const outlet = add(positions.luti, ports.luti.out);
       const local = {
@@ -550,41 +574,38 @@
       setBoundary(602, -62, 994, 742, 634, -70, 72, -70);
       tunnelNode.setAttribute('transform', 'translate(492 260)');
     } else {
-      positions = {
-        chatgpt: [140, 205],
-        claude: [437, 173],
-        grok: [745, 215],
-        luti: [410, 514],
-        memory: [705, 670],
-        git: [204, 790],
-        code: [715, 920],
-        terminal: [210, 1045],
-        browser: [720, 1155],
-        artifacts: [440, 1235],
+      const origin = [265, 526];
+      const project = p => add(world(p), origin);
+      const clientLanes = {
+        chatgpt: [[-225, 185], [0, 185], [0, 0]],
+        claude: [[-65, 285], [0, 285], [0, 185], [0, 0]],
+        grok: [[0, 445], [0, 405], [0, 285], [0, 185], [0, 0]],
+        tunnel: [[0, 0], [85, 0]],
       };
-      const gate = name => add(positions[name], ports[name].out);
-      const junction = [232, 405];
-      const entry = add(positions.luti, ports.luti.in);
-      const exit = add(positions.luti, ports.luti.out);
-      groundRoutes = {
-        chatgpt: isoRoute(gate('chatgpt'), junction),
-        claude: isoRoute(gate('claude'), junction, 'v'),
-        grok: isoRoute(gate('grok'), junction, 'v'),
-        tunnel: isoRoute(junction, entry),
-      };
-      spurRoutes = [
-        isoRoute([120, 355], junction),
-        isoRoute([580, 345], [450, 345]),
+      const clientSpurs = [
+        [[0, 285], [0, 405], [-255, 405]],
       ];
-      const trunk = isoRoute(exit, [446, 920]);
-      for (const name of tools) {
-        const target = add(positions[name], ports[name].in);
-        const approach = [target[0] - 72, target[1] + 72 * S];
-        groundRoutes[name] = [...trunk, ...isoRoute(world(trunk.at(-1)), approach).slice(1), plane(target)];
+      groundRoutes = Object.fromEntries(Object.entries(clientLanes).map(([name, ps]) => [name, ps.map(p => plane(project(p)))]));
+      spurRoutes = clientSpurs.map(ps => ps.map(p => plane(project(p))));
+      for (const name of clients) position(name, project(clientLanes[name][0]), ports[name].out);
+      position('gemini', project(clientSpurs[0].at(-1)), ports.gemini.out);
+      position('luti', project(clientLanes.tunnel.at(-1)), ports.luti.in);
+      const outlet = add(positions.luti, ports.luti.out);
+      const local = {
+        memory: [[0, 0], [70, 0], [140, 0], [140, 75]],
+        git: [[0, 0], [70, 0], [70, -140], [70, -390], [110, -390], [110, -350]],
+        code: [[0, 0], [70, 0], [70, -140], [270, -140], [315, -140], [315, -100]],
+        terminal: [[0, 0], [70, 0], [70, -140], [270, -140], [270, -360], [270, -590], [310, -590], [310, -550]],
+        browser: [[0, 0], [70, 0], [70, -140], [270, -140], [270, -360], [495, -360], [495, -280]],
+        artifacts: [[0, 0], [70, 0], [70, -140], [270, -140], [270, -360], [440, -360], [440, -560], [480, -560], [480, -520]],
+      };
+      for (const [name, ps] of Object.entries(local)) {
+        groundRoutes[name] = ps.map(p => plane(add(world(p), outlet)));
+        position(name, world(groundRoutes[name].at(-1)), ports[name].in);
       }
       scene.setAttribute('viewBox', '0 0 900 1360');
-      setBoundary(55, 367, 789, 965, 84, 354, 50, 43);
-      tunnelNode.setAttribute('transform', 'translate(141 474)');
+      setBoundary(55, 434, 789, 902, 84, 420, 50, 43);
+      tunnelNode.setAttribute('transform', 'translate(154 532)');
     }
     for (const node of nodes) node.setAttribute('transform', `translate(${positions[node.dataset.node].map(n).join(' ')})`);
     nodes.slice().sort((a, b) => positions[a.dataset.node][1] - positions[b.dataset.node][1]).forEach(node => stationLayer.appendChild(node));

@@ -110,6 +110,8 @@ import XCTest
       XCTAssertEqual(screenshot.data["width"], 1440)
       XCTAssertEqual(screenshot.data["height"], 900)
       XCTAssertEqual(screenshot.extraContent.map { $0["type"] }, ["image", "resource_link"])
+      let artifactName = try XCTUnwrap(screenshot.data["artifact"]["name"].string)
+      XCTAssertNotNil(artifactName.range(of: #"^browser-screenshot-\d{8}-\d{6}-\d{3}\.png$"#, options: .regularExpression))
       let uri = try XCTUnwrap(screenshot.data["artifact"]["resource"].string)
       let read = try await artifacts.read(uri)
       let original = try XCTUnwrap(Data(base64Encoded: read["contents"].array!.first!["blob"].string!))

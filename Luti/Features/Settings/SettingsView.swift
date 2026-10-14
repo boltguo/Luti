@@ -130,6 +130,30 @@ struct SettingsView: View {
             tone: .purple)
 
           MDNavigationRow(
+            title: L10n.text("settings.website"),
+            symbol: "safari",
+            detail: "luti.aouos.com",
+            position: .middle,
+            iconTone: .green,
+            accessory: "arrow.up.right"
+          ) {
+            NSWorkspace.shared.open(URL(string: "https://luti.aouos.com/")!)
+          }
+          .accessibilityIdentifier("settings-website")
+
+          MDNavigationRow(
+            title: L10n.text("settings.github"),
+            symbol: "chevron.left.forwardslash.chevron.right",
+            detail: "boltguo/Luti",
+            position: .middle,
+            iconTone: .orange,
+            accessory: "arrow.up.right"
+          ) {
+            NSWorkspace.shared.open(URL(string: "https://github.com/boltguo/Luti")!)
+          }
+          .accessibilityIdentifier("settings-github")
+
+          MDNavigationRow(
             title: L10n.text("settings.thirdPartyComponents"),
             symbol: "shippingbox",
             position: .last,

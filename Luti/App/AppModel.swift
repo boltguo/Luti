@@ -119,7 +119,7 @@ import Observation
     cloudflare = CloudflareConnectionModel(
       defaults: defaults, credentials: credentials, dataRoot: contextDataRoot,
       makeProvider: makeCloudflareProvider)
-    cloudflare.loadAuthorizations(project: activeProject?.url)
+    cloudflare.loadAuthorizations()
     Self.discardStaleRuns(in: contextDataRoot)
     reloadStoredActivity()
     LocalLogStore.runtime("info", "Luti app initialized.")
@@ -205,7 +205,6 @@ import Observation
     guard !active, !contextBusy, activeProject == nil else { return }
     let project = ApprovedProject(url: url)
     activeProject = project
-    cloudflare.loadAuthorizations(project: project.url)
     persistSelectedFolder()
     errorText = nil
     detail = "Project approved. Start when you are ready."
@@ -216,7 +215,6 @@ import Observation
   func removeProject(_ id: String) {
     guard !active, !contextBusy, activeProject?.id == id else { return }
     activeProject = nil
-    cloudflare.loadAuthorizations(project: nil)
     persistSelectedFolder()
     errorText = nil
     detail = "Choose a folder to get started."

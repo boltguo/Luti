@@ -110,7 +110,9 @@ private final class HTTPHandler: ChannelInboundHandler, @unchecked Sendable {
     }
     let box = NIOLoopBound(context, eventLoop: context.eventLoop)
     context.writeAndFlush(NIOAny(HTTPServerResponsePart.end(nil))).whenComplete { _ in
-      box.value.close(promise: nil)
+      box.value.close(mode: .output).whenComplete { _ in
+        box.value.close(promise: nil)
+      }
     }
   }
   func userInboundEventTriggered(context: ChannelHandlerContext, event: Any) {
