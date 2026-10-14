@@ -131,8 +131,8 @@ public actor OAuthService {
       return (.remote(RequestContext(transport: .cloudflare, clientID: client.id,
         clientName: client.name, authorizationID: grant.id)), "")
     }
-    let expected = active.map { String($0.accessHash.prefix(12)) }.joined(separator: ",")
-    return (nil, "bearer_hash_mismatch(bytes=\(count),presented_sha256=\(prefix),expected_sha256=[\(expected)])")
+    // Never echo active grants' hashes: this reason reaches unauthenticated callers.
+    return (nil, "bearer_hash_mismatch(bytes=\(count),presented_sha256=\(prefix))")
   }
 
   private func validResource(_ value: String?) -> Bool {
