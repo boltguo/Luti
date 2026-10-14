@@ -142,7 +142,7 @@ Lutiはプロジェクトごとのメモリ（`MEMORY.md` インデックスと�
 | **Project Scope** | ファイルとProject操作を現在の承認済みProjectに限定 |
 | **Permission Mode** | Lutiは選択したフォルダ内で常にフルアクセスを使用。外部操作の権限境界は維持します |
 | **Credential** | Runtime CredentialをmacOS Keychainに保存し、機密値を永続化前にRedact |
-| **Remote Access** | 独立した Loopback Listener。OpenAI は専用 Credential、Cloudflare はこの Mac で承認したプロジェクトごとの OAuth を使用 |
+| **Remote Access** | 独立した Loopback Listener。OpenAI は専用 Credential、Cloudflare はこの Mac で承認したドメインごとの OAuth を使用 |
 | **Git** | 公開Git Capabilityは読み取り専用 |
 | **ブラウザ自動化** | Lutiが所有するBrowser Sessionのみを操作。デスクトップ撮影やマウス・キーボード操作は提供しません |
 | **Process Execution** | `fullLocal`はユーザー権限で実行され、OS Sandboxではない |

@@ -38,8 +38,9 @@ an AI client has been tested.
   redirects are rejected on the remote tunnel. Each registered `client_id` may hold
   at most one pending approval request at a time, and `/oauth/token` uses a dedicated
   rate-limit bucket so registration traffic cannot starve token refreshes.
-- Grants are bound to the exact domain and selected project. Switching projects
-  requires separate approval. Existing retired 1.0 data is never imported.
+- Grants are bound to the exact domain and persist across project changes. An
+  approved app reaches whichever project is currently selected. Existing retired
+  1.0 data is never imported.
 - Access tokens last one hour. Refresh tokens rotate on every use; reuse revokes
   the family. A grant expires after 30 days, even when refreshed. Each grant retains
   at most 1,024 consumed refresh hashes; reaching that limit requires new approval.
@@ -47,7 +48,7 @@ an AI client has been tested.
   refresh tokens. Already running work is not undone; Stop ends the entire runtime.
 - Approved apps persist across restarts and can be revoked while stopped. Pending
   requests and codes never survive a disconnect. Clearing the connection settings
-  removes the domain and Tunnel Token, not other projects' authorization records.
+  removes the domain and Tunnel Token, not the domain's authorization records.
 
 ## Implementation and verification
 
@@ -66,7 +67,7 @@ atomic JSON file; no raw OAuth bearer or client secret is persisted there. Stora
 corruption fails closed. Browser responses prohibit framing and referrer leakage.
 
 The tests cover native approval/denial, state round-tripping, PKCE, code expiry and
-reuse, token resource binding, refresh replay, persistent revocation, domain/project
+reuse, token resource binding, refresh replay, persistent revocation, domain
 isolation, request bounds, Host/Origin checks, and shutdown. A real Cloudflare
 hostname and a real client authorization still need an end-to-end account test.
 

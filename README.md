@@ -142,7 +142,7 @@ Luti stores per-project memory (`MEMORY.md` index and topic `.md` decision files
 | **Project scope** | File and project operations stay inside the active approved project |
 | **Permission mode** | Luti always uses `Full Project Access` within the selected folder; external operations retain their permission boundaries |
 | **Secrets** | Runtime credentials use macOS Keychain; sensitive values are redacted before persistence |
-| **Remote access** | Separate loopback listeners: OpenAI uses a private transport credential; Cloudflare requires project-bound OAuth approved on this Mac |
+| **Remote access** | Separate loopback listeners: OpenAI uses a private transport credential; Cloudflare requires domain-bound OAuth approved on this Mac |
 | **Git** | Public Git capability is read-only |
 | **Browser automation** | Luti owns its browser sessions; desktop capture and input are unavailable |
 | **Process execution** | `fullLocal` runs with your user privileges and is not an OS sandbox |
