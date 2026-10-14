@@ -22,8 +22,11 @@ public enum CloudflareInstaller {
     try PrivateFiles.directory(cache)
     let binary = cache.appendingPathComponent(CloudflareBuild.binaryName)
     if FileManager.default.fileExists(atPath: binary.path) {
-      try await Task.detached(priority: .utility) { try verify(binary) }.value
-      return binary  // Invalid existing cache fails closed; never silently trusts PATH.
+      if (try? await Task.detached(priority: .utility) { try verify(binary) }.value) != nil {
+        return binary
+      }
+      // A damaged or replaced cache is downloaded again, never executed.
+      try FileManager.default.removeItem(at: binary)
     }
     let scratch = cache.appendingPathComponent("download-" + UUID().uuidString, isDirectory: true)
     try PrivateFiles.directory(scratch)

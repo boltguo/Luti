@@ -21,8 +21,11 @@ permission is requested by Luti. OpenAI and Cloudflare can run together.
 
 Do not place a separate interactive Cloudflare Access login in front of these
 routes: MCP clients need to reach OAuth discovery and token endpoints. Luti itself
-requires authorization for every MCP request. Tunnel readiness reports an edge
-connection, not proof that the hostname route or an AI client has been tested.
+requires authorization for every MCP request. To protect public OAuth endpoints
+from automated traffic at the edge, configure a Cloudflare WAF rate-limiting rule
+on `/oauth/register` and `/oauth/authorize` (or restrict source IPs in WAF).
+Tunnel readiness reports an edge connection, not proof that the hostname route or
+an AI client has been tested.
 
 ## Authorization behavior
 
@@ -30,6 +33,11 @@ connection, not proof that the hostname route or an AI client has been tested.
   the result; there is no web approval endpoint. The granted scope is `mcp`, covering
   the current project's existing file, command, browser and artifact capabilities.
   Commands run with the current user's privileges, as with the OpenAI connection.
+- Remote OAuth clients (such as ChatGPT, Claude, and Grok web connectors) must use
+  public `https://` callback URLs. Loopback (`http://127.0.0.1`) and custom-scheme
+  redirects are rejected on the remote tunnel. Each registered `client_id` may hold
+  at most one pending approval request at a time, and `/oauth/token` uses a dedicated
+  rate-limit bucket so registration traffic cannot starve token refreshes.
 - Grants are bound to the exact domain and selected project. Switching projects
   requires separate approval. Existing retired 1.0 data is never imported.
 - Access tokens last one hour. Refresh tokens rotate on every use; reuse revokes

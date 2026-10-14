@@ -40,7 +40,10 @@ import Observation
   var configured: Bool { tokenSaved && (try? CloudflareContract.origin(savedDomain)) != nil }
   var canLaunch: Bool { enabled && configured && !hasUnsavedChanges && !saving }
   var endpoint: String { configured ? savedDomain + "/mcp" : "" }
-  var statusKey: String { configured ? "connection.state." + connection.state.rawValue : "connection.notConfigured" }
+  var statusKey: String {
+    if connection.state != .stopped { return "connection.state." + connection.state.rawValue }
+    return configured ? "connection.state.stopped" : "connection.notConfigured"
+  }
 
   init(defaults: UserDefaults, credentials: KeychainClient, dataRoot: URL,
        makeProvider: @escaping @Sendable (String, URL) throws -> any ConnectionProvider = {
@@ -185,11 +188,14 @@ import Observation
         self.connection = snapshot
       } catch {
         guard self.generation == revision else { return }
+        let failedManager = self.manager
+        self.manager = nil
+        await failedManager?.shutdown()
         await self.service?.shutdown()
         guard self.generation == revision else { return }
         if !(error is CancellationError) {
           self.error = Failure.safe(error).localizedDescription
-          self.retryAllowed = (error as? Failure)?.code != "invalid_arguments"
+          self.retryAllowed = ConnectionContract.isRetryable(error)
           self.connection = ConnectionSnapshot(state: .failed, message: self.error ?? "", providerID: .cloudflare)
         }
       }
@@ -235,6 +241,7 @@ import Observation
 
   func stop() async {
     if let closing { await closing.value; return }
+    let previousProject = context?.project
     generation = UUID()
     context = nil
     retryAt = nil
@@ -257,5 +264,9 @@ import Observation
     busy = false
     connection = .stopped
     authorization.pending = []
+    if previousProject != nil { error = nil }
+    if self.service == nil, let previousProject {
+      loadAuthorizations(project: previousProject)
+    }
   }
 }

@@ -65,6 +65,10 @@ import Observation
   var reachableConnection: ConnectionSnapshot {
     if openAIEnabled && connection.state == .ready { return connection }
     if cloudflare.enabled && cloudflare.connection.state == .ready { return cloudflare.connection }
+    if openAIEnabled && [.starting, .reconnecting, .stopping].contains(connection.state) { return connection }
+    if cloudflare.enabled && [.starting, .reconnecting, .stopping].contains(cloudflare.connection.state) {
+      return cloudflare.connection
+    }
     if openAIEnabled && (!cloudflare.enabled || connectionConfigured) { return connection }
     if cloudflare.enabled { return cloudflare.connection }
     return connection
@@ -89,6 +93,9 @@ import Observation
        credentials: KeychainClient? = nil,
        makeProvider: @escaping @Sendable (String, String, URL) throws -> any ConnectionProvider = {
          try OpenAITunnelProvider(tunnelID: $0, apiKey: $1, helper: $2)
+       },
+       makeCloudflareProvider: @escaping @Sendable (String, URL) throws -> any ConnectionProvider = {
+         try CloudflareTunnelProvider(token: $0, helper: $1)
        }) {
     self.contextDataRoot = contextDataRoot
     self.defaults = defaults
@@ -109,7 +116,9 @@ import Observation
     // connection read report the error and use the existing noninteractive retry
     // path; only a confirmed missing item disables Start and automatic recovery.
     apiKeySaved = (try? credentials.exists(KeychainService.openAIAPIKey)) ?? true
-    cloudflare = CloudflareConnectionModel(defaults: defaults, credentials: credentials, dataRoot: contextDataRoot)
+    cloudflare = CloudflareConnectionModel(
+      defaults: defaults, credentials: credentials, dataRoot: contextDataRoot,
+      makeProvider: makeCloudflareProvider)
     cloudflare.loadAuthorizations(project: activeProject?.url)
     Self.discardStaleRuns(in: contextDataRoot)
     reloadStoredActivity()
@@ -283,6 +292,8 @@ import Observation
       connection = .stopped
       connectionSettingsError = nil
       connectionError = nil
+      reconnectFailures = 0
+      reconnectAt = nil
       savingConnection = false
       if phase == .running { connectRemote() }
       return true
@@ -423,9 +434,13 @@ import Observation
         try await manager.connect(provider)
       } catch {
         guard self.revision == token, self.connectionRevision == operation else { return }
+        let failedManager = self.remote
+        self.remote = nil
+        await failedManager?.shutdown()
+        guard self.revision == token, self.connectionRevision == operation else { return }
         if !(error is CancellationError) {
           self.connectionError = Failure.safe(error).localizedDescription
-          self.connectionRetryAllowed = (error as? Failure)?.code != "invalid_arguments"
+          self.connectionRetryAllowed = ConnectionContract.isRetryable(error)
         }
       }
       let snapshot = await self.remote?.snapshot() ?? .stopped
@@ -500,9 +515,11 @@ import Observation
     let token = revision
     let operation = connectionRevision
     let manager = remote
-    let snapshot = await owned.snapshot()
-    let remoteSnapshot = await manager?.snapshot()
-    guard token == revision else { return }
+    async let snapshotTask = owned.snapshot()
+    async let remoteSnapshotTask = manager?.snapshot()
+    async let cloudflareTask: Void = cloudflare.refresh()
+    let (snapshot, remoteSnapshot) = await (snapshotTask, remoteSnapshotTask)
+    guard token == revision else { _ = await cloudflareTask; return }
     if currentRunID != snapshot.runID { currentRunID = snapshot.runID }
     if activityFeed == nil { activity = Array(snapshot.activity.prefix(200)) }
     if let remoteSnapshot, operation == connectionRevision, manager === remote, !connectionBusy,
@@ -513,7 +530,7 @@ import Observation
     if lastCall != snapshot.lastCall { lastCall = snapshot.lastCall }
     if activeJobs != snapshot.activeJobs { activeJobs = snapshot.activeJobs }
     retryConnectionIfNeeded()
-    await cloudflare.refresh()
+    await cloudflareTask
   }
 
   /// A failed tunnel (client exit, network down at login) reconnects on its own

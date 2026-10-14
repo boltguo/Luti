@@ -129,12 +129,30 @@ private final class OAuthClock: @unchecked Sendable {
   func testNoApprovalRouteAndPendingRequestsAreBoundedAndExpire() async throws {
     let clock = OAuthClock()
     let service = try OAuthService(origin: origin, project: "a", now: { clock.now() })
-    let client = try await register(service)
-    for i in 0..<16 {
-      let response = await authorize(service, client: client, state: String(i))
+    var clients: [JSONValue] = []
+    for _ in 0..<16 {
+      clients.append(try await register(service))
+      clock.advance(10)
+    }
+    let extraClient = try await register(service)
+    // A re-attempt from the same client_id replaces its previous undecided pending request
+    // so the user is never locked out for 5 minutes and the client still holds at most 1 slot.
+    let first = await authorize(service, client: clients[0], state: "first")
+    XCTAssertEqual(first.status, 303)
+    let firstWaitPath = try XCTUnwrap(first.headers["Location"])
+    let retryFromSameClient = await authorize(service, client: clients[0], state: "0")
+    XCTAssertEqual(retryFromSameClient.status, 303)
+    let afterRetrySnapshot = await service.snapshot()
+    XCTAssertEqual(afterRetrySnapshot.pending.count, 1)
+    let replacedPoll = await service.handle(HTTPRequest(method: "GET", path: firstWaitPath, headers: [:], body: Data()))
+    let replacedHTML = String(decoding: replacedPoll.body, as: UTF8.self)
+    XCTAssertTrue(replacedHTML.contains("Request expired"))
+
+    for i in 1..<16 {
+      let response = await authorize(service, client: clients[i], state: String(i))
       XCTAssertEqual(response.status, 303)
     }
-    let full = await authorize(service, client: client)
+    let full = await authorize(service, client: extraClient)
     XCTAssertEqual(full.status, 429)
     let snapshot = await service.snapshot()
     XCTAssertEqual(snapshot.pending.count, 16)
@@ -142,7 +160,49 @@ private final class OAuthClock: @unchecked Sendable {
     clock.advance(301)
     let expired = await service.snapshot()
     XCTAssertTrue(expired.pending.isEmpty)
-    do { try await service.decide(snapshot.pending[0].id, allow: true); XCTFail("Expired approval") } catch {}
+    do {
+      try await service.decide(snapshot.pending[0].id, allow: true)
+      XCTFail("Expired approval")
+    } catch let failure as Failure {
+      XCTAssertEqual(failure.code, "invalid_arguments")
+    }
+  }
+
+  func testRegistrationAndAuthorizeFloodCannotStarveTokenExchangeOrRefresh() async throws {
+    let clock = OAuthClock()
+    let service = try OAuthService(origin: origin, project: "a", now: { clock.now() })
+    let legitimate = try await register(service)
+    let code = try await approveCode(service, client: legitimate)
+
+    // Exhaust registration and general authorize/discovery buckets.
+    var attackerClients: [JSONValue] = []
+    for _ in 0..<20 {
+      let reg = await service.handle(HTTPRequest(
+        path: "/oauth/register",
+        headers: ["content-type": ["application/json"]],
+        body: try JSONValue.object([
+          "client_name": "Flood", "redirect_uris": [.string(redirect)],
+          "token_endpoint_auth_method": "none",
+        ]).data()))
+      if reg.status == 201 { attackerClients.append(reg.json) }
+    }
+    XCTAssertLessThanOrEqual(attackerClients.count, 7)
+    for attacker in attackerClients {
+      for _ in 0..<10 {
+        _ = await authorize(service, client: attacker)
+      }
+    }
+
+    // Legitimate client can still exchange code and refresh tokens via isolated tokenCredits.
+    let exchanged = await exchange(service, client: legitimate, code: code)
+    XCTAssertEqual(exchanged.status, 200)
+    let refreshed = await post(service, "/oauth/token", [
+      "client_id": legitimate["client_id"].string!,
+      "grant_type": "refresh_token",
+      "refresh_token": exchanged.json["refresh_token"].string!,
+      "resource": resource,
+    ])
+    XCTAssertEqual(refreshed.status, 200)
   }
 
   func testDenialAndWaitTicketAreOneUse() async throws {
@@ -260,6 +320,8 @@ private final class OAuthClock: @unchecked Sendable {
     XCTAssertThrowsError(try OAuthContract.form("code=%zz"))
     XCTAssertEqual(try OAuthContract.form("state=a%2Bb+c"), ["state": "a+b c"])
     XCTAssertEqual(CloudflareTunnelProvider.readinessURL(from: "Starting metrics server on 127.0.0.1:42123/metrics")?.port, 42123)
+    let jsonLog = #"{"level":"info","time":"2026-10-14T06:00:00Z","message":"Starting metrics server on 127.0.0.1:54321/metrics"}"#
+    XCTAssertEqual(CloudflareTunnelProvider.readinessURL(from: jsonLog)?.port, 54321)
     XCTAssertNil(CloudflareTunnelProvider.readinessURL(from: "Starting metrics server on 0.0.0.0:42123/metrics"))
   }
 
@@ -326,6 +388,63 @@ private final class OAuthClock: @unchecked Sendable {
     let stopCount = await provider.stops
     XCTAssertEqual(stopCount, 1)
   }
+
+  func testCloudflareModelDoesNotRetryIntegrityErrors() async throws {
+    let f = try Fixture(); defer { f.remove() }
+    let token = String(repeating: "t", count: 80)
+    let store = FixtureKeychain(values: [CloudflareContract.tokenAccount: token])
+    f.defaults.set(origin.absoluteString, forKey: "connection.cloudflare.v2.domain")
+    f.defaults.set(true, forKey: "connection.cloudflare.v2.enabled")
+
+    for code in [
+      "archive_hash_mismatch", "binary_hash_mismatch", "signature_mismatch",
+      "openai_archive_mismatch", "openai_binary_mismatch",
+    ] {
+      XCTAssertFalse(ConnectionContract.isRetryable(Failure(code, "Integrity check failed.", "Do not execute.")), code)
+    }
+    XCTAssertTrue(ConnectionContract.isRetryable(Failure("cloudflare_unavailable", "Transient error", "Retry")))
+
+    let counter = AttemptCounter()
+    let provider = MockCloudflareProvider()
+    let model = AppModel(
+      contextDataRoot: f.contextDataRoot, defaults: f.defaults, credentials: store.client,
+      makeCloudflareProvider: { _, _ in
+        if counter.next() == 1 {
+          throw Failure("binary_hash_mismatch", "Integrity failed", "Do not retry")
+        }
+        return provider
+      })
+    addTeardownBlock { await model.stop() }
+    model.addProject(f.root)
+    model.requestStart()
+    for _ in 0..<200 {
+      if model.cloudflare.connection.state == .failed && !model.cloudflare.busy { break }
+      try await Task.sleep(for: .milliseconds(25))
+    }
+    XCTAssertEqual(model.cloudflare.connection.state, .failed)
+    await model.refresh()
+    XCTAssertEqual(counter.value, 1, "Binary/signature integrity failures must not schedule automatic retry.")
+    await model.stop()
+    XCTAssertEqual(model.cloudflare.connection.state, .stopped)
+  }
+}
+
+private final class AttemptCounter: @unchecked Sendable {
+  private let lock = NSLock()
+  private var count = 0
+  func next() -> Int { lock.withLock { count += 1; return count } }
+  var value: Int { lock.withLock { count } }
+}
+
+private actor MockCloudflareProvider: ConnectionProvider {
+  nonisolated let id = ConnectionProviderID.cloudflare
+  nonisolated let privateCredential = ""
+  private var state = ConnectionSnapshot.stopped
+  func start(endpoint: URL) async throws {
+    state = ConnectionSnapshot(state: .ready, providerID: .cloudflare)
+  }
+  func snapshot() -> ConnectionSnapshot { state }
+  func stop() { state = .stopped }
 }
 
 private actor SuspendedCloudflare: ConnectionProvider {

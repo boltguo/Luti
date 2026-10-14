@@ -29,6 +29,7 @@ public actor OAuthService {
   private var codes: [String: Code] = [:]
   private var enabled = true
   private var credits = 60.0
+  private var tokenCredits = 60.0
   private var registrationCredits = 8.0
   private var creditTime: Date
 
@@ -75,7 +76,10 @@ public actor OAuthService {
   /// Called only from the native UI. There is deliberately no HTTP approval route.
   func decide(_ id: UUID, allow: Bool) throws {
     prune()
-    guard enabled, var request = pending[id], request.outcome == nil else { throw Failure.stopped }
+    guard enabled else { throw Failure.stopped }
+    guard var request = pending[id], request.outcome == nil else {
+      throw Failure.invalid("This authorization request has expired or was replaced by a newer request.")
+    }
     if allow {
       var draft = state
       draft.grants.removeAll { $0.expiresAt <= now() || $0.clientID == request.client.id }
@@ -147,9 +151,24 @@ public actor OAuthService {
     let elapsed = max(0, now().timeIntervalSince(creditTime))
     creditTime = now()
     credits = min(60, credits + elapsed * 10)
+    tokenCredits = min(60, tokenCredits + elapsed * 10)
     registrationCredits = min(8, registrationCredits + elapsed / 10)
-    guard credits >= 1 else { return failure(429, "temporarily_unavailable", extra: ["Retry-After": "5"]) }
-    credits -= 1
+    if path == "/oauth/register" {
+      guard registrationCredits >= 1, registrations.count < 64 else {
+        return failure(429, "temporarily_unavailable", extra: ["Retry-After": "10"])
+      }
+      registrationCredits -= 1
+    } else if path == "/oauth/token" || path == "/oauth/revoke" {
+      guard tokenCredits >= 1 else {
+        return failure(429, "temporarily_unavailable", extra: ["Retry-After": "5"])
+      }
+      tokenCredits -= 1
+    } else {
+      guard credits >= 1 else {
+        return failure(429, "temporarily_unavailable", extra: ["Retry-After": "5"])
+      }
+      credits -= 1
+    }
     if path.hasPrefix("/.well-known/oauth-protected-resource") {
       return json(200, ["resource": .string(resource), "authorization_servers": [.string(origin.absoluteString)],
         "scopes_supported": ["mcp"], "bearer_methods_supported": ["header"]])
@@ -184,8 +203,6 @@ public actor OAuthService {
   }
 
   private func register(_ request: HTTPRequest) throws -> HTTPReply {
-    guard registrationCredits >= 1, registrations.count < 64 else { return failure(429, "temporarily_unavailable") }
-    registrationCredits -= 1
     guard request.headers["content-type"]?.first?.split(separator: ";").first?.lowercased() == "application/json" else {
       return failure(415, "invalid_request")
     }
@@ -225,7 +242,10 @@ public actor OAuthService {
       challenge.utf8.allSatisfy({ (65...90).contains($0) || (97...122).contains($0) || (48...57).contains($0) || $0 == 45 || $0 == 95 }),
       form["resource"] == resource, form["scope"] == nil || form["scope"] == "mcp"
     else { return redirectReply(redirect, state: form["state"], result: "error", value: "invalid_request") }
-    guard pending.count < 16 else { return failure(429, "temporarily_unavailable") }
+    // A re-attempt from the same client replaces its previous undecided request so
+    // a user who closed the browser tab can reconnect immediately while still holding at most 1 slot.
+    pending = pending.filter { !($0.value.client.id == client.id && $0.value.outcome == nil) }
+    guard pending.count < 16 else { return failure(429, "temporarily_unavailable", extra: ["Retry-After": "5"]) }
     let ticket = Budget.token()
     let request = OAuthPending(id: UUID(), client: client, redirect: redirect, state: form["state"],
       challenge: challenge, createdAt: now(), verification: String(Int.random(in: 100_000...999_999)),

@@ -26,8 +26,14 @@ struct CloudflareConnectionView: View {
         .accessibilityIdentifier("cloudflare-enabled")
       }
 
-      if let error = connection.error {
-        ProviderInfoCallout(text: error, symbol: "exclamationmark.triangle", tone: .red)
+      if let message = connection.error
+        ?? (connection.connection.state == .failed ? connection.connection.message : nil),
+        !message.isEmpty
+      {
+        ProviderInfoCallout(text: message, symbol: "exclamationmark.triangle", tone: .red)
+          .textSelection(.enabled)
+      } else if connection.connection.state == .reconnecting, !connection.connection.message.isEmpty {
+        ProviderInfoCallout(text: connection.connection.message, symbol: "arrow.triangle.2.circlepath")
           .textSelection(.enabled)
       }
 

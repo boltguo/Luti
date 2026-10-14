@@ -31,4 +31,18 @@ public enum ConnectionContract {
       value.utf8.allSatisfy({ (33...126).contains($0) })
     else { throw Failure.invalid("Enter the OpenAI runtime API key, without spaces or line breaks.") }
   }
+
+  private static let nonRetryableFailureCodes: Set<String> = [
+    "invalid_arguments",
+    "archive_hash_mismatch",
+    "binary_hash_mismatch",
+    "signature_mismatch",
+    "openai_archive_mismatch",
+    "openai_binary_mismatch",
+  ]
+
+  public static func isRetryable(_ error: Error) -> Bool {
+    guard let failure = error as? Failure else { return true }
+    return !nonRetryableFailureCodes.contains(failure.code)
+  }
 }

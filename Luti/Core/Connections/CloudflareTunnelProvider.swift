@@ -9,6 +9,7 @@ public actor CloudflareTunnelProvider: ConnectionProvider {
   private var token: String?
   private let process = ProviderProcess()
   private var health: URL?
+  private var lastProbe: (at: ContinuousClock.Instant, ready: Bool)?
   private var started = false
   private var stopped = false
 
@@ -37,7 +38,10 @@ public actor CloudflareTunnelProvider: ConnectionProvider {
         try Task.checkCancellation()
         guard !stopped, await process.running else { throw unavailable }
         if health == nil { health = Self.readinessURL(from: await process.startupOutput) }
-        if let health, await ConnectionProbe.ready(health), !stopped, await process.running { return }
+        if let health, await ConnectionProbe.ready(health), !stopped, await process.running {
+          lastProbe = (ContinuousClock.now, true)
+          return
+        }
         try await Task.sleep(for: .milliseconds(300))
       }
       throw unavailable
@@ -50,16 +54,25 @@ public actor CloudflareTunnelProvider: ConnectionProvider {
   public func snapshot() async -> ConnectionSnapshot {
     guard started, !stopped else { return .stopped }
     guard await process.running else { return ConnectionSnapshot(state: .failed, message: unavailable.message) }
-    let ready = if let health { await ConnectionProbe.ready(health) } else { false }
+    let ready = await readiness()
     guard !stopped else { return .stopped }
     return ConnectionSnapshot(state: ready ? .ready : .reconnecting,
       message: ready ? "" : "Cloudflare is reconnecting to its edge. Project tasks keep running.")
+  }
+
+  /// UI polling must not turn into one HTTP probe per tick.
+  private func readiness() async -> Bool {
+    if let lastProbe, lastProbe.at.duration(to: .now) < .seconds(5) { return lastProbe.ready }
+    let ready = if let health { await ConnectionProbe.ready(health) } else { false }
+    lastProbe = (ContinuousClock.now, ready)
+    return ready
   }
 
   public func stop() async {
     stopped = true
     token = nil
     health = nil
+    lastProbe = nil
     await process.stop()
   }
 

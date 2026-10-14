@@ -45,6 +45,7 @@ public actor ToolRouter {
   private var lastSuccess: Date?
   // Bounded, current-run validation inputs. No session journal is persisted.
   private var touchedFiles: [String] = []
+  private var cachedMemoryStore: ProjectMemoryStore?
 
   var workspace: WorkspaceFiles { context.workspace }
   var jobs: JobManager { context.jobs }
@@ -54,7 +55,11 @@ public actor ToolRouter {
   var projectToken: String { context.projectToken }
   var memoryStore: ProjectMemoryStore {
     get throws {
-      try ProjectMemoryStore(project: context.project, dataRoot: context.dataRoot, redactor: redactor)
+      if let cachedMemoryStore { return cachedMemoryStore }
+      let store = try ProjectMemoryStore(
+        project: context.project, dataRoot: context.dataRoot, redactor: redactor)
+      cachedMemoryStore = store
+      return store
     }
   }
 

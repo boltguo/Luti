@@ -12,6 +12,17 @@ When developing the application, follow all of the following roles and standards
 - **Documentation and Copy**: Communicate concisely, efficiently, and precisely. Avoid explanatory prose, repetition, and unnecessary background.
 - **Git Commits**: Follow the Angular / Conventional Commits convention. Use explicit types such as `feat: ...`, `fix: ...`, `docs: ...`, `refactor: ...`, `test: ...`, and `chore: ...`. Commit messages must briefly describe the change and must not use vague or meaningless titles.
 
+## No Overengineering
+
+Applies to implementation, reviews, and fixes.
+
+- Fix only problems with a concrete trigger and real impact. Do not design for hypothetical network, platform, or input scenarios without evidence from code, logs, or official documentation.
+- Before adding a safeguard, check what existing code already guarantees. Do not duplicate protection that is already in place.
+- Optimize only hot paths. Do not add caches, locks, or indirection to code that runs only at launch, on connect, or on retry.
+- Match concurrency and isolation to the actual runtime model. Do not add per-instance or per-key structures where only one instance exists.
+- Reuse the codebase's existing solution for the same problem before inventing a new mechanism.
+- When a fix costs more than the risk it removes, accept or document the risk instead.
+
 ## Luti Constraints
 
 ### For Users

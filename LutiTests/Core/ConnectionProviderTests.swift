@@ -151,6 +151,7 @@ private actor FixtureProvider: ConnectionProvider {
   func testOpenAIConfigurationRequiresTunnelIDAndSavedKey() throws {
     let f = try Fixture(); defer { f.remove() }
     let model = AppModel(contextDataRoot: f.contextDataRoot, defaults: f.defaults)
+    XCTAssertFalse(model.openAIEnabled, "Fresh install without saved tunnelID starts with OpenAI switch off.")
     model.apiKeySaved = false
     XCTAssertFalse(model.connectionConfigured)
     f.defaults.set("tunnel_0123456789abcdef0123456789abcdef", forKey: "connection.openai.tunnelID")
@@ -159,6 +160,8 @@ private actor FixtureProvider: ConnectionProvider {
     model.apiKeySaved = true
     XCTAssertTrue(model.connectionConfigured)
     model.phase = .running
+    XCTAssertFalse(model.canConnect, "Disabled OpenAI switch must not connect even when configured.")
+    model.openAIEnabled = true
     XCTAssertTrue(model.canConnect)
     model.savingConnection = true
     XCTAssertFalse(model.canConnect, "Save/clear in flight must not connect with old settings.")
@@ -178,6 +181,24 @@ private actor FixtureProvider: ConnectionProvider {
     model.tunnelID = "tunnel_0123456789abcdef0123456789abcdef"
     model.apiKeySaved = false
     XCTAssertFalse(model.canConnect)
+  }
+
+  func testOpenAIEnabledMigratesSavedTunnelFromV120AndRespectsExplicitToggle() throws {
+    let f = try Fixture(); defer { f.remove() }
+    // 1. Fresh install: no saved tunnelID -> openAIEnabled is false.
+    let fresh = AppModel(contextDataRoot: f.contextDataRoot, defaults: f.defaults)
+    XCTAssertFalse(fresh.openAIEnabled)
+
+    // 2. Upgrade from v1.2.0: saved tunnelID exists, but connection.openai.enabled was never set -> openAIEnabled is true.
+    f.defaults.removeObject(forKey: "connection.openai.enabled")
+    f.defaults.set("tunnel_0123456789abcdef0123456789abcdef", forKey: "connection.openai.tunnelID")
+    let upgraded = AppModel(contextDataRoot: f.contextDataRoot, defaults: f.defaults)
+    XCTAssertTrue(upgraded.openAIEnabled)
+
+    // 3. Explicit user toggle off persists across launches even when tunnelID is saved.
+    upgraded.openAIEnabled = false
+    let reopened = AppModel(contextDataRoot: f.contextDataRoot, defaults: f.defaults)
+    XCTAssertFalse(reopened.openAIEnabled)
   }
 
   func testPollReasonKeepsOnlyTheBoundedCause() {
