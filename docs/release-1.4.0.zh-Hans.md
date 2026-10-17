@@ -5,7 +5,7 @@
 - 记忆写入不会盲目覆盖：替换或删除文件需提供客户端最后读取到的 `sha256`，多个客户端同时修改时不会互相丢失更新。替换时未提供的名称、描述和类型保持原值。
 - 支持 AI 之间接力：多步任务开始前，AI 先写一个带清单的 `kind=task` 记忆文件。`project_info` 会显示每个任务的进度、作者，以及各客户端最近的改动，即使上一个会话中途停止，下一个会话也能接着做。
 - `runtime_status` 会报告当前权限模式。
-- 工具由 26 个精简为 24 个：`browser_inspect` 的操作并入 `browser_observe`，`browser_dialog` 的 `accept`、`dismiss` 并入 `browser_action`。只读工具不再接收 `projectToken`。
+- 工具由 25 个精简为 24 个：`browser_inspect` 的操作并入 `browser_observe`，`browser_dialog` 的 `accept`、`dismiss` 并入 `browser_action`。只读工具不再接收 `projectToken`。
 - `git_query`、`path_action`、`edit_files` 和 `code_query` 不再声明属于其他操作的默认值，避免调用失败。
 - `run_process` 通过 `-c` 启动 shell 时，执行与 `run_shell` 相同的命令检查。
 

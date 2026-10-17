@@ -160,7 +160,7 @@ import Darwin
     XCTAssertEqual(denied.data["error"], "project_scope_denied")
     try inside.write("generated.txt", "remove me")
     try inside.write("package.json", #"{"scripts":{"test":"rm generated.txt"}}"#)
-    let allowedRouter = try inside.router(execution: true)
+    let allowedRouter = try inside.router(execution: true, permissionMode: .ask)
     addTeardownBlock { await allowedRouter.stop() }
     let allowed = await allowedRouter.callInCurrentProject("run_process", arguments: ["taskId": "task:test", "syncWait": 3])
     XCTAssertFalse(allowed.isError)
@@ -177,6 +177,10 @@ import Darwin
     for args: [String] in [["-c", "sudo -V"], ["-lc", "true; sudo -V"], ["-ec", "shutdown -h now"]] {
       let shell = await router.callInCurrentProject("run_process", arguments: ["program": "/bin/zsh", "args": .array(args.map(JSONValue.string))])
       XCTAssertEqual(shell.data["error"], "dangerous_command_denied", "\(args)")
+    }
+    XCTAssertThrowsError(try ProcessPolicy.validate(
+      ProcessRequest(program: "fish", args: ["--command=sudo -V"], cwd: f.root))) {
+      XCTAssertEqual(Failure.safe($0).code, "dangerous_command_denied")
     }
     let jobs = await router.jobList()
     XCTAssertTrue(jobs.isEmpty)
@@ -357,13 +361,28 @@ import Darwin
     XCTAssertEqual(code("/usr/bin/git", ["reset", "--hard"]), "git_mutation")
     XCTAssertEqual(code("/bin/sh", ["-c", "echo ok"]), "opaque_shell")
     XCTAssertEqual(code("/usr/bin/python3", ["-c", "print('ok')"]), "inline_code")
+    XCTAssertNil(code("/usr/bin/git", ["-C", ".", "status"]))
+    XCTAssertEqual(code("/usr/bin/git", ["-C", ".", "reset", "--hard"]), "git_mutation")
+    XCTAssertEqual(code("/usr/bin/git", ["-c", "core.pager=cat", "--no-pager", "push"]), "git_mutation")
+    XCTAssertEqual(code("/usr/bin/git", ["rm", "tracked.txt"]), "git_mutation")
+    XCTAssertEqual(code("/opt/homebrew/bin/fish", ["--command=echo ok"]), "opaque_shell")
     XCTAssertEqual(
       ProcessPolicy.approvalRequirement(
         ProcessRequest(program: "/bin/zsh", cwd: f.root, projectRoot: f.root), rawShell: true)?.code,
       "opaque_shell")
+    // Code fed on stdin or into an interactive session is as opaque as -c.
     XCTAssertEqual(
-      try ProcessPolicy.projectScriptApprovalRequirement("rm -rf dist && tsc")?.code,
-      "project_script_destructive")
+      ProcessPolicy.approvalRequirement(
+        ProcessRequest(program: "/bin/zsh", cwd: f.root, projectRoot: f.root, input: "rm -rf src"))?.code,
+      "opaque_shell")
+    XCTAssertEqual(
+      ProcessPolicy.approvalRequirement(
+        ProcessRequest(program: "/usr/bin/python3", cwd: f.root, projectRoot: f.root, interactive: true))?.code,
+      "inline_code")
+    XCTAssertNil(try ProcessPolicy.projectScriptApprovalRequirement("rm -rf dist && tsc"))
+    XCTAssertEqual(
+      try ProcessPolicy.projectScriptApprovalRequirement("git cherry-pick main")?.code,
+      "project_script_git_mutation")
     XCTAssertNil(try ProcessPolicy.projectScriptApprovalRequirement("tsc --noEmit"))
   }
 
@@ -409,6 +428,31 @@ import Darwin
     }
     let pending = try await waitForApproval(router)
     XCTAssertEqual(pending.code, "destructive_path")
+    await router.resolveOperationApproval(pending.id, approved: false)
+    let result = await call.value
+    XCTAssertEqual(result.data["error"], "local_action_denied")
+    XCTAssertTrue(FileManager.default.fileExists(atPath: f.root.appendingPathComponent("victim.txt").path))
+  }
+
+  func testSafeModeAsksBeforePatchDeletesFile() async throws {
+    let f = try Fixture(); defer { f.remove() }
+    try f.write("victim.txt", "keep\n")
+    let router = try f.router(execution: true, permissionMode: .ask)
+    addTeardownBlock { await router.stop() }
+    let patch = "--- a/victim.txt\n+++ /dev/null\n@@ -1 +0,0 @@\n-keep\n"
+
+    let preview = await router.callInCurrentProject(
+      "edit_files", arguments: ["action": "patch", "patch": .string(patch), "dryRun": true])
+    XCTAssertFalse(preview.isError, preview.data.text())
+    let previewPending = await router.pendingOperationApprovals()
+    XCTAssertTrue(previewPending.isEmpty, "A dry run deletes nothing and never asks.")
+
+    let call = Task {
+      await router.callInCurrentProject("edit_files", arguments: ["action": "patch", "patch": .string(patch)])
+    }
+    let pending = try await waitForApproval(router)
+    XCTAssertEqual(pending.code, "destructive_path")
+    XCTAssertTrue(pending.summary.contains("victim.txt"))
     await router.resolveOperationApproval(pending.id, approved: false)
     let result = await call.value
     XCTAssertEqual(result.data["error"], "local_action_denied")

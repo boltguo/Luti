@@ -119,7 +119,7 @@ public enum ToolCatalog {
         ], required: ["query"]),
       tool(
         "edit_files",
-        "Project text mutation. action=edit performs exact SHA-guarded replacements in one file; create makes one new file without overwrite; patch applies a validated unified diff across up to 20 files. All modes support dryRun.",
+        "Project text mutation. action=edit performs exact SHA-guarded replacements in one file; create makes one new file without overwrite; patch applies a validated unified diff across up to 20 files. All modes support dryRun. In Safe Mode, a patch that deletes files waits for one-time approval on the Mac.",
         [
           "action": enumeration(["edit", "create", "patch"]),
           "path": string("Project-relative file path for edit/create"),

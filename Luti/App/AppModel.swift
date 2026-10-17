@@ -47,6 +47,7 @@ import Observation
   @ObservationIgnored private let makeProvider: @Sendable (String, String, URL) throws -> any ConnectionProvider
   @ObservationIgnored private var connectionRetryAllowed = true
   @ObservationIgnored private var announcedOperationApprovals: Set<UUID> = []
+  @ObservationIgnored private var decidedOperationApprovals: Set<UUID> = []
   private static let selectedFolderKey = "selectedFolder"
   private static let tunnelIDKey = "connection.openai.tunnelID"
   private static let openAIEnabledKey = "connection.openai.enabled"
@@ -249,6 +250,7 @@ import Observation
 
   func resolveOperationApproval(_ id: UUID, approved: Bool) {
     pendingOperationApprovals.removeAll { $0.id == id }
+    decidedOperationApprovals.insert(id)
     guard let router = session?.router else { return }
     Task { await router.resolveOperationApproval(id, approved: approved) }
   }
@@ -554,7 +556,7 @@ import Observation
     async let remoteSnapshotTask = manager?.snapshot()
     async let approvalsTask = owned.router.pendingOperationApprovals()
     async let cloudflareTask: Void = cloudflare.refresh()
-    let (snapshot, remoteSnapshot, approvals) = await (snapshotTask, remoteSnapshotTask, approvalsTask)
+    let (snapshot, remoteSnapshot, polled) = await (snapshotTask, remoteSnapshotTask, approvalsTask)
     guard token == revision else { _ = await cloudflareTask; return }
     if currentRunID != snapshot.runID { currentRunID = snapshot.runID }
     if activityFeed == nil { activity = Array(snapshot.activity.prefix(200)) }
@@ -565,6 +567,9 @@ import Observation
     }
     if lastCall != snapshot.lastCall { lastCall = snapshot.lastCall }
     if activeJobs != snapshot.activeJobs { activeJobs = snapshot.activeJobs }
+    // A poll that began before a decision reached the router must not show it again.
+    decidedOperationApprovals.formIntersection(polled.map(\.id))
+    let approvals = polled.filter { !decidedOperationApprovals.contains($0.id) }
     if approvals != pendingOperationApprovals { pendingOperationApprovals = approvals }
     // The request comes from a remote AI; raise the window once so the Mac user sees it.
     let approvalIDs = Set(approvals.map(\.id))

@@ -5,7 +5,7 @@
 - メモリの書き込みが無条件に上書きすることはありません。ファイルの置き換えや削除には、クライアントが最後に読み取った `sha256` が必要なため、複数のクライアントが同時に更新しても互いの変更は失われません。置き換え時に省略した名前、説明、種類は以前の値のまま保持されます。
 - AIクライアント間の引き継ぎ：複数ステップの作業の前に、AIがチェックリスト付きの `kind=task` メモリファイルを作成します。`project_info` は各タスクの進捗と作成者、すべてのクライアントによる最近の変更を表示するため、前のセッションが途中で止まっても別のセッションが作業を続けられます。
 - `runtime_status` は権限モードを報告します。
-- ツールを26個から24個に整理しました。`browser_inspect` のアクションは `browser_observe` に、`browser_dialog` の `accept`、`dismiss` は `browser_action` に統合されました。読み取り専用ツールは `projectToken` を受け取りません。
+- ツールを25個から24個に整理しました。`browser_inspect` のアクションは `browser_observe` に、`browser_dialog` の `accept`、`dismiss` は `browser_action` に統合されました。読み取り専用ツールは `projectToken` を受け取りません。
 - `git_query`、`path_action`、`edit_files`、`code_query` は他のアクション用の既定値を公開しなくなり、呼び出しが失敗する問題を解消しました。
 - `run_process` が `-c` でシェルを起動する場合、`run_shell` と同じコマンドチェックを適用します。
 

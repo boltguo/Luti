@@ -56,9 +56,18 @@ public struct ProcessApprovalRequirement: Sendable, Equatable {
     self.code = code
     self.reason = reason
   }
+
+  /// Deletion has no undo, so safe mode treats it like `rm`.
+  static let pathDeletion = ProcessApprovalRequirement(
+    code: "destructive_path", reason: "Deleting project paths cannot be undone.")
 }
 
 public enum ProcessPolicy {
+  static let shells: Set<String> = ["sh", "bash", "zsh", "dash", "ksh", "fish"]
+  static let gitMutations = [
+    "clean", "reset", "checkout", "restore", "switch", "rebase", "merge", "pull", "push", "commit",
+    "stash", "worktree", "rm", "mv", "cherry-pick", "revert", "am", "apply",
+  ]
   static let fixedPATH = "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
   /// The user's login-shell PATH (nvm, mise, rustup, …) ahead of the fixed
   /// directories. Resolved once per launch; a slow or broken shell falls back.
@@ -173,9 +182,7 @@ public enum ProcessPolicy {
     ]
     guard !prohibited.contains(base) else { throw denied() }
     // A shell launched by argv gets the same script check as run_shell.
-    if let index = shellCommandIndex(request), index + 1 < request.args.count {
-      try validateShell(request.args[index + 1])
-    }
+    if let script = shellScript(request), !script.isEmpty { try validateShell(script) }
     if base == "diskutil"
       && request.args.contains(where: {
         $0.lowercased().contains("erase") || $0.lowercased().contains("partition")
@@ -194,15 +201,30 @@ public enum ProcessPolicy {
       throw denied()
     }
   }
-  /// The argv position of a shell's -c (or a short-flag cluster containing c).
-  static func shellCommandIndex(_ request: ProcessRequest) -> Int? {
-    let base = URL(fileURLWithPath: request.program).lastPathComponent.lowercased()
-    guard ["sh", "bash", "zsh", "dash", "ksh", "fish"].contains(base) else { return nil }
-    return request.args.firstIndex {
-      $0 == "--command"
-        || ($0.count > 1 && $0.hasPrefix("-") && !$0.hasPrefix("--")
-          && $0.dropFirst().allSatisfy(\.isLetter) && $0.contains("c"))
+  /// The script a shell runs from argv: the operand of -c (or a short-flag
+  /// cluster containing c) or --command, or fish's --command=<script>.
+  static func shellScript(_ request: ProcessRequest) -> String? {
+    guard shells.contains(URL(fileURLWithPath: request.program).lastPathComponent.lowercased())
+    else { return nil }
+    for (index, argument) in request.args.enumerated() {
+      if argument.hasPrefix("--command=") { return String(argument.dropFirst("--command=".count)) }
+      if argument == "--command"
+        || (argument.count > 1 && argument.hasPrefix("-") && !argument.hasPrefix("--")
+          && argument.dropFirst().allSatisfy(\.isLetter) && argument.contains("c"))
+      {
+        return index + 1 < request.args.count ? request.args[index + 1] : ""
+      }
     }
+    return nil
+  }
+  /// The Git subcommand after global options such as `-C <path>` and `-c <name=value>`.
+  static func gitSubcommand(_ args: [String]) -> String? {
+    var index = 0
+    while index < args.count, args[index].hasPrefix("-") {
+      index += ["-C", "-c", "--git-dir", "--work-tree", "--namespace", "--config-env"]
+        .contains(args[index]) ? 2 : 1
+    }
+    return index < args.count ? args[index].lowercased() : nil
   }
   public static func validateShell(_ command: String) throws {
     guard !command.isEmpty, command.utf8.count <= 8192, !command.contains("\0") else {
@@ -253,22 +275,22 @@ public enum ProcessPolicy {
         reason: "This command can make destructive changes inside the active project.")
     }
 
-    if base == "git", let subcommand = request.args.first?.lowercased(),
-      ["clean", "reset", "checkout", "restore", "switch", "rebase", "merge", "pull", "push", "commit", "stash", "worktree"].contains(subcommand)
-    {
+    if base == "git", let subcommand = gitSubcommand(request.args), gitMutations.contains(subcommand) {
       return ProcessApprovalRequirement(
         code: "git_mutation",
         reason: "This Git command can mutate the project working tree, repository state, or a remote.")
     }
 
-    if shellCommandIndex(request) != nil {
+    // Code read from stdin or typed into an interactive session is as opaque as -c.
+    let codeFromInput = request.input != nil || request.interactive
+    if shellScript(request) != nil || (shells.contains(base) && codeFromInput) {
       return ProcessApprovalRequirement(
         code: "opaque_shell",
-        reason: "A shell -c invocation is treated as a sensitive project operation in safe mode.")
+        reason: "Shell code from -c, stdin or an interactive session is treated as a sensitive project operation in safe mode.")
     }
 
     if ["python", "python3", "node", "ruby", "perl"].contains(base),
-      request.args.contains(where: { ["-c", "-e", "--eval"].contains($0) })
+      codeFromInput || request.args.contains(where: { ["-c", "-e", "--eval"].contains($0) })
     {
       return ProcessApprovalRequirement(
         code: "inline_code",
@@ -315,13 +337,9 @@ public enum ProcessPolicy {
     _ script: String
   ) throws -> ProcessApprovalRequirement? {
     try validateShell(script)
-    let destructivePattern = #"(?i)(?:^|[\s;&|])(rm|rmdir|unlink|mv|chmod|chown|chgrp|truncate|dd)(?:\s|$)"#
-    if script.range(of: destructivePattern, options: .regularExpression) != nil {
-      return ProcessApprovalRequirement(
-        code: "project_script_destructive",
-        reason: "The discovered project script contains a destructive project operation.")
-    }
-    let gitMutationPattern = #"(?i)(?:^|[\s;&|])git\s+(clean|reset|checkout|restore|switch|rebase|merge|pull|push|commit|stash|worktree)(?:\s|$)"#
+    // The project's own scripts may clear their build output without asking;
+    // project scope is still enforced. Git mutations can reach a remote, so they ask.
+    let gitMutationPattern = #"(?i)(?:^|[\s;&|])git\s+("# + gitMutations.joined(separator: "|") + #")(?:\s|$)"#
     if script.range(of: gitMutationPattern, options: .regularExpression) != nil {
       return ProcessApprovalRequirement(
         code: "project_script_git_mutation",
