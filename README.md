@@ -31,7 +31,7 @@ Luti connects an AI client to one approved project. The AI host handles reasonin
 3. **Configure a connection.** In **Connections**, configure **OpenAI Secure MCP Tunnel** or **Cloudflare Tunnel** (either or both may be enabled).
 4. **Start and connect.** Start the local Runtime, then add the MCP server in your AI client.
 
-**Upgrading to 1.2.0:** Settings and credentials already saved in the 1.1 format are retained. Automatic migration and cleanup of 1.0.x data have been removed. If upgrading directly from 1.0.x, or if an earlier migration did not finish, select the project folder and save the Tunnel ID and API key again.
+**Upgrading to 1.4.0:** Refresh Luti's tool list in each connected AI client, or remove and re-add the connector. Existing projects open in Safe Mode; turn on Full Access on the project page to keep the previous behavior. Data from 1.0.x is not migrated.
 
 ## Connections and setup guides
 
