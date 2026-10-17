@@ -17,14 +17,25 @@ import XCTest
     _ store: ProjectMemoryStore,
     file: String = "architecture.md",
     name: String? = "Architecture",
-    description: String = "Core module boundaries and storage layout",
-    kind: MemoryKind = .architecture,
+    description: String? = "Core module boundaries and storage layout",
+    kind: MemoryKind? = .architecture,
     content: String = "Use canonical paths for per-project storage.",
+    expectedSHA256: String? = nil,
     host: String = "Test Host"
   ) throws -> JSONValue {
     try store.write(
-      file: file, name: name, description: description,
-      kind: kind, content: content, source: source(host))
+      file: file, name: name, description: description, kind: kind,
+      content: content, expectedSHA256: expectedSHA256, source: source(host))
+  }
+
+  private func sha(_ store: ProjectMemoryStore, _ file: String) throws -> String {
+    try XCTUnwrap(store.read(file: file)["memory"]["sha256"].string)
+  }
+
+  private func assertConflict(_ expression: @autoclosure () throws -> JSONValue, file: StaticString = #filePath, line: UInt = #line) {
+    XCTAssertThrowsError(try expression(), file: file, line: line) {
+      XCTAssertEqual(($0 as? Failure)?.code, "memory_conflict", file: file, line: line)
+    }
   }
 
   func testReapprovalUsesSameNamespaceAndDifferentProjectIsIsolated() throws {
@@ -41,46 +52,40 @@ import XCTest
     XCTAssertNotEqual(first.directory, independent.directory)
   }
 
-  func testWriteOverwriteDeleteAndRestartSyncsMemoryIndexAndTopicMarkdownFiles() throws {
+  func testCreateReplaceDeleteAndRestartKeepIndexAndTopicFilesInSync() throws {
     let f = try Fixture(); defer { f.remove() }
     let s = try store(f)
     let created = try writeTopic(
-      s, file: "architecture", name: "System Architecture",
+      s, file: "Architecture", name: "System Architecture",
       description: "Core module boundaries", kind: .architecture,
       content: "# Architecture\n\nUse one namespace per project.")
     XCTAssertEqual(created["created"], true)
-    XCTAssertEqual(created["updated"], false)
     XCTAssertEqual(created["memory"]["file"], "architecture.md")
-    XCTAssertTrue(created["indexMarkdown"].string!.contains("[architecture.md](architecture.md) — Core module boundaries"))
+    XCTAssertEqual(created["memory"]["content"], .null, "Writes return metadata, not an echo of the body.")
+    let firstSHA = try XCTUnwrap(created["memory"]["sha256"].string)
+    XCTAssertEqual(try sha(s, "architecture.md"), firstSHA)
 
-    let updated = try writeTopic(
-      s, file: "architecture.md", name: "System Architecture",
-      description: "Updated module boundaries", kind: .decision,
+    let replaced = try writeTopic(
+      s, file: "architecture.md", name: nil, description: nil, kind: nil,
       content: "# Architecture\n\nUse MEMORY.md plus topic .md files.",
-      host: "Second Host")
-    XCTAssertEqual(updated["created"], false)
-    XCTAssertEqual(updated["updated"], true)
-    XCTAssertEqual(updated["fileCount"], 1)
+      expectedSHA256: firstSHA, host: "Second Host")
+    XCTAssertEqual(replaced["updated"], true)
+    XCTAssertEqual(replaced["fileCount"], 1)
+    XCTAssertNotEqual(replaced["memory"]["sha256"].string, firstSHA)
 
-    let readDoc = try s.read(file: "architecture.md")
-    XCTAssertEqual(readDoc["memory"]["description"], "Updated module boundaries")
-    XCTAssertEqual(readDoc["memory"]["kind"], "decision")
-    XCTAssertEqual(readDoc["memory"]["source"]["host"], "Second Host")
-    XCTAssertTrue(readDoc["memory"]["content"].string!.contains("Use MEMORY.md plus topic .md files."))
+    let doc = try s.read(file: "architecture.md")["memory"]
+    XCTAssertEqual(doc["name"], "System Architecture", "Omitted metadata keeps stored values.")
+    XCTAssertEqual(doc["description"], "Core module boundaries")
+    XCTAssertEqual(doc["kind"], "architecture")
+    XCTAssertEqual(doc["source"]["host"], "Second Host")
+    XCTAssertEqual(doc["content"], "# Architecture\n\nUse MEMORY.md plus topic .md files.")
 
-    let readIndex = try s.read(file: "MEMORY.md")
-    XCTAssertEqual(readIndex["file"], "MEMORY.md")
-    XCTAssertEqual(readIndex["fileCount"], 1)
-    XCTAssertFalse(readIndex["content"].string!.contains("Core module boundaries"))
-    XCTAssertTrue(readIndex["content"].string!.contains("Updated module boundaries"))
+    let diskIndex = String(decoding: try PrivateFiles.read(s.indexURL, max: 16_384), as: UTF8.self)
+    XCTAssertTrue(diskIndex.contains("[architecture.md](architecture.md) — Core module boundaries"))
+    XCTAssertThrowsError(try s.read(file: "MEMORY.md"))
 
-    let onDiskTopic = String(
-      decoding: try PrivateFiles.read(s.memoryDirectory.appendingPathComponent("architecture.md"), max: 16_384),
-      as: UTF8.self)
-    XCTAssertTrue(onDiskTopic.contains("description: Updated module boundaries"))
-    XCTAssertTrue(onDiskTopic.contains("Use MEMORY.md plus topic .md files."))
-
-    let deleted = try s.delete(file: "architecture.md")
+    assertConflict(try s.delete(file: "architecture.md", expectedSHA256: firstSHA))
+    let deleted = try s.delete(file: "architecture.md", expectedSHA256: try sha(s, "architecture.md"))
     XCTAssertEqual(deleted["deleted"], true)
     XCTAssertEqual(deleted["fileCount"], 0)
 
@@ -89,6 +94,46 @@ import XCTest
     XCTAssertThrowsError(try reopened.read(file: "architecture.md")) {
       XCTAssertEqual(($0 as? Failure)?.code, "memory_not_found")
     }
+  }
+
+  func testWritesNeverOverwriteWithoutTheCurrentSHA() throws {
+    let f = try Fixture(); defer { f.remove() }
+    let s = try store(f)
+    try writeTopic(s, content: "Original body")
+    let original = try sha(s, "architecture.md")
+
+    assertConflict(try writeTopic(s, content: "Blind create"))
+    assertConflict(try writeTopic(s, content: "Stale", expectedSHA256: String(repeating: "0", count: 64)))
+    XCTAssertThrowsError(try writeTopic(s, file: "missing.md", expectedSHA256: original)) {
+      XCTAssertEqual(($0 as? Failure)?.code, "memory_not_found")
+    }
+    XCTAssertEqual(try s.read(file: "architecture.md")["memory"]["content"], "Original body")
+    XCTAssertEqual(try sha(s, "architecture.md"), original)
+  }
+
+  func testConcurrentReplacementsOfOneFileLoseNoUpdate() async throws {
+    let f = try Fixture(); defer { f.remove() }
+    let a = try store(f), b = try store(f)
+    try writeTopic(a, content: "Base")
+    let base = try sha(a, "architecture.md")
+    let author = source()
+    let succeeded = try await withThrowingTaskGroup(of: Bool.self) { group in
+      for i in 0..<8 {
+        group.addTask {
+          do {
+            _ = try (i.isMultiple(of: 2) ? a : b).write(
+              file: "architecture.md", content: "Writer \(i)", expectedSHA256: base, source: author)
+            return true
+          } catch let failure as Failure where failure.code == "memory_conflict" {
+            return false
+          }
+        }
+      }
+      var count = 0
+      for try await won in group where won { count += 1 }
+      return count
+    }
+    XCTAssertEqual(succeeded, 1, "Exactly one writer may replace the version it read.")
   }
 
   func testIndexIsDerivedFromTopicMarkdownFilesAndOverwritesTamperedIndexFile() throws {
@@ -100,10 +145,11 @@ import XCTest
       kind: .convention, content: "Follow Conventional Commits.")
     try PrivateFiles.atomicWrite(Data("INJECTED_CACHE_ONLY".utf8), to: s.indexURL)
     let index = try s.index()
-    XCTAssertFalse(index["indexMarkdown"].string!.contains("INJECTED_CACHE_ONLY"))
-    XCTAssertTrue(index["indexMarkdown"].string!.contains("[conventions.md](conventions.md)"))
+    XCTAssertEqual(index["files"].array?.first?["file"], "conventions.md")
+    XCTAssertEqual(index["indexMarkdown"], .null)
     let diskIndex = String(decoding: try PrivateFiles.read(s.indexURL, max: 16_384), as: UTF8.self)
     XCTAssertFalse(diskIndex.contains("INJECTED_CACHE_ONLY"))
+    XCTAssertTrue(diskIndex.contains("[conventions.md](conventions.md)"))
   }
 
   func testConcurrentWritersDoNotLoseTopicFiles() async throws {
@@ -158,6 +204,7 @@ import XCTest
     for badFile in ["MEMORY.md", "../escape.md", "nested/file.md", ".hidden.md", ""] {
       XCTAssertThrowsError(try writeTopic(s, file: badFile))
     }
+    XCTAssertThrowsError(try writeTopic(s, description: nil), "Creating requires an index description.")
     XCTAssertEqual(try s.index()["fileCount"], 0)
     let known = try ProjectMemoryStore(
       project: ApprovedProject(url: f.root), dataRoot: f.contextDataRoot,
@@ -177,50 +224,71 @@ import XCTest
       XCTAssertEqual(($0 as? Failure)?.code, "memory_capacity")
     }
     let updated = try writeTopic(
-      s, file: "topic-0.md", description: "Updated decision 0", content: "Updated body 0")
+      s, file: "topic-0.md", description: "Updated decision 0", content: "Updated body 0",
+      expectedSHA256: try sha(s, "topic-0.md"))
     XCTAssertEqual(updated["updated"], true)
     XCTAssertEqual(try s.index()["fileCount"], .int(ProjectMemoryStore.maxTopicFiles))
   }
 
-  func testRouterMemoryRequiresTokenForWriteAndDeleteAndAttributesSource() async throws {
+  func testRouterSplitsReadAndWriteAndAttributesSource() async throws {
     let f = try Fixture(); defer { f.remove() }
     let router = try f.router()
     addTeardownBlock { await router.stop() }
+    let query = try XCTUnwrap(ToolCatalog.definitions.first { $0["name"] == "memory_query" })
+    let action = try XCTUnwrap(ToolCatalog.definitions.first { $0["name"] == "memory_action" })
+    XCTAssertEqual(query["annotations"]["readOnlyHint"], true)
+    XCTAssertEqual(action["annotations"]["readOnlyHint"], false)
+    XCTAssertFalse(ToolCatalog.names.contains("memory"))
+
     let remote = ToolGrant.remote(
       RequestContext(
         transport: .cloudflare, clientID: "Writer Host",
-        clientName: "Writer Host", authorizationID: UUID()))
-    let missingToken = await router.call(
-      "memory",
-      arguments: [
-        "action": "write", "file": "decisions.md",
-        "description": "Needs token", "content": "Details",
-      ],
-      grant: remote)
+        clientName: "Writer\nHost", authorizationID: UUID()))
+    let create: JSONValue = [
+      "action": "write", "file": "decisions.md",
+      "description": "Shared project decision", "content": "Detailed decision markdown.",
+    ]
+    let missingToken = await router.call("memory_action", arguments: create, grant: remote)
     XCTAssertEqual(missingToken.data["error"], "project_binding_required")
 
-    let write = await router.callInCurrentProject(
-      "memory",
-      arguments: [
-        "action": "write", "file": "decisions.md",
-        "description": "Shared project decision", "content": "Detailed decision markdown.",
-      ],
-      grant: remote)
+    let write = await router.callInCurrentProject("memory_action", arguments: create, grant: remote)
     XCTAssertFalse(write.isError)
     XCTAssertEqual(write.data["memory"]["source"]["host"], "Writer Host")
 
-    let read = await router.call(
-      "memory", arguments: ["action": "read", "file": "decisions.md"], grant: .local)
-    XCTAssertFalse(read.isError)
-    XCTAssertEqual(read.data["memory"]["description"], "Shared project decision")
+    let info = await router.call("project_info", arguments: [:])
+    XCTAssertEqual(info.data["memory"]["fileCount"], 1)
+    XCTAssertEqual(info.data["memory"]["files"].array?.first?["file"], "decisions.md")
+    XCTAssertEqual(info.data["memory"]["files"].array?.first?["description"], "Shared project decision")
 
-    for args: JSONValue in [
-      ["action": "clear"], ["action": "purge"], ["action": "sessions"],
-      ["action": "index", "projectId": "other"],
-      ["action": "write", "file": "MEMORY.md", "description": "bad", "content": "bad"],
-    ] {
-      let output = await router.callInCurrentProject("memory", arguments: args)
-      XCTAssertTrue(output.isError)
+    let read = await router.call(
+      "memory_query", arguments: ["action": "read", "file": "decisions.md"], grant: .local)
+    XCTAssertFalse(read.isError)
+    let sha = try XCTUnwrap(read.data["memory"]["sha256"].string)
+
+    let blind = await router.callInCurrentProject("memory_action", arguments: create)
+    XCTAssertEqual(blind.data["error"], "memory_conflict")
+    let replace = await router.callInCurrentProject("memory_action", arguments: [
+      "action": "write", "file": "decisions.md", "content": "Merged decision markdown.",
+      "expectedSHA256": .string(sha),
+    ])
+    XCTAssertEqual(replace.data["updated"], true)
+    let staleDelete = await router.callInCurrentProject("memory_action", arguments: [
+      "action": "delete", "file": "decisions.md", "expectedSHA256": .string(sha),
+    ])
+    XCTAssertEqual(staleDelete.data["error"], "memory_conflict")
+
+    let invalid: [(String, JSONValue)] = [
+      ("memory_query", ["action": "write", "file": "x.md", "content": "bad"]),
+      ("memory_query", ["action": "index", "projectId": "other"]),
+      ("memory_action", ["action": "index"]),
+      ("memory_action", ["action": "clear"]),
+      ("memory_action", ["action": "delete", "file": "decisions.md"]),
+      ("memory_action", ["action": "write", "file": "MEMORY.md", "description": "bad", "content": "bad"]),
+      ("memory_action", ["action": "write", "file": "x.md", "content": "bad", "expectedSHA256": "short"]),
+    ]
+    for (name, args) in invalid {
+      let output = await router.callInCurrentProject(name, arguments: args)
+      XCTAssertTrue(output.isError, "\(name): \(args)")
     }
   }
 

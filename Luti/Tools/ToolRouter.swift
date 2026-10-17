@@ -70,6 +70,11 @@ public actor ToolRouter {
     MemorySource.model(grant: grant, redactor: redactor)
   }
 
+  /// Unreadable memory must not hide the workspace itself.
+  private func memorySummary() -> JSONValue {
+    do { return try memoryStore.summary() } catch { return ["error": .string(Failure.safe(error).code)] }
+  }
+
   public init(
     workspace: WorkspaceFiles, jobs: JobManager,
     activity: ActivityStore, executionPolicy: ProjectExecutionPolicy = .readOnly,
@@ -229,7 +234,7 @@ public actor ToolRouter {
     }
 
     switch name {
-    case "memory":
+    case "memory_query", "memory_action":
       return ActivityDescriptor(
         action: action, targetType: "memory", target: value["file"].string ?? "MEMORY.md")
     case "project_info":
@@ -320,7 +325,7 @@ public actor ToolRouter {
     }
   }
   private func activitySummary(_ name: String, _ output: ToolOutput) -> String {
-    if name == "memory" {
+    if name.hasPrefix("memory_") {
       return output.isError ? "Project memory operation failed." : "Project memory operation completed."
     }
     if let summary = output.data["summary"].string, !summary.isEmpty { return summary }
@@ -440,7 +445,7 @@ public actor ToolRouter {
     if output.data["submitted"] == true || output.data["observeAgain"] == true {
       return "submitted"
     }
-    if name == "memory" {
+    if name.hasPrefix("memory_") {
       return (output.data["created"] == true || output.data["updated"] == true || output.data["deleted"] == true)
         ? "confirmed" : "none"
     }
@@ -477,7 +482,8 @@ public actor ToolRouter {
   }
 
   private func dispatch(_ name: String, _ value: JSONValue, grant: ToolGrant) async throws -> ToolOutput {
-    if name == "memory" { return try memoryTool(value, grant: grant) }
+    if name == "memory_query" { return try memoryQueryTool(value) }
+    if name == "memory_action" { return try memoryActionTool(value, grant: grant) }
     if let output = try await extendedTool(name, value) { return output }
     switch name {
     case "project_info":
@@ -488,11 +494,7 @@ public actor ToolRouter {
           .adding("projectId", .string(context.project.id))
           .adding("generation", .int(1))
           .adding("projectToken", .string(context.projectToken))
-          .adding("context", [
-            "projectKey": .string(context.projectKey),
-            "indexFile": "MEMORY.md",
-            "discovery": "Use memory(action=\"index\") to read MEMORY.md, then read/write topic .md files as needed.",
-          ]))
+          .adding("memory", memorySummary()))
     case "runtime_status":
       _ = try Arguments(value, allowed: [])
       return ToolOutput([

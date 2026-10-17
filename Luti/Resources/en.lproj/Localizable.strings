@@ -36,6 +36,7 @@
 /* common */
 "common.back" = "Back";
 "common.cancel" = "Cancel";
+"common.close" = "Close";
 "common.connecting" = "Connecting";
 "common.connection" = "Connection";
 "common.disabled" = "Disabled";
@@ -85,6 +86,8 @@
 "home.stop" = "Stop";
 "home.stopAllTasks" = "Stop All Tasks";
 "home.toolStatus" = "Tool status";
+"home.toolsUpdated" = "Luti tools updated";
+"home.toolsUpdatedDescription" = "Refresh Luti's tool list in each connected AI client, or reconnect it once.";
 
 /* login */
 "login.error" = "Could not update login item: %@";

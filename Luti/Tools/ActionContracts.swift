@@ -28,13 +28,14 @@ enum ActionContracts {
   private static let scopeNote = "scopeSnapshotId and scopeRef must be supplied together."
 
   static let rules: [String: [String: Rule]] = [
-    "memory": [
+    "memory_query": [
       "index": Rule([], ["query", "kind"], readOnly: true),
       "read": Rule(["file"], readOnly: true),
-      "write": Rule(["file", "description", "content"], ["name", "kind"],
-        note: "Creates or updates memory/<file>.md and refreshes MEMORY.md."),
-      "delete": Rule(["file"],
-        note: "Deletes memory/<file>.md and refreshes MEMORY.md."),
+    ],
+    "memory_action": [
+      "write": Rule(["file", "content"], ["name", "description", "kind", "expectedSHA256"],
+        note: "Omit expectedSHA256 only to create a new file; description is required then."),
+      "delete": Rule(["file", "expectedSHA256"]),
     ],
     "job_query": [
       "list": Rule(readOnly: true),

@@ -25,6 +25,7 @@ import Observation
   var lastCall: Date?
   var activeJobs = 0
   var pendingOperationApprovals: [PendingOperationApproval] = []
+  var toolListChanged = false
   var errorText: String?
   let contextDataRoot: URL
   var contextBusy = false
@@ -51,6 +52,8 @@ import Observation
   private static let openAIEnabledKey = "connection.openai.enabled"
   /// Set by Start, cleared by an explicit Stop; Quit and update relaunch keep it.
   private static let resumeKey = "runtime.resumeOnLaunch"
+  /// The tool list the user last confirmed connected clients have reloaded.
+  private static let toolListKey = "tools.acknowledgedFingerprint"
   var active: Bool { [.preparing, .starting, .running, .stopping].contains(phase) }
   var savedTunnelID: String { defaults.string(forKey: Self.tunnelIDKey) ?? "" }
   var hasUnsavedConnection: Bool { tunnelID.trimmed != savedTunnelID || !apiKeyDraft.isEmpty }
@@ -122,6 +125,14 @@ import Observation
       defaults: defaults, credentials: credentials, dataRoot: contextDataRoot,
       makeProvider: makeCloudflareProvider)
     cloudflare.loadAuthorizations()
+    if let seen = defaults.string(forKey: Self.toolListKey) {
+      toolListChanged = seen != ToolCatalog.fingerprint
+    } else if savedTunnel.isEmpty && cloudflare.savedDomain.isEmpty {
+      // No client was ever set up, so none holds an older tool list.
+      defaults.set(ToolCatalog.fingerprint, forKey: Self.toolListKey)
+    } else {
+      toolListChanged = true
+    }
     Self.discardStaleRuns(in: contextDataRoot)
     reloadStoredActivity()
     LocalLogStore.runtime("info", "Luti app initialized.")
@@ -229,6 +240,11 @@ import Observation
     activeProject = current.withPermissionMode(mode)
     persistSelectedFolder()
     if let router = session?.router { Task { await router.setPermissionMode(mode) } }
+  }
+
+  func dismissToolListNotice() {
+    toolListChanged = false
+    defaults.set(ToolCatalog.fingerprint, forKey: Self.toolListKey)
   }
 
   func resolveOperationApproval(_ id: UUID, approved: Bool) {

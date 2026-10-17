@@ -43,7 +43,9 @@ struct MemorySource: Codable, Sendable, Equatable {
   static func model(grant: ToolGrant, redactor: Redactor) -> MemorySource {
     MemorySource(
       type: "model",
-      host: Budget.prefix(redactor.clean(grant.context?.clientName ?? "local-client"), bytes: 64),
+      host: Budget.prefix(
+        redactor.clean(grant.context?.clientName ?? "local-client")
+          .components(separatedBy: .newlines).joined(separator: " "), bytes: 64),
       clientId: grant.context?.clientID,
       transport: grant.context?.transport.rawValue ?? "loopback")
   }
@@ -59,6 +61,7 @@ struct MemoryDocument: Codable, Sendable, Identifiable, Equatable {
   let source: MemorySource
   let updatedAt: Date
   let bytes: Int
+  let sha256: String
 
   var metadataJSON: JSONValue {
     [
@@ -68,6 +71,7 @@ struct MemoryDocument: Codable, Sendable, Identifiable, Equatable {
       "kind": .string(kind.rawValue),
       "updatedAt": .string(ISO8601DateFormatter().string(from: updatedAt)),
       "bytes": .int(bytes),
+      "sha256": .string(sha256),
       "source": [
         "type": .string(source.type),
         "host": .string(source.host),
@@ -88,9 +92,11 @@ struct ProjectMemorySnapshot: Sendable {
   var memoryCount: Int { documents.count }
 }
 
-/// Claude Code–style project memory store:
-/// - `memory/MEMORY.md` is the concise entrypoint index of all topic files.
-/// - `memory/<topic>.md` files each record a specific project decision, convention, or architecture note.
+/// Per-project memory shared by every connected client:
+/// - `memory/<topic>.md` files each record one durable decision, convention or architecture note.
+/// - `memory/MEMORY.md` is derived from the topic files and never written by clients.
+/// Replacing or deleting a topic requires the SHA-256 the client last read, so
+/// concurrent clients cannot silently overwrite each other.
 final class ProjectMemoryStore: @unchecked Sendable {
   static let lock = NSRecursiveLock()
   static let indexFileName = "MEMORY.md"
@@ -158,7 +164,7 @@ final class ProjectMemoryStore: @unchecked Sendable {
     }
     let withExtension = trimmed.lowercased().hasSuffix(".md") ? trimmed : trimmed + ".md"
     guard withExtension.lowercased() != indexFileName.lowercased() else {
-      throw Failure.invalid("MEMORY.md is the auto-maintained index; write or delete a topic .md file instead.")
+      throw Failure.invalid("MEMORY.md is generated from topic files; use memory_query(action=index) to list them and name a topic .md file.")
     }
     let stem = String(withExtension.dropLast(3))
     guard !stem.isEmpty,
@@ -249,7 +255,8 @@ final class ProjectMemoryStore: @unchecked Sendable {
           clientId: fields["clientId"],
           transport: transport),
         updatedAt: updatedAt,
-        bytes: data.count)
+        bytes: data.count,
+        sha256: Budget.sha256(data))
     }
 
     let trimmedBody = text.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -274,7 +281,8 @@ final class ProjectMemoryStore: @unchecked Sendable {
       content: trimmedBody,
       source: MemorySource(type: "model", host: "local-client", clientId: nil, transport: "loopback"),
       updatedAt: fallbackDate,
-      bytes: data.count)
+      bytes: data.count,
+      sha256: Budget.sha256(data))
   }
 
   private func corruptMemory() -> Failure {
@@ -330,7 +338,7 @@ final class ProjectMemoryStore: @unchecked Sendable {
     var lines = [
       "# MEMORY.md",
       "",
-      "Project memory index for \(projectName). Read full details with `memory(action=\"read\", file=\"<file>\")`.",
+      "Project memory index for \(projectName). Read full details with `memory_query(action=\"read\", file=\"<file>\")`.",
       "",
     ]
     if documents.isEmpty {
@@ -367,12 +375,30 @@ final class ProjectMemoryStore: @unchecked Sendable {
     try PrivateFiles.atomicWrite(ContextCoding.encode(metadata), to: manifestURL)
   }
 
+  /// Compact listing for `project_info`, so every client sees existing memory
+  /// without an extra call.
+  func summary() throws -> JSONValue {
+    try Self.lock.withLock {
+      let docs = try loadDocuments()
+      return [
+        "fileCount": .int(docs.count),
+        "files": .array(docs.map {
+          [
+            "file": .string($0.file), "description": .string($0.description),
+            "kind": .string($0.kind.rawValue),
+            "updatedAt": .string(ISO8601DateFormatter().string(from: $0.updatedAt)),
+          ]
+        }),
+      ]
+    }
+  }
+
   func index(
     query: String = "", kind: MemoryKind? = nil, projectToken: String? = nil
   ) throws -> JSONValue {
     try Self.lock.withLock {
       let allDocs = try loadDocuments()
-      let indexMarkdown = materializeIndex(allDocs)
+      materializeIndex(allDocs)
       let tokens = query.lowercased().split(whereSeparator: { $0.isWhitespace }).map(String.init)
       let matches = allDocs.filter { doc in
         guard kind == nil || doc.kind == kind else { return false }
@@ -384,11 +410,8 @@ final class ProjectMemoryStore: @unchecked Sendable {
       }
       return [
         "action": "index",
-        "projectKey": .string(projectKey),
         "project": ["id": .string(projectID), "name": .string(projectName)],
         "projectToken": projectToken.map(JSONValue.string) ?? .null,
-        "indexFile": .string(Self.indexFileName),
-        "indexMarkdown": .string(indexMarkdown),
         "fileCount": .int(allDocs.count),
         "totalMatches": .int(matches.count),
         "files": .array(matches.map(\.metadataJSON)),
@@ -398,54 +421,65 @@ final class ProjectMemoryStore: @unchecked Sendable {
 
   func read(file rawFile: String) throws -> JSONValue {
     try Self.lock.withLock {
-      let trimmed = rawFile.trimmingCharacters(in: .whitespacesAndNewlines)
-      let docs = try loadDocuments()
-      let indexMarkdown = materializeIndex(docs)
-      if trimmed.lowercased() == Self.indexFileName.lowercased() {
-        return [
-          "action": "read",
-          "projectKey": .string(projectKey),
-          "file": .string(Self.indexFileName),
-          "content": .string(indexMarkdown),
-          "fileCount": .int(docs.count),
-          "files": .array(docs.map(\.metadataJSON)),
-        ]
+      let target = try Self.normalizeTopicFileName(rawFile)
+      guard let doc = try loadDocuments().first(where: { $0.file == target }) else {
+        throw notFound(target)
       }
-      let target = try Self.normalizeTopicFileName(trimmed)
-      guard let doc = docs.first(where: { $0.file == target }) else {
-        throw Failure(
-          "memory_not_found", "No memory file named \(target) exists in this project.",
-          "Call memory(action=\"index\") to inspect MEMORY.md and available .md files.")
-      }
-      return [
-        "action": "read",
-        "projectKey": .string(projectKey),
-        "memory": doc.fullJSON,
-      ]
+      return ["action": "read", "memory": doc.fullJSON]
     }
   }
 
+  /// Creates a topic when `expectedSHA256` is nil and never overwrites one;
+  /// otherwise replaces the body only if the file still has that SHA-256.
+  /// Omitted name, description and kind keep the stored values on replace.
   func write(
-    file rawFile: String, name rawName: String? = nil, description rawDescription: String,
-    kind: MemoryKind = .decision, content rawContent: String, source: MemorySource
+    file rawFile: String, name rawName: String? = nil, description rawDescription: String? = nil,
+    kind rawKind: MemoryKind? = nil, content rawContent: String, expectedSHA256: String? = nil,
+    source: MemorySource
   ) throws -> JSONValue {
     try Self.lock.withLock {
       let file = try Self.normalizeTopicFileName(rawFile)
-      let name = (rawName?.trimmingCharacters(in: .whitespacesAndNewlines)).flatMap { $0.isEmpty ? nil : $0 }
-        ?? Self.defaultName(for: file)
-      let description = rawDescription
-        .replacingOccurrences(of: "\r", with: " ")
-        .replacingOccurrences(of: "\n", with: " ")
-        .trimmingCharacters(in: .whitespacesAndNewlines)
+      let docs = try loadDocuments()
+      let current = try currentData(file)
+      let previous = docs.first { $0.file == file }
+      switch (current, expectedSHA256) {
+      case (nil, nil):
+        guard docs.count < Self.maxTopicFiles else {
+          throw Failure(
+            "memory_capacity",
+            "The project reached its limit of \(Self.maxTopicFiles) memory .md files.",
+            "Merge into or delete outdated topic files first.")
+        }
+      case (nil, _?):
+        throw notFound(file)
+      case (_?, nil):
+        throw Failure(
+          "memory_conflict", "memory/\(file) already exists; nothing was written.",
+          "Read it with memory_query(action=read), merge your change into its content, then write the complete body with its sha256 as expectedSHA256.")
+      case let (data?, expected?):
+        guard Budget.sha256(data) == expected else { throw changed(file, effect: "written") }
+        guard previous != nil else { throw corruptMemory() }
+      }
+
+      func line(_ value: String?) -> String? {
+        value.map {
+          $0.components(separatedBy: .newlines).joined(separator: " ")
+            .trimmingCharacters(in: .whitespaces)
+        }.flatMap { $0.isEmpty ? nil : $0 }
+      }
+      let name = line(rawName) ?? previous?.name ?? Self.defaultName(for: file)
+      guard let description = line(rawDescription) ?? previous?.description else {
+        throw Failure.invalid("Creating a memory file requires a one-line description for MEMORY.md.")
+      }
+      let kind = rawKind ?? previous?.kind ?? .decision
       let content = rawContent.trimmingCharacters(in: .whitespacesAndNewlines)
 
-      guard (1...120).contains(name.utf8.count), !name.contains("\n"), !name.contains("\r"), !name.contains("\0"),
+      guard (1...120).contains(name.utf8.count), !name.contains("\0"),
             (1...240).contains(description.utf8.count), !description.contains("\0"),
             (1...Self.maxTopicFileBytes).contains(content.utf8.count), !content.contains("\0") else {
         throw Failure.invalid(
-          "Memory write requires name (1–120B), one-line description (1–240B) for MEMORY.md, and markdown content (1–16384B).")
+          "Memory write requires name (1–120B), one-line description (1–240B) and markdown content (1–16384B).")
       }
-
       for field in [name, description, content] {
         guard redactor.clean(field) == field, !MemoryPrivacy.containsCredential(field) else {
           throw Failure(
@@ -454,64 +488,62 @@ final class ProjectMemoryStore: @unchecked Sendable {
         }
       }
 
-      let existing = try loadDocuments()
-      let isUpdate = existing.contains { $0.file == file }
-      guard isUpdate || existing.count < Self.maxTopicFiles else {
-        throw Failure(
-          "memory_capacity",
-          "The project reached its limit of \(Self.maxTopicFiles) memory .md files.",
-          "Update an existing topic .md file or delete outdated memory files first.")
-      }
-
-      let now = Date()
       let encoded = Self.encodeMarkdown(
         name: name, description: description, kind: kind,
-        source: source, updatedAt: now, content: content)
-      let fileURL = memoryDirectory.appendingPathComponent(file)
-      try PrivateFiles.atomicWrite(encoded, to: fileURL)
+        source: source, updatedAt: Date(), content: content)
+      try PrivateFiles.atomicWrite(encoded, to: memoryDirectory.appendingPathComponent(file))
       try touchManifest()
 
       let updatedDocs = try loadDocuments()
-      let indexMarkdown = materializeIndex(updatedDocs)
+      materializeIndex(updatedDocs)
       guard let saved = updatedDocs.first(where: { $0.file == file }) else {
         throw corruptMemory()
       }
       return [
         "action": "write",
-        "projectKey": .string(projectKey),
-        "created": .bool(!isUpdate),
-        "updated": .bool(isUpdate),
-        "memory": saved.fullJSON,
-        "indexFile": .string(Self.indexFileName),
-        "indexMarkdown": .string(indexMarkdown),
+        "created": .bool(previous == nil),
+        "updated": .bool(previous != nil),
+        "memory": saved.metadataJSON,
         "fileCount": .int(updatedDocs.count),
       ]
     }
   }
 
-  func delete(file rawFile: String) throws -> JSONValue {
+  func delete(file rawFile: String, expectedSHA256: String) throws -> JSONValue {
     try Self.lock.withLock {
       let file = try Self.normalizeTopicFileName(rawFile)
-      let existing = try loadDocuments()
-      guard existing.contains(where: { $0.file == file }) else {
-        throw Failure(
-          "memory_not_found", "No memory file named \(file) exists in this project.",
-          "Call memory(action=\"index\") to inspect MEMORY.md and available .md files.")
-      }
+      guard let data = try currentData(file) else { throw notFound(file) }
+      guard Budget.sha256(data) == expectedSHA256 else { throw changed(file, effect: "deleted") }
       try PrivateFiles.removeFile(memoryDirectory.appendingPathComponent(file))
       try touchManifest()
       let remaining = try loadDocuments()
-      let indexMarkdown = materializeIndex(remaining)
+      materializeIndex(remaining)
       return [
         "action": "delete",
-        "projectKey": .string(projectKey),
         "file": .string(file),
         "deleted": true,
-        "indexFile": .string(Self.indexFileName),
-        "indexMarkdown": .string(indexMarkdown),
         "fileCount": .int(remaining.count),
       ]
     }
+  }
+
+  /// On-disk bytes, including files that failed to decode, so a client can
+  /// never replace a topic it could not read.
+  private func currentData(_ file: String) throws -> Data? {
+    let url = memoryDirectory.appendingPathComponent(file)
+    return try PrivateFiles.exists(url) ? PrivateFiles.read(url, max: Self.maxTopicFileBytes + 1024) : nil
+  }
+
+  private func notFound(_ file: String) -> Failure {
+    Failure(
+      "memory_not_found", "No memory file named \(file) exists in this project.",
+      "Call memory_query(action=index) to list current files; omit expectedSHA256 to create a new one.")
+  }
+
+  private func changed(_ file: String, effect: String) -> Failure {
+    Failure(
+      "memory_conflict", "memory/\(file) changed since it was read; nothing was \(effect).",
+      "Read it again with memory_query(action=read), merge your change into the current content, then retry with its new sha256.")
   }
 
   func snapshot() throws -> ProjectMemorySnapshot {

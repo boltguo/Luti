@@ -36,6 +36,7 @@
 /* common */
 "common.back" = "戻る";
 "common.cancel" = "キャンセル";
+"common.close" = "閉じる";
 "common.connecting" = "接続中";
 "common.connection" = "接続";
 "common.disabled" = "オフ";
@@ -85,6 +86,8 @@
 "home.stop" = "停止";
 "home.stopAllTasks" = "すべてのタスクを停止";
 "home.toolStatus" = "ツールの状態";
+"home.toolsUpdated" = "Lutiのツールが更新されました";
+"home.toolsUpdatedDescription" = "接続中の各AIクライアントでLutiのツール一覧を更新するか、一度接続し直してください。";
 
 /* login */
 "login.error" = "ログイン項目を更新できませんでした: %@";

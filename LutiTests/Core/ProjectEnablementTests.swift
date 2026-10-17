@@ -29,6 +29,25 @@ import XCTest
     XCTAssertEqual(reopened.activeProject?.permissionMode, .fullProjectAccess)
   }
 
+  func testToolListNoticeAppearsOnlyForClientsHoldingAnOlderList() throws {
+    let fresh = try Fixture(), upgraded = try Fixture()
+    defer { fresh.remove(); upgraded.remove() }
+    let tunnel = "tunnel_0123456789abcdef0123456789abcdef"
+    XCTAssertFalse(AppModel(contextDataRoot: fresh.contextDataRoot, defaults: fresh.defaults).toolListChanged)
+    fresh.defaults.set(tunnel, forKey: "connection.openai.tunnelID")
+    XCTAssertFalse(AppModel(contextDataRoot: fresh.contextDataRoot, defaults: fresh.defaults).toolListChanged,
+      "A client set up after first launch already loads the current list.")
+
+    upgraded.defaults.set(tunnel, forKey: "connection.openai.tunnelID")
+    let model = AppModel(contextDataRoot: upgraded.contextDataRoot, defaults: upgraded.defaults)
+    XCTAssertTrue(model.toolListChanged)
+    model.dismissToolListNotice()
+    XCTAssertFalse(model.toolListChanged)
+    XCTAssertFalse(AppModel(contextDataRoot: upgraded.contextDataRoot, defaults: upgraded.defaults).toolListChanged)
+    upgraded.defaults.set(String(repeating: "0", count: 64), forKey: "tools.acknowledgedFingerprint")
+    XCTAssertTrue(AppModel(contextDataRoot: upgraded.contextDataRoot, defaults: upgraded.defaults).toolListChanged)
+  }
+
   func testUnreadableSelectionStartsEmpty() throws {
     let f = try Fixture(); defer { f.remove() }
     f.defaults.set(Data("broken".utf8), forKey: "selectedFolder")

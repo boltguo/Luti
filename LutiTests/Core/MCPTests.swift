@@ -46,9 +46,9 @@ import XCTest
     XCTAssertEqual(initResult.json["result"]["protocolVersion"], "2025-11-25")
     let list = await endpoint.handle(try request("tools/list"))
     let tools = try XCTUnwrap(list.json["result"]["tools"].array)
-    XCTAssertEqual(tools.count, 25)
+    XCTAssertEqual(tools.count, 26)
     XCTAssertNil(tools.first { $0["name"] == "projects" })
-    XCTAssertNotNil(tools.first { $0["name"] == "memory" })
+    XCTAssertNotNil(tools.first { $0["name"] == "memory_query" })
     XCTAssertNotNil(tools.first { $0["name"] == "project_info" })
     let readFiles = try XCTUnwrap(tools.first { $0["name"] == "read_files" })
     XCTAssertEqual(readFiles["inputSchema"]["properties"]["endLine"]["default"], .null)
@@ -93,7 +93,7 @@ import XCTest
       for modern in [false, true] {
         let list = await endpoint.handle(try request("tools/list", modern: modern))
         let tools = try XCTUnwrap(list.json["result"]["tools"].array)
-        XCTAssertEqual(tools.count, 25)
+        XCTAssertEqual(tools.count, 26)
         XCTAssertFalse(tools.contains { desktopTools.contains($0["name"].string ?? "") })
         for tool in desktopTools {
           let response = await endpoint.handle(try request("tools/call",
@@ -142,9 +142,9 @@ import XCTest
       for modern in [false, true] {
         let list = await endpoint.handle(try request("tools/list", modern: modern))
         let tools = try XCTUnwrap(list.json["result"]["tools"].array)
-        XCTAssertEqual(tools.count, 25)
+        XCTAssertEqual(tools.count, 26)
         XCTAssertNil(tools.first { $0["name"] == "projects" })
-        XCTAssertNotNil(tools.first { $0["name"] == "memory" })
+        XCTAssertNotNil(tools.first { $0["name"] == "memory_query" })
         XCTAssertNil(tools.first { $0["name"] == "skills" })
         XCTAssertFalse(JSONValue.array(tools).text().contains("projects("))
         let before = await endpoint.handle(try request("tools/call", params: ["name": "project_info"], modern: modern))
@@ -154,7 +154,7 @@ import XCTest
         XCTAssertNotNil(info["projectToken"].string)
         XCTAssertEqual(info["approvedProjectCount"], .null)
         XCTAssertEqual(info["enabledProjectCount"], .null)
-        XCTAssertNotNil(info["context"]["projectKey"].string)
+        XCTAssertEqual(info["memory"]["fileCount"], 0)
         XCTAssertFalse(info.text().contains(second.root.path))
         let disabled: [(String, JSONValue)] = [
           ("skills", ["action": "list"]),
@@ -162,13 +162,13 @@ import XCTest
           ("projects", ["action": "list"]),
           ("projects", ["action": "current"]),
           ("projects", ["action": "switch", "projectId": "b", "projectToken": info["projectToken"]]),
-          ("memory", ["action": "sessions"]),
+          ("memory_query", ["action": "sessions"]),
         ]
         for (name, arguments) in disabled {
           let denied = await endpoint.handle(try request("tools/call", params: [
             "name": .string(name), "arguments": arguments,
           ], modern: modern))
-          if name == "memory" {
+          if name == "memory_query" {
             XCTAssertEqual(denied.status, 200, name)
             XCTAssertEqual(denied.json["result"]["isError"], true, name)
           } else {
@@ -186,7 +186,7 @@ import XCTest
       }
       await endpoint.shutdown()
     }
-    let memory = await router.call("memory", arguments: ["action": "index"])
+    let memory = await router.call("memory_query", arguments: ["action": "index"])
     XCTAssertFalse(memory.isError)
   }
   func testModernHeaderMismatch() async throws {
@@ -388,7 +388,7 @@ import XCTest
     await endpoint.shutdown()
   }
   func testActionSchemasShareBoundariesAndNeverInjectForeignDefaults() throws {
-    XCTAssertEqual(ToolCatalog.names.count, 25)
+    XCTAssertEqual(ToolCatalog.names.count, 26)
     for (name, contracts) in ActionContracts.rules where ToolCatalog.names.contains(name) {
       let definition = try XCTUnwrap(ToolCatalog.definitions.first { $0["name"].string == name })
       let schema = definition["inputSchema"]
