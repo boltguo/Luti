@@ -70,6 +70,28 @@ public actor ToolRouter {
     MemorySource.model(grant: grant, redactor: redactor)
   }
 
+  /// The latest effects from any client, so a session can continue work another
+  /// one left unrecorded. Reads are omitted as noise.
+  private func recentActivity() async -> JSONValue {
+    let formatter = ISO8601DateFormatter()
+    let events = await activity.snapshot()
+      .filter { !ToolCatalog.readOnlyNames.contains($0.tool) }.prefix(10)
+    return .array(events.map { event -> JSONValue in
+      var row: [String: JSONValue] = [
+        "at": .string(formatter.string(from: event.finishedAt ?? event.startedAt)),
+        "client": .string(event.source?.clientName ?? "Luti"),
+        "tool": .string(event.tool),
+        "status": .string(event.operationState ?? event.status),
+      ]
+      if let action = event.action { row["action"] = .string(action) }
+      if !event.target.isEmpty { row["target"] = .string(event.target) }
+      if let effect = event.effect, effect != "none" { row["effect"] = .string(effect) }
+      if let code = event.errorCode { row["error"] = .string(code) }
+      if !event.summary.isEmpty { row["summary"] = .string(Budget.prefix(event.summary, bytes: 160)) }
+      return .object(row)
+    })
+  }
+
   /// Unreadable memory must not hide the workspace itself.
   private func memorySummary() -> JSONValue {
     do { return try memoryStore.summary() } catch { return ["error": .string(Failure.safe(error).code)] }
@@ -172,7 +194,8 @@ public actor ToolRouter {
       guard accepting else { throw Failure.stopped }
       try validateProjectBinding(name, arguments: value)
       try Task.checkCancellation()
-      let arguments = ProjectBindingContract.acceptsToken(name) ? value.removing(["projectToken"]) : value
+      // Reads ignore a token sent from an older cached tool list.
+      let arguments = value.object == nil ? value : value.removing(["projectToken"])
       output = try await dispatch(name, arguments, grant: grant)
       if !output.isError {
         lastSuccess = Date()
@@ -311,7 +334,7 @@ public actor ToolRouter {
       return ActivityDescriptor(
         action: action, targetType: action == "tabs" ? "browser" : "tab",
         target: action == "tabs" ? "" : (value["tabId"].string ?? ""))
-    case "browser_action", "browser_transfer", "browser_inspect", "browser_dialog":
+    case "browser_action", "browser_transfer":
       return ActivityDescriptor(
         action: action, targetType: "tab", target: value["tabId"].string ?? "")
     case "browser_evaluate":
@@ -320,8 +343,7 @@ public actor ToolRouter {
     default:
       return ActivityDescriptor(
         action: action, targetType: nil,
-        target: value["path"].string ?? value["jobId"].string ?? value["tabId"].string
-          ?? value["window"].string ?? name)
+        target: value["path"].string ?? value["jobId"].string ?? value["tabId"].string ?? name)
     }
   }
   private func activitySummary(_ name: String, _ output: ToolOutput) -> String {
@@ -451,8 +473,7 @@ public actor ToolRouter {
     }
     let mutations: Set<String> = [
       "edit_files", "path_action", "import_artifact", "run_process", "run_shell", "job_action",
-      "browser_session", "browser_action", "browser_transfer",
-      "browser_dialog", "browser_evaluate",
+      "browser_session", "browser_action", "browser_transfer", "browser_evaluate",
     ]
     if ["run_process", "run_shell", "job_action", "browser_evaluate"].contains(name) {
       return "submitted"
@@ -494,7 +515,8 @@ public actor ToolRouter {
           .adding("projectId", .string(context.project.id))
           .adding("generation", .int(1))
           .adding("projectToken", .string(context.projectToken))
-          .adding("memory", memorySummary()))
+          .adding("memory", memorySummary())
+          .adding("recentActivity", await recentActivity()))
     case "runtime_status":
       _ = try Arguments(value, allowed: [])
       return ToolOutput([
@@ -549,25 +571,15 @@ public actor ToolRouter {
           contextAfter: a.integer("contextAfter", default: 0, range: 0...5)))
     case "edit_files":
       try executionPolicy.authorize(.workspaceWrite)
-      let root = try Arguments(
-        value,
-        allowed: [
-          "action", "path", "expectedSHA256", "edits", "content", "patch", "dryRun",
-        ])
-      let action = try root.string("action", max: 16)
-      switch action {
+      let a = try ActionContracts.arguments("edit_files", value)
+      let dryRun = try a.flag("dryRun", default: false)
+      switch try a.string("action", max: 16) {
       case "create":
-        let a = try Arguments(value, allowed: ["action", "path", "content", "dryRun"])
-        let path = try a.string("path")
-        let content = try a.string("content", max: 1_048_576)
-        let dryRun = try a.flag("dryRun", default: false)
         return ToolOutput(try await workspace.create(
-          path: path, content: content, dryRun: dryRun))
+          path: a.string("path"), content: a.string("content", max: 1_048_576), dryRun: dryRun))
       case "edit":
-        let a = try Arguments(
-          value, allowed: ["action", "path", "expectedSHA256", "edits", "dryRun"])
         guard let rows = a["edits"].array else {
-          throw Failure.invalid("edit_files action=edit requires edits and expectedSHA256.")
+          throw Failure.invalid("edit_files(edit) requires an edits array.")
         }
         let edits = try rows.map { row in
           let e = try Arguments(row, allowed: ["oldText", "newText"])
@@ -575,16 +587,11 @@ public actor ToolRouter {
             oldText: e.string("oldText", max: 1_048_576),
             newText: e.string("newText", max: 1_048_576))
         }
-        let path = try a.string("path")
-        let expectedSHA = try a.string("expectedSHA256", max: 64)
-        let dryRun = try a.flag("dryRun", default: false)
         return ToolOutput(try await workspace.edit(
-          path: path, expectedSHA: expectedSHA, edits: edits, dryRun: dryRun))
+          path: a.string("path"), expectedSHA: a.string("expectedSHA256", max: 64),
+          edits: edits, dryRun: dryRun))
       case "patch":
-        let a = try Arguments(value, allowed: ["action", "patch", "dryRun"])
-        let patch = try a.string("patch", max: 1_048_576)
-        let dryRun = try a.flag("dryRun", default: false)
-        return ToolOutput(try await workspace.applyPatch(patch, dryRun: dryRun))
+        return ToolOutput(try await workspace.applyPatch(a.string("patch", max: 1_048_576), dryRun: dryRun))
       default:
         throw Failure.invalid("edit_files action must be edit, create or patch.")
       }
@@ -772,42 +779,25 @@ public actor ToolRouter {
       }
 
     case "git_query":
-      let root = try Arguments(
-        value,
-        allowed: [
-          "action", "path", "staged", "maxCount", "revision", "file", "startLine", "endLine",
-        ])
-      let action = try root.string("action", max: 16)
+      let a = try ActionContracts.arguments("git_query", value)
+      let action = try a.string("action", max: 16)
       let service = GitService(workspace: workspace, jobs: jobs)
+      let path = try a.string("path", default: ".")
       let result: JSONValue
       switch action {
       case "status":
-        let a = try Arguments(value, allowed: ["action", "path"])
-        result = try await service.run(
-          diff: false, staged: false, path: a.string("path", default: "."))
+        result = try await service.run(diff: false, staged: false, path: path)
       case "diff":
-        let a = try Arguments(value, allowed: ["action", "path", "staged"])
-        result = try await service.run(
-          diff: true, staged: a.flag("staged", default: false),
-          path: a.string("path", default: "."))
+        result = try await service.run(diff: true, staged: a.flag("staged", default: false), path: path)
       case "log":
-        let a = try Arguments(value, allowed: ["action", "path", "maxCount"])
-        result = try await service.log(
-          path: a.string("path", default: "."),
-          maxCount: a.integer("maxCount", default: 20, range: 1...100))
+        result = try await service.log(path: path, maxCount: a.integer("maxCount", default: 20, range: 1...100))
       case "show":
-        let a = try Arguments(value, allowed: ["action", "path", "revision"])
-        result = try await service.show(
-          path: a.string("path", default: "."),
-          revision: a.string("revision", max: 200))
+        result = try await service.show(path: path, revision: a.string("revision", max: 200))
       case "blame":
-        let a = try Arguments(
-          value, allowed: ["action", "path", "file", "startLine", "endLine"])
+        let startLine = try a.integer("startLine", default: 1, range: 1...1_000_000)
         result = try await service.blame(
-          path: a.string("path", default: "."),
-          file: a.string("file", max: 4096),
-          startLine: a.integer("startLine", default: 1, range: 1...1_000_000),
-          endLine: a.integer("endLine", default: 1, range: 1...1_000_000))
+          path: path, file: a.string("file", max: 4096), startLine: startLine,
+          endLine: a.integer("endLine", default: startLine, range: 1...1_000_000))
       default:
         throw Failure.invalid("git_query action must be status, diff, log, show or blame.")
       }

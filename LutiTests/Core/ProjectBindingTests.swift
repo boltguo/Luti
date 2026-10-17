@@ -49,6 +49,20 @@ import XCTest
     await restarted.stop()
   }
 
+  func testReadsNeitherAdvertiseNorCheckProjectTokens() async throws {
+    let f = try Fixture(); defer { f.remove() }
+    try f.write("a.txt", "a")
+    let router = try f.router(execution: true)
+    addTeardownBlock { await router.stop() }
+    for definition in ToolCatalog.definitions {
+      let name = try XCTUnwrap(definition["name"].string)
+      let advertised = definition["inputSchema"]["properties"]["projectToken"] != .null
+      XCTAssertEqual(advertised, !ToolCatalog.readOnlyNames.contains(name), name)
+    }
+    let read = await router.call("read_files", arguments: ["paths": ["a.txt"], "projectToken": "stale"])
+    XCTAssertFalse(read.isError, "A token from an older tool list must not block reads.")
+  }
+
   func testStaleBindingCannotBlockStop() async throws {
     let f = try Fixture()
     defer { f.remove() }

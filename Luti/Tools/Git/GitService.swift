@@ -47,7 +47,7 @@ public struct GitService: Sendable {
     Failure(
       "git_layout_unsupported",
       "This Git layout includes external indirection or is not a standalone repository root.",
-      "Select a normal repository root. Linked worktrees, config includes and alternate object stores are not supported by these read-only Git tools."
+      "Select a normal repository root. Linked worktrees, config includes and alternate object stores are not supported by git_query."
     )
   }
   public func run(diff: Bool, staged: Bool = false, path: String = ".") async throws -> JSONValue {
@@ -225,7 +225,7 @@ public struct GitService: Sendable {
     path: String = ".", file: String, startLine: Int = 1, endLine: Int
   ) async throws -> JSONValue {
     guard startLine >= 1, endLine >= startLine, endLine - startLine < 100 else {
-      throw Failure.invalid("git_blame requires an inclusive range of at most 100 lines.")
+      throw Failure.invalid("git_query(blame) requires an inclusive range of at most 100 lines.")
     }
     let root = try await workspace.workingDirectory(path)
     try verifyRepository(root: root)
@@ -233,7 +233,7 @@ public struct GitService: Sendable {
     let source = try await workspace.text(workspacePath)
     let totalLines = source.text.components(separatedBy: "\n").count
     guard startLine <= totalLines, endLine <= totalLines else {
-      throw Failure.invalid("git_blame line range exceeds the current file.")
+      throw Failure.invalid("git_query(blame) line range exceeds the current file.")
     }
 
     var args = baseArguments(root)
@@ -258,7 +258,7 @@ public struct GitService: Sendable {
     guard result["stdoutTruncated"] != true, let output = result["stdoutTail"].string else {
       throw Failure(
         "git_blame_too_large", "The bounded blame output exceeded the retained log window.",
-        "Request a smaller line range; git_blame accepts at most 100 lines.")
+        "Request a smaller line range; git_query(blame) accepts at most 100 lines.")
     }
 
     var rows: [JSONValue] = []

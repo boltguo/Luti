@@ -282,6 +282,7 @@
 "context.kind.pitfall" = "落とし穴";
 "context.kind.goal" = "目標";
 "context.kind.rationale" = "理由";
+"context.kind.task" = "タスク";
 "context.state.active" = "有効";
 "context.state.superseded" = "置き換え済み";
 "context.state.forgotten" = "忘却済み";

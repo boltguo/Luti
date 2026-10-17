@@ -282,6 +282,7 @@
 "context.kind.pitfall" = "Pitfall";
 "context.kind.goal" = "Goal";
 "context.kind.rationale" = "Rationale";
+"context.kind.task" = "Task";
 "context.state.active" = "Active";
 "context.state.superseded" = "Superseded";
 "context.state.forgotten" = "Forgotten";

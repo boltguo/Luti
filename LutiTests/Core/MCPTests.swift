@@ -46,7 +46,7 @@ import XCTest
     XCTAssertEqual(initResult.json["result"]["protocolVersion"], "2025-11-25")
     let list = await endpoint.handle(try request("tools/list"))
     let tools = try XCTUnwrap(list.json["result"]["tools"].array)
-    XCTAssertEqual(tools.count, 26)
+    XCTAssertEqual(tools.count, 24)
     XCTAssertNil(tools.first { $0["name"] == "projects" })
     XCTAssertNotNil(tools.first { $0["name"] == "memory_query" })
     XCTAssertNotNil(tools.first { $0["name"] == "project_info" })
@@ -73,7 +73,8 @@ import XCTest
     XCTAssertNotNil(tools.first { $0["name"] == "browser_action" })
     XCTAssertNotNil(tools.first { $0["name"] == "browser_transfer" })
     XCTAssertNotNil(tools.first { $0["name"] == "browser_observe" })
-    XCTAssertNotNil(tools.first { $0["name"] == "browser_inspect" })
+    XCTAssertNil(tools.first { $0["name"] == "browser_inspect" })
+    XCTAssertNil(tools.first { $0["name"] == "browser_dialog" })
 
     let notification = await endpoint.handle(try request("notifications/initialized", id: nil))
     XCTAssertEqual(notification.status, 202)
@@ -93,7 +94,7 @@ import XCTest
       for modern in [false, true] {
         let list = await endpoint.handle(try request("tools/list", modern: modern))
         let tools = try XCTUnwrap(list.json["result"]["tools"].array)
-        XCTAssertEqual(tools.count, 26)
+        XCTAssertEqual(tools.count, 24)
         XCTAssertFalse(tools.contains { desktopTools.contains($0["name"].string ?? "") })
         for tool in desktopTools {
           let response = await endpoint.handle(try request("tools/call",
@@ -142,7 +143,7 @@ import XCTest
       for modern in [false, true] {
         let list = await endpoint.handle(try request("tools/list", modern: modern))
         let tools = try XCTUnwrap(list.json["result"]["tools"].array)
-        XCTAssertEqual(tools.count, 26)
+        XCTAssertEqual(tools.count, 24)
         XCTAssertNil(tools.first { $0["name"] == "projects" })
         XCTAssertNotNil(tools.first { $0["name"] == "memory_query" })
         XCTAssertNil(tools.first { $0["name"] == "skills" })
@@ -388,7 +389,7 @@ import XCTest
     await endpoint.shutdown()
   }
   func testActionSchemasShareBoundariesAndNeverInjectForeignDefaults() throws {
-    XCTAssertEqual(ToolCatalog.names.count, 26)
+    XCTAssertEqual(ToolCatalog.names.count, 24)
     for (name, contracts) in ActionContracts.rules where ToolCatalog.names.contains(name) {
       let definition = try XCTUnwrap(ToolCatalog.definitions.first { $0["name"].string == name })
       let schema = definition["inputSchema"]
@@ -409,7 +410,8 @@ import XCTest
           required.insert("projectToken")
         }
         XCTAssertEqual(Set(actionSchema["required"].array!.compactMap(\.string)), required)
-        XCTAssertEqual(Set(actionSchema["properties"].object!.keys), rule.fields.union(["projectToken"]))
+        XCTAssertEqual(Set(actionSchema["properties"].object!.keys),
+          rule.fields.union(ProjectBindingContract.acceptsToken(name) ? ["projectToken"] : []))
         XCTAssertEqual(projected["annotations"]["readOnlyHint"], .bool(rule.readOnly))
         XCTAssertEqual(ActionContracts.present(projected), projected, "Schema projection must be stable.")
         for missing in rule.required {
@@ -436,7 +438,7 @@ import XCTest
         })
         let publicValue = JSONValue.object(values).adding("action", .string(action))
         XCTAssertNoThrow(try ActionContracts.arguments(tool, publicValue))
-        let forwarded = tool == "browser_dialog" ? publicValue : publicValue.removing(["action"])
+        let forwarded = backend == "browser_dialog" ? publicValue : publicValue.removing(["action"])
         let parsed = try BrowserArguments.validate(backend, forwarded)
         let fields = try ActionContracts.browserFields(backend, action: action)
         XCTAssertTrue(Set(parsed.object!.keys).isSubset(of: fields))
@@ -463,6 +465,11 @@ import XCTest
       ("job_query", ["action": "logs", "jobId": "job", "maxBytes": 100]),
       ("job_action", ["action": "stop", "jobId": "job", "close": false]),
       ("job_action", ["action": "input", "jobId": "job", "text": "", "close": false]),
+      ("git_query", ["action": "status", "maxCount": 20]),
+      ("git_query", ["action": "show"]),
+      ("path_action", ["action": "copy", "source": "a", "destination": "b", "recursive": false]),
+      ("edit_files", ["action": "patch", "path": "a.txt", "patch": "unused"]),
+      ("code_query", ["action": "hover", "path": "a.swift"]),
       ("browser_session", ["action": "open"]),
       ("browser_session", ["action": "close", "tabId": "tab", "url": "https://example.test/"]),
       ("browser_action", target.adding("text", "not a fill")),
@@ -471,7 +478,7 @@ import XCTest
       ("browser_observe", ["action": "wait", "tabId": "tab", "text": "done", "state": "load"]),
       ("browser_observe", ["action": "snapshot", "tabId": "tab", "scopeRef": "e1"]),
       ("browser_observe", ["action": "screenshot", "tabId": "tab", "scopeSnapshotId": "snapshot", "scopeRef": "e1", "fullPage": true]),
-      ("browser_dialog", ["action": "dismiss", "tabId": "tab", "dialogId": "dialog_00000000-0000-0000-0000-000000000000", "promptText": "unused"]),
+      ("browser_action", ["action": "dismiss", "tabId": "tab", "dialogId": "dialog_00000000-0000-0000-0000-000000000000", "promptText": "unused"]),
     ]
     for (name, arguments) in cases {
       let result = await router.callInCurrentProject(name, arguments: arguments)
@@ -498,7 +505,7 @@ import XCTest
     XCTAssertTrue(instructions.contains("Start with project_info"))
     XCTAssertFalse(instructions.contains("memory("))
     XCTAssertFalse(instructions.contains("projects("))
-    XCTAssertTrue(instructions.contains("inspect_project(view=summary)"))
+    XCTAssertTrue(instructions.contains("kind=task"))
     XCTAssertTrue(instructions.contains("omit unused fields instead of null"))
     XCTAssertFalse(ToolCatalog.names.contains("agent_start"))
     XCTAssertFalse(ToolCatalog.names.contains("resume_project"))

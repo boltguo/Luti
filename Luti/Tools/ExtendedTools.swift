@@ -55,27 +55,21 @@ extension ToolRouter {
         content: [artifact.link])
     case "path_action":
       try requireExecution(.workspaceWrite)
-      let root = try Arguments(
-        value, allowed: ["action", "path", "source", "destination", "recursive"])
-      let action = try root.string("action", max: 32)
-      switch action {
+      let a = try ActionContracts.arguments("path_action", value)
+      switch try a.string("action", max: 32) {
       case "createDirectory":
-        let a = try Arguments(value, allowed: ["action", "path", "recursive"])
         return ToolOutput(
           try await workspace.createDirectory(
             path: a.string("path"), recursive: a.flag("recursive", default: false)))
       case "copy":
-        let a = try Arguments(value, allowed: ["action", "source", "destination"])
         return ToolOutput(
           try await workspace.copyPath(
             source: a.string("source"), destination: a.string("destination")))
       case "move":
-        let a = try Arguments(value, allowed: ["action", "source", "destination"])
         return ToolOutput(
           try await workspace.movePath(
             source: a.string("source"), destination: a.string("destination")))
       case "delete":
-        let a = try Arguments(value, allowed: ["action", "path", "recursive"])
         let path = try a.string("path")
         let recursive = try a.flag("recursive", default: false)
         // Deletion has no undo, so safe mode treats it like `rm`.
@@ -94,9 +88,7 @@ extension ToolRouter {
         path: a.string("path", default: "."), view: a.string("view", default: "summary", max: 16)))
     case "code_query":
       try requireExecution(.codeIntelligence)
-      let a = try Arguments(
-        value,
-        allowed: ["path", "action", "line", "column", "includeDeclaration", "maxResults"])
+      let a = try ActionContracts.arguments("code_query", value)
       let path = try a.string("path")
       let service = code
       let provider = try service.provider(for: path)
@@ -109,15 +101,14 @@ extension ToolRouter {
           includeDeclaration: a.flag("includeDeclaration", default: true),
           maxResults: a.integer("maxResults", default: 100, range: 1...200),
           provider: provider))
-    case "browser_session", "browser_observe", "browser_action", "browser_transfer",
-         "browser_inspect", "browser_dialog":
+    case "browser_session", "browser_observe", "browser_action", "browser_transfer":
       try requireExecution(.browserAutomation)
       let a = try ActionContracts.arguments(name, value)
       let action = try a.string("action", max: 32)
       guard let internalName = ActionContracts.rules[name]?[action]?.backend else {
         throw Failure.invalid("Unknown browser action.")
       }
-      let forwarded = name == "browser_dialog" ? value : value.removing(["action"])
+      let forwarded = internalName == "browser_dialog" ? value : value.removing(["action"])
       let args = try BrowserArguments.validate(internalName, forwarded)
       let output = try await browser.call(internalName, args)
       return ToolOutput(output.data.adding("action", .string(action)),

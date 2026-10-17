@@ -37,6 +37,33 @@ enum ActionContracts {
         note: "Omit expectedSHA256 only to create a new file; description is required then."),
       "delete": Rule(["file", "expectedSHA256"]),
     ],
+    "edit_files": [
+      "edit": Rule(["path", "expectedSHA256", "edits"], ["dryRun"]),
+      "create": Rule(["path", "content"], ["dryRun"]),
+      "patch": Rule(["patch"], ["dryRun"]),
+    ],
+    "path_action": [
+      "createDirectory": Rule(["path"], ["recursive"]),
+      "copy": Rule(["source", "destination"]),
+      "move": Rule(["source", "destination"]),
+      "delete": Rule(["path"], ["recursive"]),
+    ],
+    "git_query": [
+      "status": Rule([], ["path"], readOnly: true),
+      "diff": Rule([], ["path", "staged"], readOnly: true),
+      "log": Rule([], ["path", "maxCount"], readOnly: true),
+      "show": Rule(["revision"], ["path"], readOnly: true),
+      "blame": Rule(["file"], ["path", "startLine", "endLine"], readOnly: true,
+        note: "endLine defaults to startLine."),
+    ],
+    "code_query": [
+      "documentSymbols": Rule(["path"], ["maxResults"]),
+      "diagnostics": Rule(["path"], ["maxResults"], note: "Swift only."),
+      "definition": Rule(["path", "line", "column"], ["maxResults"]),
+      "implementations": Rule(["path", "line", "column"], ["maxResults"]),
+      "hover": Rule(["path", "line", "column"], ["maxResults"]),
+      "references": Rule(["path", "line", "column"], ["includeDeclaration", "maxResults"]),
+    ],
     "job_query": [
       "list": Rule(readOnly: true),
       "status": Rule(["jobId"], ["waitMs", "knownStatus"], readOnly: true),
@@ -60,6 +87,9 @@ enum ActionContracts {
         backend: "browser_snapshot", note: scopeNote),
       "screenshot": Rule(["tabId"], scoped.union(["fullPage", "maxDimension"]), readOnly: true,
         backend: "browser_screenshot", note: scopeNote + " Scoped capture excludes fullPage=true."),
+      "console": Rule(["tabId"], ["limit"], readOnly: true, backend: "browser_console"),
+      "networkErrors": Rule(["tabId"], ["limit"], readOnly: true, backend: "browser_network_errors"),
+      "network": Rule(["tabId"], ["limit"], readOnly: true, backend: "browser_network"),
     ],
     "browser_action": [
       "click": Rule(target, post, backend: "browser_click", note: postNote),
@@ -68,19 +98,12 @@ enum ActionContracts {
       "press": Rule(target.union(["key"]), post, backend: "browser_press", note: postNote),
       "select": Rule(target.union(["value"]), post, backend: "browser_select", note: postNote),
       "check": Rule(target, post.union(["checked"]), backend: "browser_check", note: postNote),
+      "accept": Rule(["tabId", "dialogId"], post.union(["promptText"]), backend: "browser_dialog", note: postNote),
+      "dismiss": Rule(["tabId", "dialogId"], post, backend: "browser_dialog", note: postNote),
     ],
     "browser_transfer": [
       "upload": Rule(target.union(["path"]), post, backend: "browser_upload", note: postNote),
       "download": Rule(target, backend: "browser_download"),
-    ],
-    "browser_inspect": [
-      "console": Rule(["tabId"], ["limit"], readOnly: true, backend: "browser_console"),
-      "networkErrors": Rule(["tabId"], ["limit"], readOnly: true, backend: "browser_network_errors"),
-      "network": Rule(["tabId"], ["limit"], readOnly: true, backend: "browser_network"),
-    ],
-    "browser_dialog": [
-      "accept": Rule(["tabId", "dialogId"], post.union(["promptText"]), backend: "browser_dialog", note: postNote),
-      "dismiss": Rule(["tabId", "dialogId"], post, backend: "browser_dialog", note: postNote),
     ],
   ]
 
@@ -112,7 +135,8 @@ enum ActionContracts {
   static func browserFields(_ backend: String, action: String? = nil) throws -> Set<String> {
     for (tool, actions) in rules where tool.hasPrefix("browser_") {
       for (name, rule) in actions where rule.backend == backend {
-        if tool == "browser_dialog" {
+        // The dialog backend receives accept/dismiss as its own action.
+        if backend == "browser_dialog" {
           if name == action { return rule.fields }
         } else {
           return rule.fields.subtracting(["action"])

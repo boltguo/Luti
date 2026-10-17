@@ -138,7 +138,9 @@ struct ProjectMemoryView: View {
           .font(.system(size: 13, weight: .semibold))
           .foregroundStyle(MDTheme.onSurface)
         Spacer()
-        Text(L10n.text("context.kind." + doc.kind.rawValue))
+        Text([L10n.text("context.kind." + doc.kind.rawValue),
+              doc.kind == .task ? ProjectMemoryStore.checklistProgress(doc.content) : nil]
+          .compactMap { $0 }.joined(separator: " · "))
           .font(.system(size: 11, weight: .medium))
           .foregroundStyle(MDTheme.onSurfaceVariant)
       }
