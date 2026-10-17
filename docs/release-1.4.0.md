@@ -7,7 +7,7 @@
 
 ## Upgrading
 
-**Refresh Luti's tool list in each connected AI client**, or remove and re-add the connector. The `memory` tool is replaced by `memory_query` and `memory_action`; calls to `memory` fail until the client reloads the tool list.
+**Refresh Luti's tool list in each connected AI client**, or remove and re-add the connector. The `memory` tool is replaced by `memory_query` and `memory_action`; calls to `memory` fail until the client reloads the tool list. The home page shows this reminder whenever the tool list changes, until you close it.
 
 Existing projects open in Safe Mode. Turn on Full Access on the project page to keep the previous behavior.
 
