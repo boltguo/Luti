@@ -3,7 +3,7 @@ import Foundation
 /// A context precondition, never an authentication or authorization credential.
 enum ProjectBindingContract {
   static let requiredTools: Set<String> = [
-    "edit_files", "path_action", "run_process", "run_shell", "import_artifact", "code_query",
+    "edit_files", "path_action", "run_process", "run_shell", "import_artifact", "code_query", "memory_action",
     "browser_session", "browser_action", "browser_transfer", "browser_dialog", "browser_evaluate",
   ]
 
@@ -13,7 +13,6 @@ enum ProjectBindingContract {
 
   static func requiresToken(_ name: String, arguments: JSONValue) -> Bool {
     requiredTools.contains(name)
-      || (name == "memory" && ["write", "delete"].contains(arguments["action"].string ?? ""))
       || (name == "job_action" && arguments["action"] == "input")
   }
 }
@@ -88,10 +87,11 @@ public enum ToolCatalog {
       "reportPath": string("Optional project-relative JUnit XML report written by this command. Luti does not change the command or configure a reporter. An unchanged pre-existing report is not proof of this run."),
     ]
     let base: [JSONValue] = [
-      memoryDefinition,
+      memoryQueryDefinition,
+      memoryActionDefinition,
       tool(
         "project_info",
-        "Start here for the current locally selected workspace and projectToken. Includes top-level files and safety boundaries."),
+        "Start here for the current locally selected workspace and projectToken. Includes top-level files, safety boundaries and the project's shared memory files."),
       tool(
         "runtime_status",
         "Inspect real permissions, running jobs and last successful tool call. Tunnel readiness is not proof of ChatGPT use."
