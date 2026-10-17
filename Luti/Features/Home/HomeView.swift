@@ -7,6 +7,7 @@ struct HomeView: View {
   var body: some View {
     MDPage {
       runtimeSection
+      if model.toolListChanged { toolListNotice }
       currentTaskSection
 
       MDSection(title: L10n.text("common.projects")) {
@@ -131,6 +132,22 @@ struct HomeView: View {
     .background(
       MDTheme.surfaceContainerLow,
       in: RoundedRectangle(cornerRadius: 28, style: .continuous))
+  }
+
+  private var toolListNotice: some View {
+    MDListRow(
+      title: L10n.text("home.toolsUpdated"),
+      symbol: "arrow.triangle.2.circlepath",
+      subtitle: L10n.text("home.toolsUpdatedDescription"),
+      iconTone: .orange,
+      textLineLimit: 3,
+      subtitleTruncationMode: .tail
+    ) {
+      MDIconActionButton(symbol: "xmark", label: L10n.text("common.close")) {
+        model.dismissToolListNotice()
+      }
+      .accessibilityIdentifier("dismiss-tools-updated")
+    }
   }
 
   private var currentTaskSection: some View {

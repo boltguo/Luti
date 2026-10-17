@@ -36,6 +36,7 @@
 /* common */
 "common.back" = "返回";
 "common.cancel" = "取消";
+"common.close" = "关闭";
 "common.connecting" = "正在连接";
 "common.connection" = "连接";
 "common.disabled" = "未开启";
@@ -85,6 +86,8 @@
 "home.stop" = "停止";
 "home.stopAllTasks" = "停止所有任务";
 "home.toolStatus" = "工具状态";
+"home.toolsUpdated" = "Luti 工具已更新";
+"home.toolsUpdatedDescription" = "请在已连接的 AI 客户端中刷新 Luti 的工具列表，或重新连接一次。";
 
 /* login */
 "login.error" = "无法更新登录项：%@";

@@ -66,6 +66,8 @@ public enum ToolCatalog {
       ],
     ]
   }
+  /// Changes whenever a connected client's cached tool list goes stale.
+  static let fingerprint = Budget.sha256((try? JSONValue.array(definitions).data()) ?? Data())
   public static let definitions: [JSONValue] = {
     let process: [String: JSONValue] = [
       "cwd": string("Project-relative working directory; default '.'"),
