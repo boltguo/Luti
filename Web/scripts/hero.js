@@ -26,7 +26,7 @@
     { client: 'grok', tool: 'artifacts' },
   ];
   const toolMeta = {
-    memory: { short: 'memory' },
+    memory: { short: 'memory_action' },
     git: { short: 'git_query' },
     code: { short: 'edit_files' },
     terminal: { short: 'run_process' },

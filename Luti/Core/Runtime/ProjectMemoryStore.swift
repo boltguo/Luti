@@ -377,8 +377,6 @@ final class ProjectMemoryStore: @unchecked Sendable {
     try PrivateFiles.atomicWrite(ContextCoding.encode(metadata), to: manifestURL)
   }
 
-  /// Compact listing for `project_info`, so every client sees existing memory
-  /// without an extra call.
   /// "done/total" for markdown checklist items, or nil when there are none.
   static func checklistProgress(_ content: String) -> String? {
     var done = 0, total = 0
@@ -391,6 +389,8 @@ final class ProjectMemoryStore: @unchecked Sendable {
     return total == 0 ? nil : "\(done)/\(total)"
   }
 
+  /// Compact listing for `project_info`, so every client sees existing memory
+  /// without an extra call.
   func summary() throws -> JSONValue {
     try Self.lock.withLock {
       let docs = try loadDocuments()
