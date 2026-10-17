@@ -591,7 +591,14 @@ public actor ToolRouter {
           path: a.string("path"), expectedSHA: a.string("expectedSHA256", max: 64),
           edits: edits, dryRun: dryRun))
       case "patch":
-        return ToolOutput(try await workspace.applyPatch(a.string("patch", max: 1_048_576), dryRun: dryRun))
+        let patch = try a.string("patch", max: 1_048_576)
+        // A +++ /dev/null file is a path deletion, so it asks like path_action(delete).
+        let deleted: [String] = try dryRun ? [] : UnifiedPatch.parse(patch).filter(\.delete).map(\.path)
+        if !deleted.isEmpty {
+          _ = try await approveIfNeeded(
+            tool: name, summary: "rm " + deleted.joined(separator: " "), requirement: .pathDeletion)
+        }
+        return ToolOutput(try await workspace.applyPatch(patch, dryRun: dryRun))
       default:
         throw Failure.invalid("edit_files action must be edit, create or patch.")
       }
