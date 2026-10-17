@@ -27,7 +27,7 @@ Lutiは、AIクライアントを承認済みのひとつのプロジェクト�
 ## クイックスタート
 
 1. **Lutiをインストール。** 最新のGitHub Releaseから署名済みのDMGを入手するか、ソースからビルドします。
-2. **フォルダを追加。** **Projects**でフォルダを1つ選択します。フルアクセスが自動で適用され、削除すると空の状態に戻ります。
+2. **フォルダを追加。** **Projects**でフォルダを1つ選択します。初期状態はセーフモードで、プロジェクトページでフルアクセスをオンにすると確認を省略できます。削除すると空の状態に戻ります。
 3. **接続を設定。** **Connections**で**OpenAI Secure MCP Tunnel**または**Cloudflare Tunnel**を設定します（単独でも同時でも利用可能）。
 4. **起動して接続。** ローカルでRuntimeを起動し、AIクライアントにMCPサーバーを追加して利用を開始します。
 
@@ -140,7 +140,7 @@ Lutiはプロジェクトごとのメモリ（`MEMORY.md` インデックスと�
 | 境界 | 動作 |
 |---|---|
 | **Project Scope** | ファイルとProject操作を現在の承認済みProjectに限定 |
-| **Permission Mode** | Lutiは選択したフォルダ内で常にフルアクセスを使用。外部操作の権限境界は維持します |
+| **Permission Mode** | `セーフモード`（既定）はファイル削除、Git変更、シェル・インラインコード実行の前にこのMacで確認します。`フルアクセス`は確認なしで実行します。どちらでも外部操作の権限境界は維持します |
 | **Credential** | Runtime CredentialをmacOS Keychainに保存し、機密値を永続化前にRedact |
 | **Remote Access** | 独立した Loopback Listener。OpenAI は専用 Credential、Cloudflare はこの Mac で承認したドメインごとの OAuth を使用 |
 | **Git** | 公開Git Capabilityは読み取り専用 |

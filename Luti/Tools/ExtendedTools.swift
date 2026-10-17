@@ -76,9 +76,14 @@ extension ToolRouter {
             source: a.string("source"), destination: a.string("destination")))
       case "delete":
         let a = try Arguments(value, allowed: ["action", "path", "recursive"])
-        return ToolOutput(
-          try await workspace.deletePath(
-            path: a.string("path"), recursive: a.flag("recursive", default: false)))
+        let path = try a.string("path")
+        let recursive = try a.flag("recursive", default: false)
+        // Deletion has no undo, so safe mode treats it like `rm`.
+        _ = try await approveIfNeeded(
+          tool: name, summary: (recursive ? "rm -r " : "rm ") + path,
+          requirement: ProcessApprovalRequirement(
+            code: "destructive_path", reason: "Deleting project paths cannot be undone."))
+        return ToolOutput(try await workspace.deletePath(path: path, recursive: recursive))
       default:
         throw Failure.invalid(
           "path_action action must be createDirectory, copy, move or delete.")

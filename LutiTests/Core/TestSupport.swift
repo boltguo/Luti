@@ -38,12 +38,14 @@ struct Fixture {
       at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
     try Data(text.utf8).write(to: url)
   }
-  func router(execution: Bool = false) throws -> ToolRouter {
+  /// Full access by default so execution tests never wait on a local approval.
+  func router(execution: Bool = false, permissionMode: ProjectPermissionMode = .fullProjectAccess) throws -> ToolRouter {
     try ToolRouter(
       workspace: files, jobs: JobManager(helper: Self.helper),
       activity: ActivityStore(),
       executionPolicy: execution ? .fullLocal(localApproval: true) : .readOnly,
-      project: ApprovedProject(url: root), helper: Self.helper, contextDataRoot: contextDataRoot)
+      project: ApprovedProject(url: root, permissionMode: permissionMode), helper: Self.helper,
+      contextDataRoot: contextDataRoot)
   }
 }
 

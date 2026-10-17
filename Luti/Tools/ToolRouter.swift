@@ -41,6 +41,9 @@ public actor ToolRouter {
   private let executionPolicy: ProjectExecutionPolicy
   private let redactor: Redactor
   private let context: ProjectRuntimeContext
+  private let operationApprovals = OperationApprovalBroker()
+  /// Live, not captured at Start: the Mac user may switch it while running.
+  private var permissionMode: ProjectPermissionMode
   private var accepting = true
   private var lastSuccess: Date?
   // Bounded, current-run validation inputs. No session journal is persisted.
@@ -80,12 +83,38 @@ public actor ToolRouter {
     self.activity = activity
     self.executionPolicy = executionPolicy
     self.redactor = redactor
+    permissionMode = selected.permissionMode
     context = ProjectRuntimeContext(
       project: selected, workspace: workspace, jobs: jobs, redactor: redactor,
       dataRoot: contextDataRoot ?? LutiPaths.root, helper: helper)
   }
 
   public func lastSuccessfulCall() -> Date? { lastSuccess }
+
+  public func setPermissionMode(_ mode: ProjectPermissionMode) { permissionMode = mode }
+
+  public func pendingOperationApprovals() async -> [PendingOperationApproval] {
+    await operationApprovals.pendingApprovals()
+  }
+
+  public func resolveOperationApproval(_ id: UUID, approved: Bool) async {
+    await operationApprovals.resolve(id, approved: approved)
+  }
+
+  /// Suspends a dangerous operation in safe mode until the Mac user decides.
+  /// The approval is one-shot for this exact call and never outlives Stop.
+  func approveIfNeeded(
+    tool: String, summary: String, requirement: ProcessApprovalRequirement?
+  ) async throws -> PendingOperationApproval? {
+    guard let requirement, executionPolicy.profile == .fullLocal,
+      permissionMode.asksForSensitiveProjectOperations
+    else { return nil }
+    let approval = try await operationApprovals.request(
+      tool: tool, summary: Budget.prefix(redactor.clean(summary), bytes: 768),
+      requirement: requirement, project: context.project)
+    guard accepting else { throw Failure.stopped }
+    return approval
+  }
 
   public func jobList() async -> [JSONValue] { await jobs.list() }
   public func jobLifecycles() async -> [JSONValue] { await jobs.lifecycles() }
@@ -470,7 +499,8 @@ public actor ToolRouter {
         "name": "Luti", "version": .string(Identity.version), "running": .bool(accepting),
         "executionEnabled": .bool(
           executionPolicy.commandExecutionAvailable),
-        "executionPolicy": executionPolicy.statusJSON,
+        "executionPolicy": executionPolicy.statusJSON
+          .adding("permissionMode", .string(permissionMode.rawValue)),
         "activeProject": [
           "id": .string(context.project.id), "name": .string(context.project.name),
           "path": .string(context.project.path),
@@ -633,6 +663,11 @@ public actor ToolRouter {
           discoveredScript, cwd: cwd, projectRoot: workspace.root)
       }
 
+      let approval = try await approveIfNeeded(
+        tool: name, summary: ([request.program] + request.args).joined(separator: " "),
+        requirement: try ProcessPolicy.approvalRequirement(request, rawShell: name == "run_shell")
+          ?? discoveredScript.flatMap(ProcessPolicy.projectScriptApprovalRequirement))
+
       let graph = try? await ProjectInspector(workspace: workspace).graph(path: workingPath)
       let scope = ValidationScopeRequest(
         files: workspace, paths: touchedFiles + (graph?.manifests.map(\.path) ?? []),
@@ -641,6 +676,13 @@ public actor ToolRouter {
       var result = try await jobs.submit(request, validation: scope)
       if let discoveredTask {
         result = result.adding("task", discoveredTask.json)
+      }
+      if let approval {
+        result = result.adding("localApproval", [
+          "id": .string(approval.id.uuidString.lowercased()),
+          "scope": "oneShot",
+          "approvedAt": .string(ISO8601DateFormatter().string(from: Date())),
+        ])
       }
       return ToolOutput(result, isError: result["failure"] != .null)
     case "job_query":
@@ -778,6 +820,8 @@ public actor ToolRouter {
       return
     }
     accepting = false
+    // Release calls suspended on a local approval before waiting for them to drain.
+    await operationApprovals.stop()
     let owned = context
     await owned.shutdown()
     // Close providers first to release blocked calls, then wait for final

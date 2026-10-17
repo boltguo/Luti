@@ -24,6 +24,7 @@ import Observation
   var detail = "Choose a project to get started."
   var lastCall: Date?
   var activeJobs = 0
+  var pendingOperationApprovals: [PendingOperationApproval] = []
   var errorText: String?
   let contextDataRoot: URL
   var contextBusy = false
@@ -44,6 +45,7 @@ import Observation
   @ObservationIgnored private let credentials: KeychainClient
   @ObservationIgnored private let makeProvider: @Sendable (String, String, URL) throws -> any ConnectionProvider
   @ObservationIgnored private var connectionRetryAllowed = true
+  @ObservationIgnored private var announcedOperationApprovals: Set<UUID> = []
   private static let selectedFolderKey = "selectedFolder"
   private static let tunnelIDKey = "connection.openai.tunnelID"
   private static let openAIEnabledKey = "connection.openai.enabled"
@@ -221,6 +223,20 @@ import Observation
     reloadStoredActivity()
   }
 
+  /// Applies to the running runtime at once; there is nothing to restart.
+  func setPermissionMode(_ mode: ProjectPermissionMode) {
+    guard !contextBusy, let current = activeProject, current.permissionMode != mode else { return }
+    activeProject = current.withPermissionMode(mode)
+    persistSelectedFolder()
+    if let router = session?.router { Task { await router.setPermissionMode(mode) } }
+  }
+
+  func resolveOperationApproval(_ id: UUID, approved: Bool) {
+    pendingOperationApprovals.removeAll { $0.id == id }
+    guard let router = session?.router else { return }
+    Task { await router.resolveOperationApproval(id, approved: approved) }
+  }
+
   /// Parsing up to 8 MiB of history stays off the main actor; only the newest
   /// request may publish its result, and never over a running session's feed.
   private func reloadStoredActivity() {
@@ -363,6 +379,10 @@ import Observation
         try Task.checkCancellation()
         guard self.revision == token else { throw CancellationError() }
         self.session = runtime
+        // A switch flipped while the runtime was being built must not be lost.
+        if let mode = self.activeProject?.permissionMode, mode != selectedProject.permissionMode {
+          await runtime.router.setPermissionMode(mode)
+        }
         self.bindActivity(runtime, token: token)
         self.phase = .starting
         try await runtime.start()
@@ -501,6 +521,7 @@ import Observation
     connectionBusy = false
     connectionError = nil
     activeJobs = 0
+    pendingOperationApprovals = []
     lastCall = nil
     detail = "Stopped. Project access is revoked."
     LocalLogStore.runtime("info", "Runtime stopped; local handles revoked.")
@@ -515,8 +536,9 @@ import Observation
     let manager = remote
     async let snapshotTask = owned.snapshot()
     async let remoteSnapshotTask = manager?.snapshot()
+    async let approvalsTask = owned.router.pendingOperationApprovals()
     async let cloudflareTask: Void = cloudflare.refresh()
-    let (snapshot, remoteSnapshot) = await (snapshotTask, remoteSnapshotTask)
+    let (snapshot, remoteSnapshot, approvals) = await (snapshotTask, remoteSnapshotTask, approvalsTask)
     guard token == revision else { _ = await cloudflareTask; return }
     if currentRunID != snapshot.runID { currentRunID = snapshot.runID }
     if activityFeed == nil { activity = Array(snapshot.activity.prefix(200)) }
@@ -527,6 +549,13 @@ import Observation
     }
     if lastCall != snapshot.lastCall { lastCall = snapshot.lastCall }
     if activeJobs != snapshot.activeJobs { activeJobs = snapshot.activeJobs }
+    if approvals != pendingOperationApprovals { pendingOperationApprovals = approvals }
+    // The request comes from a remote AI; raise the window once so the Mac user sees it.
+    let approvalIDs = Set(approvals.map(\.id))
+    if !approvalIDs.subtracting(announcedOperationApprovals).isEmpty {
+      NSApplication.shared.activate(ignoringOtherApps: true)
+    }
+    announcedOperationApprovals = approvalIDs
     retryConnectionIfNeeded()
     await cloudflareTask
   }

@@ -79,6 +79,16 @@ import XCTest
         "approval.allowConnection",
         "approval.requestingAccessMac",
         "approval.moreRequestsWaiting",
+        "approval.deny",
+        "operationApproval.title",
+        "operationApproval.allowOnce",
+        "operationApproval.reason.destructive",
+        "operationApproval.reason.git",
+        "operationApproval.reason.code",
+        "permissionMode.ask",
+        "permissionMode.askDescription",
+        "permissionMode.fullProjectAccess",
+        "permissionMode.fullProjectAccessDescription",
       ] {
         let value = bundle.localizedString(forKey: key, value: "__MISSING__", table: nil)
         XCTAssertNotEqual(value, "__MISSING__", "\(language): \(key)")
