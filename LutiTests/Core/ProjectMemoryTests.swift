@@ -129,7 +129,9 @@ import XCTest
           }
         }
       }
-      return try await group.reduce(0) { $0 + ($1 ? 1 : 0) }
+      var count = 0
+      for try await won in group where won { count += 1 }
+      return count
     }
     XCTAssertEqual(succeeded, 1, "Exactly one writer may replace the version it read.")
   }
