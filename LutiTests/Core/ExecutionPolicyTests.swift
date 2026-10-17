@@ -174,6 +174,10 @@ import Darwin
     addTeardownBlock { await router.stop() }
     let denied = await router.callInCurrentProject("run_process", arguments: ["program": "/usr/bin/sudo", "args": ["-V"]])
     XCTAssertEqual(denied.data["error"], "dangerous_command_denied")
+    for args: [String] in [["-c", "sudo -V"], ["-lc", "true; sudo -V"], ["-ec", "shutdown -h now"]] {
+      let shell = await router.callInCurrentProject("run_process", arguments: ["program": "/bin/zsh", "args": .array(args.map(JSONValue.string))])
+      XCTAssertEqual(shell.data["error"], "dangerous_command_denied", "\(args)")
+    }
     let jobs = await router.jobList()
     XCTAssertTrue(jobs.isEmpty)
   }
