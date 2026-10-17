@@ -107,21 +107,21 @@ def mcp_call(access_token, method, params=None, mid=1):
 
 ## Capabilities
 
-Luti exposes **26 public MCP tools** across seven domains. MCP uses the folder selected locally, with no `projects` or `skills` tool.
+Luti exposes **24 public MCP tools** across seven domains. MCP uses the folder selected locally, with no `projects` or `skills` tool.
 
 | Domain | Public tools | Scope |
 |---|---|---|
-| Memory | `memory_query`, `memory_action` | Project memory shared across AI clients: read-only `index`/`read`; `write`/`delete` guarded by the file's `sha256`, so writes never overwrite blindly |
+| Memory | `memory_query`, `memory_action` | Project memory shared across AI clients: read-only `index`/`read`; `write`/`delete` guarded by the file's `sha256`, so writes never overwrite blindly; `kind=task` checklists hand unfinished work to the next session |
 | Project | `project_info`, `inspect_project`, `runtime_status` | Current workspace, discovery, runtime state |
 | Files & Code | `list_directory`, `read_files`, `read_image`, `search_project`, `edit_files`, `path_action`, `code_query` | Search, read, edit, move, structured code queries |
 | Process & Jobs | `run_process`, `run_shell`, `job_query`, `job_action` | Builds, tests, long jobs, logs, PTY input, stop |
 | Git | `git_query` | Status, diff, log, show, blame; read-only |
-| Browser | `browser_session`, `browser_observe`, `browser_action`, `browser_transfer`, `browser_inspect`, `browser_dialog`, `browser_evaluate` | Navigation, actions, screenshots, transfers, console, network, dialogs |
+| Browser | `browser_session`, `browser_observe`, `browser_action`, `browser_transfer`, `browser_evaluate` | Navigation, actions, screenshots, transfers, console, network, dialogs |
 | Artifacts | `export_artifact`, `import_artifact` | Immutable exports and controlled imports |
 
 Project-specific behavior comes from the project's own manifest, instructions, and tasks rather than an expanding public tool set.
 
-Start with `project_info` for the current workspace and `projectToken`. Project writes, memory mutations (`memory_action`), command execution, browser mutations and Job input require this token. It changes after selecting a different folder locally or restarting the Runtime; re-observe the intended workspace after a mismatch. Stopping an owned Job remains available without a current token.
+Start with `project_info` for the current workspace, `projectToken`, memory files with task progress and the latest changes from any AI client. Project writes, memory mutations (`memory_action`), command execution, browser mutations and Job input require this token. It changes after selecting a different folder locally or restarting the Runtime; re-observe the intended workspace after a mismatch. Stopping an owned Job remains available without a current token.
 
 `code_query` starts an installed language server and requires the current `projectToken`; the server may have side effects.
 

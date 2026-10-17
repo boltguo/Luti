@@ -107,21 +107,21 @@ def mcp_call(access_token, method, params=None, mid=1):
 
 ## 機能
 
-Lutiは7領域・**26個のPublic MCP Tool**を公開します。MCPはローカルで選択したフォルダを使用し、`projects`、`skills`のToolは公開しません。
+Lutiは7領域・**24個のPublic MCP Tool**を公開します。MCPはローカルで選択したフォルダを使用し、`projects`、`skills`のToolは公開しません。
 
 | Domain | Public Tools | 範囲 |
 |---|---|---|
-| Memory | `memory_query`, `memory_action` | AIクライアント間で共有するプロジェクトメモリ。読み取り専用の `index`/`read`、ファイルの `sha256` で保護された `write`/`delete`（無条件の上書きなし） |
+| Memory | `memory_query`, `memory_action` | AIクライアント間で共有するプロジェクトメモリ。読み取り専用の `index`/`read`、ファイルの `sha256` で保護された `write`/`delete`（無条件の上書きなし）。`kind=task` のチェックリストで未完了の作業を次のセッションに引き継ぎ |
 | Project | `project_info`, `inspect_project`, `runtime_status` | 現在のWorkspace、Discovery、Runtime状態 |
 | Files & Code | `list_directory`, `read_files`, `read_image`, `search_project`, `edit_files`, `path_action`, `code_query` | 検索、読み取り、編集、移動、構造化コード照会 |
 | Process & Jobs | `run_process`, `run_shell`, `job_query`, `job_action` | Build、Test、長時間Job、Log、PTY入力、停止 |
 | Git | `git_query` | Status、Diff、Log、Show、Blame。読み取り専用 |
-| Browser | `browser_session`, `browser_observe`, `browser_action`, `browser_transfer`, `browser_inspect`, `browser_dialog`, `browser_evaluate` | Navigation、Action、Screenshot、Transfer、Console、Network、Dialog |
+| Browser | `browser_session`, `browser_observe`, `browser_action`, `browser_transfer`, `browser_evaluate` | Navigation、Action、Screenshot、Transfer、Console、Network、Dialog |
 | Artifacts | `export_artifact`, `import_artifact` | 不変のエクスポート、制御されたインポート |
 
 プロジェクト固有の動作は、そのプロジェクトのmanifest、instructions、tasksで定義します。Public Toolを増やす必要はありません。
 
-最初に `project_info` を呼び出して、現在のWorkspaceと `projectToken` を取得します。Projectへの書き込み、Memoryの更新（`memory_action`）、コマンド実行、Browserの変更、Job入力にはこの値が必要です。ローカルで別のフォルダを選択するかRuntimeを再起動すると失効するため、不一致の場合は対象Workspaceを再確認してください。所有するJobの停止は古い値によって妨げられません。
+最初に `project_info` を呼び出して、現在のWorkspace、`projectToken`、タスク進捗付きのメモリファイル、各AIクライアントによる最近の変更を取得します。Projectへの書き込み、Memoryの更新（`memory_action`）、コマンド実行、Browserの変更、Job入力にはこの値が必要です。ローカルで別のフォルダを選択するかRuntimeを再起動すると失効するため、不一致の場合は対象Workspaceを再確認してください。所有するJobの停止は古い値によって妨げられません。
 
 `code_query` はインストール済みの言語サーバーを起動するため、現在の `projectToken` が必要です。言語サーバーは副作用を伴う場合があります。
 
