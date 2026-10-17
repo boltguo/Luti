@@ -58,7 +58,7 @@ struct UnifiedPatch {
       // Mode-only, binary and rename diffs are deliberately not silently ignored.
       guard lines[index].hasPrefix("--- "), index + 1 < lines.count, lines[index + 1].hasPrefix("+++ ") else { throw Failure.invalid("Expected unified diff --- / +++ file headers.") }
       let old = try path(lines[index]), new = try path(lines[index + 1])
-      guard old != nil || new != nil, old == nil || new == nil || old == new else { throw Failure.invalid("Use move_path for renames.") }
+      guard old != nil || new != nil, old == nil || new == nil || old == new else { throw Failure.invalid("Use path_action(action=move) for renames.") }
       let target = new ?? old!
       guard !files.contains(where: { $0.path == target }), files.count < 20 else { throw Failure.invalid("Patch supports 1–20 unique files.") }
       index += 2

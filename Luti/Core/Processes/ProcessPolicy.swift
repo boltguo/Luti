@@ -172,6 +172,10 @@ public enum ProcessPolicy {
       "newfs_hfs",
     ]
     guard !prohibited.contains(base) else { throw denied() }
+    // A shell launched by argv gets the same script check as run_shell.
+    if let index = shellCommandIndex(request), index + 1 < request.args.count {
+      try validateShell(request.args[index + 1])
+    }
     if base == "diskutil"
       && request.args.contains(where: {
         $0.lowercased().contains("erase") || $0.lowercased().contains("partition")
@@ -188,6 +192,16 @@ public enum ProcessPolicy {
       })
     {
       throw denied()
+    }
+  }
+  /// The argv position of a shell's -c (or a short-flag cluster containing c).
+  static func shellCommandIndex(_ request: ProcessRequest) -> Int? {
+    let base = URL(fileURLWithPath: request.program).lastPathComponent.lowercased()
+    guard ["sh", "bash", "zsh", "dash", "ksh", "fish"].contains(base) else { return nil }
+    return request.args.firstIndex {
+      $0 == "--command"
+        || ($0.count > 1 && $0.hasPrefix("-") && !$0.hasPrefix("--")
+          && $0.dropFirst().allSatisfy(\.isLetter) && $0.contains("c"))
     }
   }
   public static func validateShell(_ command: String) throws {
@@ -247,9 +261,7 @@ public enum ProcessPolicy {
         reason: "This Git command can mutate the project working tree, repository state, or a remote.")
     }
 
-    if ["sh", "bash", "zsh", "dash", "fish"].contains(base),
-      request.args.contains(where: { ["-c", "-lc"].contains($0) })
-    {
+    if shellCommandIndex(request) != nil {
       return ProcessApprovalRequirement(
         code: "opaque_shell",
         reason: "A shell -c invocation is treated as a sensitive project operation in safe mode.")

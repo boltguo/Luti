@@ -4,11 +4,12 @@ import Foundation
 enum ProjectBindingContract {
   static let requiredTools: Set<String> = [
     "edit_files", "path_action", "run_process", "run_shell", "import_artifact", "code_query", "memory_action",
-    "browser_session", "browser_action", "browser_transfer", "browser_dialog", "browser_evaluate",
+    "browser_session", "browser_action", "browser_transfer", "browser_evaluate",
   ]
 
+  /// Reads never take a binding, so a stale token cannot block observation.
   static func acceptsToken(_ name: String) -> Bool {
-    name != "runtime_status"
+    requiredTools.contains(name) || name == "job_action"
   }
 
   static func requiresToken(_ name: String, arguments: JSONValue) -> Bool {
@@ -93,10 +94,10 @@ public enum ToolCatalog {
       memoryActionDefinition,
       tool(
         "project_info",
-        "Start here for the current locally selected workspace and projectToken. Includes top-level files, safety boundaries and the project's shared memory files."),
+        "Start here for the current locally selected workspace and the projectToken required for changes. Includes top-level files, safety boundaries, shared memory files with task progress, and the latest changes made by any AI client."),
       tool(
         "runtime_status",
-        "Inspect real permissions, running jobs and last successful tool call. Tunnel readiness is not proof of ChatGPT use."
+        "Inspect real permissions, the Safe Mode or Full Access permission mode, running jobs and the last successful tool call."
       ),
       tool(
         "read_files",
@@ -137,7 +138,7 @@ public enum ToolCatalog {
         ], required: ["action"], readOnly: false),
       tool(
         "run_process",
-        "Run one discovered project task by taskId, or one explicit program + argv, under the active Project Execution Policy. Use task IDs from inspect_project when available; task program/args/cwd cannot be overridden. Full local execution uses the current user's privileges and is NOT an OS sandbox.",
+        "Run one discovered project task by taskId, or one explicit program + argv, under the active Project Execution Policy. Use task IDs from inspect_project when available; task program/args/cwd cannot be overridden. Full local execution uses the current user's privileges and is NOT an OS sandbox. In Safe Mode, destructive commands, Git mutations and inline interpreter or shell code wait for one-time approval on the Mac.",
         process.merging(
           [
             "taskId": string("Exact stable task id from inspect_project taskRegistry; mutually exclusive with program/args/cwd/environment", max: 1024),
@@ -147,7 +148,7 @@ public enum ToolCatalog {
         openWorld: true),
       tool(
         "run_shell",
-        "Explicit /bin/zsh -f -c under the active Project Execution Policy. Full local only; no user interactive startup files. Prefer run_process. This is not an OS sandbox.",
+        "Explicit /bin/zsh -f -c under the active Project Execution Policy. Full local only; no user interactive startup files. Prefer run_process. This is not an OS sandbox. In Safe Mode, every call waits for one-time approval on the Mac.",
         process.merging(
           ["command": string("Shell source; never embed credentials", max: 8192)],
           uniquingKeysWith: { _, b in b }), required: ["command"], readOnly: false, openWorld: true),
@@ -192,5 +193,7 @@ public enum ToolCatalog {
       .sorted { $0["name"].string! < $1["name"].string! }
   }()
   public static let names = Set(definitions.compactMap { $0["name"].string })
+  static let readOnlyNames = Set(definitions.filter { $0["annotations"]["readOnlyHint"] == true }
+    .compactMap { $0["name"].string })
 
 }

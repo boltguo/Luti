@@ -55,7 +55,7 @@ enum BrowserArguments {
       }
       let action = try a.string("action", max: 16)
       guard ["accept", "dismiss"].contains(action) else {
-        throw Failure.invalid("browser_dialog action must be accept or dismiss.")
+        throw Failure.invalid("Dialog action must be accept or dismiss.")
       }
       if a.has("promptText") {
         guard action == "accept" else {

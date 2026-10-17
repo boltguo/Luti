@@ -32,6 +32,8 @@ struct ProjectManifest: Codable, Sendable {
 
 enum MemoryKind: String, CaseIterable, Codable, Sendable {
   case architecture, decision, convention, constraint, security, pitfall, goal, rationale
+  /// Unfinished work another session can continue: goal plus a "- [ ]" checklist.
+  case task
 }
 
 struct MemorySource: Codable, Sendable, Equatable {
@@ -377,24 +379,41 @@ final class ProjectMemoryStore: @unchecked Sendable {
 
   /// Compact listing for `project_info`, so every client sees existing memory
   /// without an extra call.
+  /// "done/total" for markdown checklist items, or nil when there are none.
+  static func checklistProgress(_ content: String) -> String? {
+    var done = 0, total = 0
+    for line in content.split(separator: "\n") {
+      let item = line.drop(while: { $0 == " " || $0 == "\t" })
+      guard item.hasPrefix("- [") || item.hasPrefix("* [") else { continue }
+      let mark = item.dropFirst(3).prefix(2)
+      if mark == "x]" || mark == "X]" { done += 1; total += 1 } else if mark == " ]" { total += 1 }
+    }
+    return total == 0 ? nil : "\(done)/\(total)"
+  }
+
   func summary() throws -> JSONValue {
     try Self.lock.withLock {
       let docs = try loadDocuments()
       return [
         "fileCount": .int(docs.count),
-        "files": .array(docs.map {
-          [
-            "file": .string($0.file), "description": .string($0.description),
-            "kind": .string($0.kind.rawValue),
-            "updatedAt": .string(ISO8601DateFormatter().string(from: $0.updatedAt)),
+        "files": .array(docs.map { doc -> JSONValue in
+          var row: JSONValue = [
+            "file": .string(doc.file), "description": .string(doc.description),
+            "kind": .string(doc.kind.rawValue),
+            "updatedAt": .string(ISO8601DateFormatter().string(from: doc.updatedAt)),
+            "updatedBy": .string(doc.source.host),
           ]
+          if doc.kind == .task, let progress = Self.checklistProgress(doc.content) {
+            row = row.adding("progress", .string(progress))
+          }
+          return row
         }),
       ]
     }
   }
 
   func index(
-    query: String = "", kind: MemoryKind? = nil, projectToken: String? = nil
+    query: String = "", kind: MemoryKind? = nil
   ) throws -> JSONValue {
     try Self.lock.withLock {
       let allDocs = try loadDocuments()
@@ -411,7 +430,6 @@ final class ProjectMemoryStore: @unchecked Sendable {
       return [
         "action": "index",
         "project": ["id": .string(projectID), "name": .string(projectName)],
-        "projectToken": projectToken.map(JSONValue.string) ?? .null,
         "fileCount": .int(allDocs.count),
         "totalMatches": .int(matches.count),
         "files": .array(matches.map(\.metadataJSON)),

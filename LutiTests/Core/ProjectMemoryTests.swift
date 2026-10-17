@@ -292,6 +292,36 @@ import XCTest
     }
   }
 
+  func testProjectInfoHandsOffTaskProgressAndRecentEffects() async throws {
+    let f = try Fixture(); defer { f.remove() }
+    let router = try f.router(execution: true)
+    addTeardownBlock { await router.stop() }
+    let first = ToolGrant.remote(RequestContext(
+      transport: .cloudflare, clientID: "first", clientName: "First AI", authorizationID: UUID()))
+    let plan = await router.callInCurrentProject("memory_action", arguments: [
+      "action": "write", "file": "task-login.md", "kind": "task", "description": "Add the login form",
+      "content": "Goal: login form\n\n- [x] Add the view\n- [ ] Wire the API\n  - [ ] Handle errors\n",
+    ], grant: first)
+    XCTAssertFalse(plan.isError, plan.data.text())
+    let edit = await router.callInCurrentProject("edit_files", arguments: [
+      "action": "create", "path": "Login.swift", "content": "struct Login {}\n",
+    ], grant: first)
+    XCTAssertFalse(edit.isError, edit.data.text())
+    _ = await router.call("read_files", arguments: ["paths": ["Login.swift"]], grant: first)
+
+    let info = await router.call("project_info", arguments: [:])
+    let task = try XCTUnwrap(info.data["memory"]["files"].array?.first { $0["file"] == "task-login.md" })
+    XCTAssertEqual(task["kind"], "task")
+    XCTAssertEqual(task["progress"], "1/3")
+    XCTAssertEqual(task["updatedBy"], "First AI")
+    let recent = try XCTUnwrap(info.data["recentActivity"].array)
+    XCTAssertEqual(recent.map { $0["tool"] }, ["edit_files", "memory_action"], "Reads are omitted; newest first.")
+    XCTAssertEqual(recent.first?["client"], "First AI")
+    XCTAssertEqual(recent.first?["target"], "Login.swift")
+    XCTAssertEqual(recent.first?["effect"], "confirmed")
+    XCTAssertNil(ProjectMemoryStore.checklistProgress("No checklist"))
+  }
+
   func testMemoryClearIsScopedAndBlockedWhileRuntimeActive() async throws {
     let f = try Fixture(), other = try Fixture()
     defer { f.remove(); other.remove() }

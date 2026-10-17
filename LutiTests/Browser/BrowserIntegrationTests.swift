@@ -1,6 +1,15 @@
 import XCTest
 @testable import Luti
 
+/// Node creates the port file before writing it; wait for a complete port number.
+private func fixturePort(_ file: URL) async throws -> String {
+  for _ in 0..<100 {
+    if let value = try? String(contentsOf: file, encoding: .utf8), Int(value) != nil { return value }
+    try await Task.sleep(for: .milliseconds(30))
+  }
+  throw Failure.invalid("Fixture HTTP server did not start.")
+}
+
 @MainActor final class BrowserIntegrationTests: XCTestCase {
   func testRealBrowserSemanticActionsScreenshotLogsAndCleanup() async throws {
     guard BrowserInstallation.chromeAvailable else { throw XCTSkip("Google Chrome is required for the browser integration test.") }
@@ -38,12 +47,7 @@ import XCTest
     server.standardOutput = FileHandle.nullDevice; server.standardError = FileHandle.nullDevice
     try server.run()
     defer { if server.isRunning { server.terminate() } }
-    var port: String?
-    for _ in 0..<100 {
-      if let value = try? String(contentsOf: portFile, encoding: .utf8) { port = value; break }
-      try await Task.sleep(for: .milliseconds(30))
-    }
-    let url = "http://127.0.0.1:" + (try XCTUnwrap(port))
+    let url = "http://127.0.0.1:" + (try await fixturePort(portFile))
     try Data("upload fixture".utf8).write(
       to: scratch.appendingPathComponent("upload.txt"))
     let artifacts = ArtifactStore()
@@ -248,12 +252,7 @@ import XCTest
     server.standardError = FileHandle.nullDevice
     try server.run()
     defer { if server.isRunning { server.terminate() } }
-    var port: String?
-    for _ in 0..<100 {
-      if let value = try? String(contentsOf: portFile, encoding: .utf8) { port = value; break }
-      try await Task.sleep(for: .milliseconds(30))
-    }
-    let url = "http://127.0.0.1:" + (try XCTUnwrap(port))
+    let url = "http://127.0.0.1:" + (try await fixturePort(portFile))
     let router = try f.router(execution: true)
     // Exercise the real download provider headlessly with the exact artifact
     // store the public import tool resolves for this project's current runtime.
@@ -349,13 +348,7 @@ extension BrowserIntegrationTests {
       if server.isRunning { server.terminate(); server.waitUntilExit() }
       f.remove()
     }
-    for _ in 0..<100 {
-      if let port = try? String(contentsOf: portFile, encoding: .utf8) {
-        return (browser, "http://127.0.0.1:" + port)
-      }
-      try await Task.sleep(for: .milliseconds(30))
-    }
-    throw Failure.invalid("Fixture HTTP server did not start.")
+    return (browser, "http://127.0.0.1:" + (try await fixturePort(portFile)))
   }
 
   func testInitialDialogsReturnUsableTabs() async throws {

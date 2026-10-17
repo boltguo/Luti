@@ -282,6 +282,7 @@
 "context.kind.pitfall" = "易错点";
 "context.kind.goal" = "目标";
 "context.kind.rationale" = "原因";
+"context.kind.task" = "任务";
 "context.state.active" = "有效";
 "context.state.superseded" = "已替代";
 "context.state.forgotten" = "已遗忘";
