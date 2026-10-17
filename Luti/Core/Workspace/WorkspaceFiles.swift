@@ -23,35 +23,50 @@ public struct TextEdit: Sendable {
   }
 }
 
-/// The one local folder selected by the Mac user. Luti always uses this folder
-/// with full access.
+/// Safe mode (`ask`) asks the Mac user before each dangerous operation.
+public enum ProjectPermissionMode: String, Sendable, Codable {
+  case ask, fullProjectAccess
+
+  public var asksForSensitiveProjectOperations: Bool { self == .ask }
+}
+
+/// The one local folder selected by the Mac user.
 public struct ApprovedProject: Codable, Identifiable, Sendable, Equatable {
   public let id: String
   public let name: String
   public let path: String
+  public let permissionMode: ProjectPermissionMode
 
-  public init(id: String = UUID().uuidString.lowercased(), name: String? = nil, path: String) {
+  public init(id: String = UUID().uuidString.lowercased(), name: String? = nil, path: String,
+              permissionMode: ProjectPermissionMode = .ask) {
     let url = URL(fileURLWithPath: path, isDirectory: true)
       .standardizedFileURL.resolvingSymlinksInPath()
     self.id = id
     self.name = name ?? url.lastPathComponent
     self.path = url.path
+    self.permissionMode = permissionMode
   }
 
-  public init(id: String = UUID().uuidString.lowercased(), name: String? = nil, url: URL) {
-    self.init(id: id, name: name, path: url.path)
+  public init(id: String = UUID().uuidString.lowercased(), name: String? = nil, url: URL,
+              permissionMode: ProjectPermissionMode = .ask) {
+    self.init(id: id, name: name, path: url.path, permissionMode: permissionMode)
   }
 
-  private enum CodingKeys: String, CodingKey { case id, name, path }
+  private enum CodingKeys: String, CodingKey { case id, name, path, permissionMode }
 
   public init(from decoder: Decoder) throws {
     let values = try decoder.container(keyedBy: CodingKeys.self)
     self.init(id: try values.decode(String.self, forKey: .id),
               name: try values.decode(String.self, forKey: .name),
-              path: try values.decode(String.self, forKey: .path))
+              path: try values.decode(String.self, forKey: .path),
+              permissionMode: try values.decodeIfPresent(ProjectPermissionMode.self, forKey: .permissionMode) ?? .ask)
   }
 
   public var url: URL { URL(fileURLWithPath: path, isDirectory: true) }
+
+  public func withPermissionMode(_ permissionMode: ProjectPermissionMode) -> ApprovedProject {
+    ApprovedProject(id: id, name: name, path: path, permissionMode: permissionMode)
+  }
 }
 
 public actor WorkspaceFiles {

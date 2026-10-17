@@ -19,6 +19,16 @@ import XCTest
     XCTAssertEqual(model.activeProject, selected)
   }
 
+  func testNewFolderStartsInSafeModeAndKeepsFullAccessAcrossRelaunch() throws {
+    let f = try Fixture(); defer { f.remove() }
+    let model = AppModel(contextDataRoot: f.contextDataRoot, defaults: f.defaults)
+    model.addProject(f.root)
+    XCTAssertEqual(model.activeProject?.permissionMode, .ask)
+    model.setPermissionMode(.fullProjectAccess)
+    let reopened = AppModel(contextDataRoot: f.contextDataRoot, defaults: f.defaults)
+    XCTAssertEqual(reopened.activeProject?.permissionMode, .fullProjectAccess)
+  }
+
   func testUnreadableSelectionStartsEmpty() throws {
     let f = try Fixture(); defer { f.remove() }
     f.defaults.set(Data("broken".utf8), forKey: "selectedFolder")

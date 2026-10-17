@@ -51,6 +51,8 @@ private struct ProjectDetailView: View {
         .accessibilityAddTraits(.isHeader)
         .accessibilityIdentifier("project-title")
 
+      permissionModeRow
+
       MDListRow(
         title: L10n.text("projects.projectFolder"),
         symbol: "folder",
@@ -114,6 +116,25 @@ private struct ProjectDetailView: View {
     }
     .task(id: model.lastCall) {
       await reloadMemoryCount()
+    }
+  }
+
+  private var permissionModeRow: some View {
+    let full = project.permissionMode == .fullProjectAccess
+    return MDListRow(
+      title: L10n.text(full ? "permissionMode.fullProjectAccess" : "permissionMode.ask"),
+      symbol: full ? "exclamationmark.shield" : "checkmark.shield",
+      subtitle: L10n.text(
+        full ? "permissionMode.fullProjectAccessDescription" : "permissionMode.askDescription"),
+      iconTone: full ? .orange : .green
+    ) {
+      MDSwitch(
+        isOn: Binding(
+          get: { full },
+          set: { model.setPermissionMode($0 ? .fullProjectAccess : .ask) }),
+        label: L10n.text("permissionMode.fullProjectAccess"))
+        .disabled(model.contextBusy)
+        .accessibilityIdentifier("project-full-access")
     }
   }
 

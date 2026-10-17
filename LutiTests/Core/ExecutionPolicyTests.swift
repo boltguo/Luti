@@ -337,4 +337,124 @@ import Darwin
     XCTAssertLessThan(Date().timeIntervalSince(started), 4)
     try await assertLanguageServerStopped(pids)
   }
+
+
+  // MARK: - Safe mode
+
+  func testSafeModeClassifiesDangerousOperations() throws {
+    let f = try Fixture(); defer { f.remove() }
+    func code(_ program: String, _ args: [String]) -> String? {
+      ProcessPolicy.approvalRequirement(
+        ProcessRequest(program: program, args: args, cwd: f.root, projectRoot: f.root))?.code
+    }
+    XCTAssertNil(code("/bin/echo", ["src/main.swift"]))
+    XCTAssertNil(code("/usr/bin/git", ["status"]))
+    XCTAssertEqual(code("/bin/rm", ["generated.txt"]), "destructive_command")
+    XCTAssertEqual(code("/usr/bin/git", ["reset", "--hard"]), "git_mutation")
+    XCTAssertEqual(code("/bin/sh", ["-c", "echo ok"]), "opaque_shell")
+    XCTAssertEqual(code("/usr/bin/python3", ["-c", "print('ok')"]), "inline_code")
+    XCTAssertEqual(
+      ProcessPolicy.approvalRequirement(
+        ProcessRequest(program: "/bin/zsh", cwd: f.root, projectRoot: f.root), rawShell: true)?.code,
+      "opaque_shell")
+    XCTAssertEqual(
+      try ProcessPolicy.projectScriptApprovalRequirement("rm -rf dist && tsc")?.code,
+      "project_script_destructive")
+    XCTAssertNil(try ProcessPolicy.projectScriptApprovalRequirement("tsc --noEmit"))
+  }
+
+  func testPermissionModeDefaultsToSafeModeForStoredProjects() throws {
+    let legacy = #"{"id":"a","name":"demo","path":"/tmp/demo"}"#
+    let decoded = try JSONDecoder().decode(ApprovedProject.self, from: Data(legacy.utf8))
+    XCTAssertEqual(decoded.permissionMode, .ask)
+    let full = decoded.withPermissionMode(.fullProjectAccess)
+    let roundTrip = try JSONDecoder().decode(ApprovedProject.self, from: JSONEncoder().encode(full))
+    XCTAssertEqual(roundTrip, full)
+  }
+
+  func testSafeModeRunsDangerousCommandOnlyAfterLocalApproval() async throws {
+    let f = try Fixture(); defer { f.remove() }
+    try f.write("victim.txt", "keep")
+    let router = try f.router(execution: true, permissionMode: .ask)
+    addTeardownBlock { await router.stop() }
+
+    let call = Task {
+      await router.callInCurrentProject(
+        "run_process", arguments: ["program": "/bin/rm", "args": ["victim.txt"], "syncWait": 3])
+    }
+    let pending = try await waitForApproval(router)
+    XCTAssertEqual(pending.code, "destructive_command")
+    XCTAssertTrue(pending.summary.contains("victim.txt"))
+    XCTAssertTrue(FileManager.default.fileExists(atPath: f.root.appendingPathComponent("victim.txt").path))
+
+    await router.resolveOperationApproval(pending.id, approved: true)
+    let result = await call.value
+    XCTAssertFalse(result.isError, result.data.text())
+    XCTAssertEqual(result.data["localApproval"]["scope"], "oneShot")
+    XCTAssertFalse(FileManager.default.fileExists(atPath: f.root.appendingPathComponent("victim.txt").path))
+  }
+
+  func testSafeModeDenialDeletesNothing() async throws {
+    let f = try Fixture(); defer { f.remove() }
+    try f.write("victim.txt", "keep")
+    let router = try f.router(execution: true, permissionMode: .ask)
+    addTeardownBlock { await router.stop() }
+
+    let call = Task {
+      await router.callInCurrentProject("path_action", arguments: ["action": "delete", "path": "victim.txt"])
+    }
+    let pending = try await waitForApproval(router)
+    XCTAssertEqual(pending.code, "destructive_path")
+    await router.resolveOperationApproval(pending.id, approved: false)
+    let result = await call.value
+    XCTAssertEqual(result.data["error"], "local_action_denied")
+    XCTAssertTrue(FileManager.default.fileExists(atPath: f.root.appendingPathComponent("victim.txt").path))
+  }
+
+  func testFullAccessAndOrdinaryCommandsDoNotAsk() async throws {
+    let f = try Fixture(); defer { f.remove() }
+    try f.write("victim.txt", "keep")
+    let router = try f.router(execution: true, permissionMode: .ask)
+    addTeardownBlock { await router.stop() }
+
+    let ordinary = await router.callInCurrentProject(
+      "run_process", arguments: ["program": "/usr/bin/true", "syncWait": 3])
+    XCTAssertFalse(ordinary.isError, ordinary.data.text())
+    XCTAssertEqual(ordinary.data["localApproval"], .null)
+
+    // Switching while running applies to the next call.
+    await router.setPermissionMode(.fullProjectAccess)
+    let status = await router.callInCurrentProject("runtime_status", arguments: [:])
+    XCTAssertEqual(status.data["executionPolicy"]["permissionMode"], "fullProjectAccess")
+    let full = await router.callInCurrentProject(
+      "run_process", arguments: ["program": "/bin/rm", "args": ["victim.txt"], "syncWait": 3])
+    XCTAssertFalse(full.isError, full.data.text())
+    XCTAssertEqual(full.data["localApproval"], .null)
+    let pending = await router.pendingOperationApprovals()
+    XCTAssertTrue(pending.isEmpty)
+    XCTAssertFalse(FileManager.default.fileExists(atPath: f.root.appendingPathComponent("victim.txt").path))
+  }
+
+  func testStopReleasesCallWaitingForApproval() async throws {
+    let f = try Fixture(); defer { f.remove() }
+    let router = try f.router(execution: true, permissionMode: .ask)
+
+    let call = Task {
+      await router.callInCurrentProject(
+        "run_shell", arguments: ["command": "printf x > created.txt", "syncWait": 3])
+    }
+    _ = try await waitForApproval(router)
+    await router.stop()
+    let result = await call.value
+    XCTAssertEqual(result.data["error"], "runtime_stopped")
+    XCTAssertFalse(FileManager.default.fileExists(atPath: f.root.appendingPathComponent("created.txt").path))
+  }
+
+  private func waitForApproval(_ router: ToolRouter) async throws -> PendingOperationApproval {
+    for _ in 0..<300 {
+      if let pending = await router.pendingOperationApprovals().first { return pending }
+      try await Task.sleep(for: .milliseconds(10))
+    }
+    return try XCTUnwrap(nil as PendingOperationApproval?, "No local approval was requested.")
+  }
 }

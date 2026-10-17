@@ -65,19 +65,126 @@ struct MainWindowView: View {
         }
       }
     }
-    .sheet(item: Binding(get: { model.cloudflare.authorization.pending.first }, set: { _ in })) { request in
-      ApprovalView(
-        request: request,
-        queued: max(0, model.cloudflare.authorization.pending.count - 1)
-      ) { allow in
-        Task { await model.cloudflare.decide(request.id, allow: allow) }
+    .sheet(item: Binding(get: { approval }, set: { _ in })) { item in
+      switch item {
+      case .connection(let request):
+        ApprovalView(
+          request: request,
+          queued: max(0, model.cloudflare.authorization.pending.count - 1)
+        ) { allow in
+          Task { await model.cloudflare.decide(request.id, allow: allow) }
+        }
+      case .operation(let request):
+        OperationApprovalView(
+          request: request,
+          queued: max(0, model.pendingOperationApprovals.count - 1)
+        ) { allow in
+          model.resolveOperationApproval(request.id, approved: allow)
+        }
       }
     }
-    .onChange(of: model.cloudflare.authorization.pending.first?.id) { _, id in
+    .onChange(of: approval?.id) { _, id in
       if id != nil { openWindow(id: "main") }
     }
     .onChange(of: scenePhase) { _, phase in
       if phase == .active { loginItem.refresh(); LanguageSettings.shared.refreshSystemLanguage() }
+    }
+  }
+
+  /// One native sheet at a time; connection requests come first.
+  private var approval: NativeApproval? {
+    if let request = model.cloudflare.authorization.pending.first { return .connection(request) }
+    return model.pendingOperationApprovals.first.map(NativeApproval.operation)
+  }
+}
+
+private enum NativeApproval: Identifiable {
+  case connection(OAuthPending)
+  case operation(PendingOperationApproval)
+
+  var id: String {
+    switch self {
+    case .connection(let request): "connection:" + request.id.uuidString
+    case .operation(let request): "operation:" + request.id.uuidString
+    }
+  }
+}
+
+/// Native on purpose: only the person at the Mac can reach this sheet, so
+/// a remote AI cannot approve its own dangerous operation.
+private struct OperationApprovalView: View {
+  let request: PendingOperationApproval
+  let queued: Int
+  let decide: (Bool) -> Void
+
+  var body: some View {
+    MDModalSurface(width: 430) {
+      MDModalHeader(
+        title: L10n.text("operationApproval.title"),
+        message: L10n.text(reasonKey),
+        symbol: "exclamationmark.shield",
+        tone: .orange)
+
+      VStack(alignment: .leading, spacing: 8) {
+        Text(L10n.text("operationApproval.command"))
+          .font(.system(size: 12, weight: .semibold))
+          .foregroundStyle(MDTheme.onSurfaceVariant)
+        Text(request.summary)
+          .font(.system(size: 11, design: .monospaced))
+          .foregroundStyle(MDTheme.onSurface)
+          .textSelection(.enabled)
+          .lineLimit(6)
+        Text(L10n.text("operationApproval.project"))
+          .font(.system(size: 12, weight: .semibold))
+          .foregroundStyle(MDTheme.onSurfaceVariant)
+          .padding(.top, 4)
+        Text(request.projectPath)
+          .font(.system(size: 11, design: .monospaced))
+          .foregroundStyle(MDTheme.onSurfaceVariant)
+          .textSelection(.enabled)
+          .lineLimit(2)
+          .truncationMode(.middle)
+      }
+      .padding(14)
+      .frame(maxWidth: .infinity, alignment: .leading)
+      .background(MDTheme.surfaceContainerLow, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+
+      if queued > 0 {
+        Text(L10n.format("approval.moreRequestsWaiting", queued))
+          .font(.system(size: 12))
+          .foregroundStyle(MDTheme.onSurfaceVariant)
+      }
+
+      MDModalActions {
+        Button {
+          decide(false)
+        } label: {
+          Text(L10n.text("approval.deny"))
+            .frame(minWidth: 104)
+        }
+        .keyboardShortcut(.cancelAction)
+        .buttonStyle(MDConnectedButtonStyle(kind: .tonal, position: .first))
+        .accessibilityIdentifier("operation-approval-deny")
+
+        // No default action: Return must never approve a destructive operation.
+        Button {
+          decide(true)
+        } label: {
+          Text(L10n.text("operationApproval.allowOnce"))
+            .frame(minWidth: 104)
+        }
+        .buttonStyle(MDConnectedButtonStyle(kind: .filled, position: .last))
+        .accessibilityIdentifier("operation-approval-allow")
+      }
+    }
+    .accessibilityIdentifier("operation-approval-sheet")
+  }
+
+  private var reasonKey: String {
+    switch request.code {
+    case "git_mutation", "project_script_git_mutation": "operationApproval.reason.git"
+    case "opaque_shell", "inline_code": "operationApproval.reason.code"
+    default: "operationApproval.reason.destructive"
     }
   }
 }

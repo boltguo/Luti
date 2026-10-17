@@ -27,7 +27,7 @@ Luti connects an AI client to one approved project. The AI host handles reasonin
 ## Get started
 
 1. **Install Luti.** Download the signed DMG from the latest GitHub Release, or build it from source.
-2. **Add a folder.** Choose one folder in **Projects**. Luti uses Full Project Access automatically; removing it returns the page to its empty state.
+2. **Add a folder.** Choose one folder in **Projects**. It starts in Safe Mode; switch on Full Access on the project page to skip approvals. Removing it returns the page to its empty state.
 3. **Configure a connection.** In **Connections**, configure **OpenAI Secure MCP Tunnel** or **Cloudflare Tunnel** (either or both may be enabled).
 4. **Start and connect.** Start the local Runtime, then add the MCP server in your AI client.
 
@@ -140,7 +140,7 @@ Luti stores per-project memory (`MEMORY.md` index and topic `.md` decision files
 | Boundary | Behavior |
 |---|---|
 | **Project scope** | File and project operations stay inside the active approved project |
-| **Permission mode** | Luti always uses `Full Project Access` within the selected folder; external operations retain their permission boundaries |
+| **Permission mode** | `Safe Mode` (default) asks on this Mac before deleting files, mutating Git, or running shell/inline code; `Full Access` runs them without asking. External operations retain their permission boundaries in both modes |
 | **Secrets** | Runtime credentials use macOS Keychain; sensitive values are redacted before persistence |
 | **Remote access** | Separate loopback listeners: OpenAI uses a private transport credential; Cloudflare requires domain-bound OAuth approved on this Mac |
 | **Git** | Public Git capability is read-only |
