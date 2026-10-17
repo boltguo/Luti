@@ -64,9 +64,6 @@ public struct ProcessApprovalRequirement: Sendable, Equatable {
 
 public enum ProcessPolicy {
   static let shells: Set<String> = ["sh", "bash", "zsh", "dash", "ksh", "fish"]
-  static let destructivePrograms = [
-    "rm", "rmdir", "unlink", "mv", "chmod", "chown", "chgrp", "truncate", "dd",
-  ]
   static let gitMutations = [
     "clean", "reset", "checkout", "restore", "switch", "rebase", "merge", "pull", "push", "commit",
     "stash", "worktree", "rm", "mv", "cherry-pick", "revert", "am", "apply",
@@ -269,7 +266,10 @@ public enum ProcessPolicy {
     }
 
     let base = URL(fileURLWithPath: request.program).lastPathComponent.lowercased()
-    if destructivePrograms.contains(base) {
+    let destructive: Set<String> = [
+      "rm", "rmdir", "unlink", "mv", "chmod", "chown", "chgrp", "truncate", "dd",
+    ]
+    if destructive.contains(base) {
       return ProcessApprovalRequirement(
         code: "destructive_command",
         reason: "This command can make destructive changes inside the active project.")
@@ -337,12 +337,8 @@ public enum ProcessPolicy {
     _ script: String
   ) throws -> ProcessApprovalRequirement? {
     try validateShell(script)
-    let destructivePattern = #"(?i)(?:^|[\s;&|])("# + destructivePrograms.joined(separator: "|") + #")(?:\s|$)"#
-    if script.range(of: destructivePattern, options: .regularExpression) != nil {
-      return ProcessApprovalRequirement(
-        code: "project_script_destructive",
-        reason: "The discovered project script contains a destructive project operation.")
-    }
+    // The project's own scripts may clear their build output without asking;
+    // project scope is still enforced. Git mutations can reach a remote, so they ask.
     let gitMutationPattern = #"(?i)(?:^|[\s;&|])git\s+("# + gitMutations.joined(separator: "|") + #")(?:\s|$)"#
     if script.range(of: gitMutationPattern, options: .regularExpression) != nil {
       return ProcessApprovalRequirement(

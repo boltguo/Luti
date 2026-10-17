@@ -160,7 +160,7 @@ import Darwin
     XCTAssertEqual(denied.data["error"], "project_scope_denied")
     try inside.write("generated.txt", "remove me")
     try inside.write("package.json", #"{"scripts":{"test":"rm generated.txt"}}"#)
-    let allowedRouter = try inside.router(execution: true)
+    let allowedRouter = try inside.router(execution: true, permissionMode: .ask)
     addTeardownBlock { await allowedRouter.stop() }
     let allowed = await allowedRouter.callInCurrentProject("run_process", arguments: ["taskId": "task:test", "syncWait": 3])
     XCTAssertFalse(allowed.isError)
@@ -379,9 +379,7 @@ import Darwin
       ProcessPolicy.approvalRequirement(
         ProcessRequest(program: "/usr/bin/python3", cwd: f.root, projectRoot: f.root, interactive: true))?.code,
       "inline_code")
-    XCTAssertEqual(
-      try ProcessPolicy.projectScriptApprovalRequirement("rm -rf dist && tsc")?.code,
-      "project_script_destructive")
+    XCTAssertNil(try ProcessPolicy.projectScriptApprovalRequirement("rm -rf dist && tsc"))
     XCTAssertEqual(
       try ProcessPolicy.projectScriptApprovalRequirement("git cherry-pick main")?.code,
       "project_script_git_mutation")
