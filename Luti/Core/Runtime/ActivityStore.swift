@@ -323,6 +323,13 @@ public actor ActivityStore {
 
   public func snapshot() -> [ActivityEvent] { records.reversed() }
 
+  /// Pending calls retain their original destination when the visible project changes.
+  func selectProject(directory: URL) {
+    persistenceDirectory = directory
+    records = Self.markInterrupted(LocalLogStore.recentActivities(limit: 200, directory: directory))
+    publish()
+  }
+
   public func updates() -> AsyncStream<[ActivityEvent]> {
     let id = UUID()
     let pair = AsyncStream.makeStream(

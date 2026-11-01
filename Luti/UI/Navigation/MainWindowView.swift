@@ -67,12 +67,13 @@ struct MainWindowView: View {
     }
     .sheet(item: Binding(get: { approval }, set: { _ in })) { item in
       switch item {
-      case .connection(let request):
+      case .connection(let provider, let request):
+        let connection = model.publicConnection(for: provider)
         ApprovalView(
           request: request,
-          queued: max(0, model.cloudflare.authorization.pending.count - 1)
+          queued: max(0, model.publicConnections.reduce(0) { $0 + $1.authorization.pending.count } - 1)
         ) { allow in
-          Task { await model.cloudflare.decide(request.id, allow: allow) }
+          Task { await connection.decide(request.id, allow: allow) }
         }
       case .operation(let request):
         OperationApprovalView(
@@ -93,18 +94,18 @@ struct MainWindowView: View {
 
   /// One native sheet at a time; connection requests come first.
   private var approval: NativeApproval? {
-    if let request = model.cloudflare.authorization.pending.first { return .connection(request) }
+    if let pending = model.pendingConnectionApproval { return .connection(pending.provider, pending.request) }
     return model.pendingOperationApprovals.first.map(NativeApproval.operation)
   }
 }
 
 private enum NativeApproval: Identifiable {
-  case connection(OAuthPending)
+  case connection(ConnectionProviderID, OAuthPending)
   case operation(PendingOperationApproval)
 
   var id: String {
     switch self {
-    case .connection(let request): "connection:" + request.id.uuidString
+    case .connection(_, let request): "connection:" + request.id.uuidString
     case .operation(let request): "operation:" + request.id.uuidString
     }
   }

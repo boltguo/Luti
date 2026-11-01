@@ -30,7 +30,7 @@ public enum ProjectPermissionMode: String, Sendable, Codable {
   public var asksForSensitiveProjectOperations: Bool { self == .ask }
 }
 
-/// The one local folder selected by the Mac user.
+/// A project folder added by the Mac user, with its own permission mode.
 public struct ApprovedProject: Codable, Identifiable, Sendable, Equatable {
   public let id: String
   public let name: String

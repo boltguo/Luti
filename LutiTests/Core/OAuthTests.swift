@@ -78,6 +78,37 @@ private final class OAuthClock: @unchecked Sendable {
     XCTAssertEqual(another.status, 303)
   }
 
+  func testVPSOAuthUsesNativeApprovalAndCorrectTransportAttribution() async throws {
+    let service = try OAuthService(origin: origin, transport: .vps)
+    let client = try await register(service)
+    let code = try await approveCode(service, client: client)
+    let tokens = await exchange(service, client: client, code: code)
+    XCTAssertEqual(tokens.status, 200)
+    let token = try XCTUnwrap(tokens.json["access_token"].string)
+    let grant = await service.grant(for: token)
+    XCTAssertEqual(grant?.context?.transport, .vps)
+    try await service.revoke(try XCTUnwrap(grant?.context?.authorizationID))
+    let revoked = await service.grant(for: token)
+    XCTAssertNil(revoked)
+  }
+
+  func testNewCloudflareApprovalDoesNotReplaceOlderVPSApproval() async throws {
+    let f = try Fixture()
+    let model = AppModel(contextDataRoot: f.contextDataRoot, defaults: f.defaults)
+    addTeardownBlock { await model.stop(); f.remove() }
+    let now = Date()
+    let vps = try OAuthService(origin: origin, transport: .vps, now: { now })
+    let cf = try OAuthService(origin: origin, now: { now.addingTimeInterval(1) })
+    let vpsClient = try await register(vps), cfClient = try await register(cf)
+    _ = await authorize(vps, client: vpsClient)
+    model.vps.authorization = await vps.snapshot()
+    let original = try XCTUnwrap(model.pendingConnectionApproval)
+    _ = await authorize(cf, client: cfClient)
+    model.cloudflare.authorization = await cf.snapshot()
+    XCTAssertEqual(model.pendingConnectionApproval?.provider, .vps)
+    XCTAssertEqual(model.pendingConnectionApproval?.request.id, original.request.id)
+  }
+
   func testRegistrationWithoutOptionalClientNameStillRequiresNativeConsent() async throws {
     let service = try OAuthService(origin: origin)
     let response = await service.handle(HTTPRequest(path: "/oauth/register", headers: ["content-type": ["application/json"]],

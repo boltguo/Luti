@@ -19,7 +19,9 @@ public actor RuntimeCore {
   public init(
     root: URL, helper: URL, executionPolicy: ProjectExecutionPolicy = .readOnly,
     project: ApprovedProject? = nil,
-    contextDataRoot: URL? = nil
+    contextDataRoot: URL? = nil,
+    approvedProjects: [ApprovedProject]? = nil,
+    onProjectSelected: @escaping @Sendable (ApprovedProject) async -> Void = { _ in }
   ) throws {
     let redactor = Redactor()
     let activity = ActivityStore(
@@ -31,7 +33,8 @@ public actor RuntimeCore {
       workspace: WorkspaceFiles(root: root), jobs: JobManager(helper: helper, redactor: redactor),
       activity: activity,
       executionPolicy: executionPolicy,
-      redactor: redactor, project: project, helper: helper, contextDataRoot: contextDataRoot)
+      redactor: redactor, project: project, helper: helper, contextDataRoot: contextDataRoot,
+      approvedProjects: approvedProjects, onProjectSelected: onProjectSelected)
   }
 
   public func start() throws {

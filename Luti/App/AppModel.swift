@@ -5,6 +5,7 @@ import Observation
 @MainActor @Observable final class AppModel {
   enum Phase: String { case stopped, preparing, starting, running, stopping, failed }
   var phase: Phase = .stopped
+  private(set) var approvedProjects: [ApprovedProject] = []
   var activeProject: ApprovedProject?
   var project: URL? { activeProject?.url }
   var tunnelID: String
@@ -16,7 +17,18 @@ import Observation
   var activity: [ActivityEvent] = []
   var currentRunID: UUID?
   var connection = ConnectionSnapshot.stopped
-  let cloudflare: CloudflareConnectionModel
+  let cloudflare: PublicConnectionModel
+  let vps: PublicConnectionModel
+  var publicConnections: [PublicConnectionModel] { [cloudflare, vps] }
+  var pendingConnectionApproval: (provider: ConnectionProviderID, request: OAuthPending)? {
+    publicConnections.compactMap { connection in
+      connection.authorization.pending.first.map { (provider: connection.providerID, request: $0) }
+    }.min { $0.request.createdAt < $1.request.createdAt }
+  }
+  func publicConnection(for provider: ConnectionProviderID) -> PublicConnectionModel {
+    precondition(provider.requiresOAuth)
+    return provider == .vps ? vps : cloudflare
+  }
   var connectionBusy = false
   var connectionError: String?
   var connectionSettingsError: String?
@@ -49,6 +61,7 @@ import Observation
   @ObservationIgnored private var announcedOperationApprovals: Set<UUID> = []
   @ObservationIgnored private var decidedOperationApprovals: Set<UUID> = []
   private static let selectedFolderKey = "selectedFolder"
+  private static let projectFoldersKey = "projectFolders"
   private static let tunnelIDKey = "connection.openai.tunnelID"
   private static let openAIEnabledKey = "connection.openai.enabled"
   /// Set by Start, cleared by an explicit Stop; Quit and update relaunch keep it.
@@ -70,23 +83,21 @@ import Observation
   }
   var reachableConnection: ConnectionSnapshot {
     if openAIEnabled && connection.state == .ready { return connection }
-    if cloudflare.enabled && cloudflare.connection.state == .ready { return cloudflare.connection }
+    if let ready = publicConnections.first(where: { $0.enabled && $0.connection.state == .ready }) { return ready.connection }
     if openAIEnabled && [.starting, .reconnecting, .stopping].contains(connection.state) { return connection }
-    if cloudflare.enabled && [.starting, .reconnecting, .stopping].contains(cloudflare.connection.state) {
-      return cloudflare.connection
-    }
-    if openAIEnabled && (!cloudflare.enabled || connectionConfigured) { return connection }
-    if cloudflare.enabled { return cloudflare.connection }
+    if let pending = publicConnections.first(where: { $0.enabled && [.starting, .reconnecting, .stopping].contains($0.connection.state) }) { return pending.connection }
+    if openAIEnabled && (!publicConnections.contains(where: \.enabled) || connectionConfigured) { return connection }
+    if let enabled = publicConnections.first(where: \.enabled) { return enabled.connection }
     return connection
   }
-  var anyConnectionConfigured: Bool { openAICanLaunch || cloudflare.canLaunch }
+  var anyConnectionConfigured: Bool { openAICanLaunch || publicConnections.contains(where: \.canLaunch) }
   /// Save and clear are async Keychain operations; while one runs, nothing may
   /// start, connect or edit against configuration that is about to change.
   var canStart: Bool {
-    !active && !contextBusy && !savingConnection && !cloudflare.saving && activeProject != nil
+    !active && !contextBusy && !savingConnection && !publicConnections.contains(where: \.saving) && activeProject != nil
   }
   /// Start when at least one saved client path is usable. Both may run together.
-  var canLaunch: Bool { canStart && (openAICanLaunch || cloudflare.canLaunch) }
+  var canLaunch: Bool { canStart && (openAICanLaunch || publicConnections.contains(where: \.canLaunch)) }
   var canEditConnection: Bool {
     !savingConnection && !connectionBusy && !connection.state.isActive
       && ![.preparing, .starting, .stopping].contains(phase)
@@ -102,6 +113,8 @@ import Observation
        },
        makeCloudflareProvider: @escaping @Sendable (String, URL) throws -> any ConnectionProvider = {
          try CloudflareTunnelProvider(token: $0, helper: $1)
+       }, makeVPSProvider: @escaping @Sendable (VPSConfiguration, URL, URL, URL) throws -> any ConnectionProvider = {
+         try VPSTunnelProvider(configuration: $0, origin: $1, identity: $2, helper: $3)
        }) {
     self.contextDataRoot = contextDataRoot
     self.defaults = defaults
@@ -115,20 +128,31 @@ import Observation
     } else {
       openAIEnabled = !savedTunnel.isEmpty
     }
-    if let data = defaults.data(forKey: Self.selectedFolderKey) {
-      activeProject = try? JSONDecoder().decode(ApprovedProject.self, from: data)
+    let selected = defaults.data(forKey: Self.selectedFolderKey).flatMap {
+      try? JSONDecoder().decode(ApprovedProject.self, from: $0)
+    }
+    if let data = defaults.data(forKey: Self.projectFoldersKey),
+      let projects = try? JSONDecoder().decode([ApprovedProject].self, from: data)
+    {
+      approvedProjects = projects
+      activeProject = projects.first { $0.id == selected?.id } ?? projects.first
+    } else {
+      approvedProjects = selected.map { [$0] } ?? []
+      activeProject = selected
     }
     // An unavailable Keychain does not prove the saved key is absent. Let the
     // connection read report the error and use the existing noninteractive retry
     // path; only a confirmed missing item disables Start and automatic recovery.
     apiKeySaved = (try? credentials.exists(KeychainService.openAIAPIKey)) ?? true
-    cloudflare = CloudflareConnectionModel(
+    cloudflare = PublicConnectionModel(
       defaults: defaults, credentials: credentials, dataRoot: contextDataRoot,
-      makeProvider: makeCloudflareProvider)
-    cloudflare.loadAuthorizations()
+      makeProvider: makeCloudflareProvider, makeVPSProvider: makeVPSProvider)
+    vps = PublicConnectionModel(defaults: defaults, credentials: credentials, dataRoot: contextDataRoot,
+      providerID: .vps, makeVPSProvider: makeVPSProvider)
+    for connection in publicConnections { connection.loadAuthorizations() }
     if let seen = defaults.string(forKey: Self.toolListKey) {
       toolListChanged = seen != ToolCatalog.fingerprint
-    } else if savedTunnel.isEmpty && cloudflare.savedDomain.isEmpty {
+    } else if savedTunnel.isEmpty && publicConnections.allSatisfy({ $0.savedDomain.isEmpty }) {
       // No client was ever set up, so none holds an older tool list.
       defaults.set(ToolCatalog.fingerprint, forKey: Self.toolListKey)
     } else {
@@ -166,6 +190,14 @@ import Observation
   }
 
   private func persistSelectedFolder() {
+    if let activeProject,
+      let index = approvedProjects.firstIndex(where: { $0.id == activeProject.id })
+    {
+      approvedProjects[index] = activeProject
+    }
+    if let data = try? JSONEncoder().encode(approvedProjects) {
+      defaults.set(data, forKey: Self.projectFoldersKey)
+    }
     if let activeProject, let data = try? JSONEncoder().encode(activeProject) {
       defaults.set(data, forKey: Self.selectedFolderKey)
     } else {
@@ -199,7 +231,7 @@ import Observation
   }
 
   func chooseProject() {
-    guard !active, !contextBusy, activeProject == nil else { return }
+    guard !active, !contextBusy else { return }
     let panel = NSOpenPanel()
     panel.title = L10n.text("app.chooseProjectsLutiEdit")
     panel.prompt = L10n.text("projects.addProject")
@@ -216,8 +248,13 @@ import Observation
   }
 
   func addProject(_ url: URL) {
-    guard !active, !contextBusy, activeProject == nil else { return }
+    guard !active, !contextBusy else { return }
     let project = ApprovedProject(url: url)
+    if let existing = approvedProjects.first(where: { $0.path == project.path }) {
+      selectProject(existing.id)
+      return
+    }
+    approvedProjects.append(project)
     activeProject = project
     persistSelectedFolder()
     errorText = nil
@@ -227,20 +264,41 @@ import Observation
   }
 
   func removeProject(_ id: String) {
-    guard !active, !contextBusy, activeProject?.id == id else { return }
-    activeProject = nil
+    guard !active, !contextBusy else { return }
+    approvedProjects.removeAll { $0.id == id }
+    if activeProject?.id == id { activeProject = approvedProjects.first }
     persistSelectedFolder()
     errorText = nil
-    detail = "Choose a folder to get started."
+    detail = activeProject == nil ? "Choose a folder to get started." : "Project selected. Start when you are ready."
     reloadStoredActivity()
   }
 
-  /// Applies to the running runtime at once; there is nothing to restart.
-  func setPermissionMode(_ mode: ProjectPermissionMode) {
-    guard !contextBusy, let current = activeProject, current.permissionMode != mode else { return }
-    activeProject = current.withPermissionMode(mode)
+  @discardableResult
+  func selectProject(_ id: String) -> Bool {
+    guard let project = approvedProjects.first(where: { $0.id == id }) else { return false }
+    if activeProject?.id == id { return true }
+    guard !active, !contextBusy else { return false }
+    activeProject = project
     persistSelectedFolder()
-    if let router = session?.router { Task { await router.setPermissionMode(mode) } }
+    lastCall = nil
+    errorText = nil
+    detail = "Project selected. Start when you are ready."
+    reloadStoredActivity()
+    return true
+  }
+
+  /// Only the current project's mode is applied to the running runtime.
+  func setPermissionMode(_ mode: ProjectPermissionMode, for projectID: String? = nil) {
+    guard !contextBusy, let id = projectID ?? activeProject?.id,
+      let index = approvedProjects.firstIndex(where: { $0.id == id }),
+      approvedProjects[index].permissionMode != mode else { return }
+    let project = approvedProjects[index].withPermissionMode(mode)
+    approvedProjects[index] = project
+    if activeProject?.id == id {
+      activeProject = project
+    }
+    if let router = session?.router { Task { await router.setPermissionMode(mode, for: id) } }
+    persistSelectedFolder()
   }
 
   func dismissToolListNotice() {
@@ -261,6 +319,7 @@ import Observation
     guard !active else { return }
     currentRunID = nil
     activityLoad?.cancel()
+    activity = []
     guard let project else { activity = []; activityLoad = nil; return }
     let directory = LocalLogStore.activityDirectory(for: project, dataRoot: contextDataRoot)
     activityLoad = Task { [weak self] in
@@ -273,8 +332,8 @@ import Observation
   }
 
   func clearProjectActivity(_ project: ApprovedProject) async throws {
-    guard !active, !contextBusy, activeProject == project else {
-      throw Failure.invalid("Stop the runtime before clearing the selected folder's activity.")
+    guard !active, !contextBusy, approvedProjects.contains(project) else {
+      throw Failure.invalid("Stop the runtime before clearing this project's activity.")
     }
     contextBusy = true
     defer { contextBusy = false }
@@ -282,13 +341,15 @@ import Observation
     try await Task.detached(priority: .utility) {
       try LocalLogStore.clearActivities(directory: directory)
     }.value
-    reloadStoredActivity()
-    await activityLoad?.value
+    if activeProject?.id == project.id {
+      reloadStoredActivity()
+      await activityLoad?.value
+    }
   }
 
   func clearProjectMemory(_ project: ApprovedProject) async throws {
-    guard !active, !contextBusy, activeProject == project else {
-      throw Failure.invalid("Stop the runtime before clearing the selected folder's memory.")
+    guard !active, !contextBusy, approvedProjects.contains(project) else {
+      throw Failure.invalid("Stop the runtime before clearing this project's memory.")
     }
     contextBusy = true
     defer { contextBusy = false }
@@ -386,20 +447,25 @@ import Observation
         guard self.revision == token else { throw CancellationError() }
         // RuntimeCore restores stored activity from disk; build it off the main actor.
         let helper = Self.processHelper, dataRoot = self.contextDataRoot
+        let projects = self.approvedProjects
+        let selection: @Sendable (ApprovedProject) async -> Void = { [weak self] project in
+          await self?.runtimeSelectedProject(project, revision: token)
+        }
         let runtime = try await Task.detached(priority: .userInitiated) {
           // Resolving the login-shell PATH may take seconds; never on the main actor.
           _ = ProcessPolicy.developerPATH
           return try RuntimeCore(
             root: root, helper: helper, executionPolicy: policy,
-            project: selectedProject, contextDataRoot: dataRoot)
+            project: selectedProject, contextDataRoot: dataRoot,
+            approvedProjects: projects, onProjectSelected: selection)
         }.value
         owned = runtime
         try Task.checkCancellation()
         guard self.revision == token else { throw CancellationError() }
         self.session = runtime
         // A switch flipped while the runtime was being built must not be lost.
-        if let mode = self.activeProject?.permissionMode, mode != selectedProject.permissionMode {
-          await runtime.router.setPermissionMode(mode)
+        for project in self.approvedProjects {
+          await runtime.router.setPermissionMode(project.permissionMode, for: project.id)
         }
         self.bindActivity(runtime, token: token)
         self.phase = .starting
@@ -410,7 +476,9 @@ import Observation
         self.detail = "Project runtime is running."
         LocalLogStore.runtime("info", "Local folder runtime started.")
         if self.openAICanLaunch { self.connectRemote() }
-        self.cloudflare.start(router: runtime.router, project: root, helper: Self.processHelper)
+        for connection in self.publicConnections {
+          connection.start(router: runtime.router, project: root, helper: Self.processHelper)
+        }
       } catch {
         if let owned { await owned.stop() }
         guard self.revision == token else { return }
@@ -424,6 +492,14 @@ import Observation
       }
       if self.revision == token { self.startup = nil }
     }
+  }
+
+  private func runtimeSelectedProject(_ project: ApprovedProject, revision token: UUID) {
+    guard revision == token, active,
+      let selected = approvedProjects.first(where: { $0.id == project.id }) else { return }
+    activeProject = selected
+    persistSelectedFolder()
+    errorText = nil
   }
 
   /// SecItem calls block and may wait for the user; keep them off the main actor.
@@ -525,11 +601,12 @@ import Observation
     LocalLogStore.runtime("info", "Runtime stopping.")
     let cleanup = Task {
       async let cloudflareStop: Void = cloudflare.stop()
+      async let vpsStop: Void = vps.stop()
       await manager?.shutdown()
       if let owned { await owned.stop() }
       await task?.value
       await remoteTask?.value
-      await cloudflareStop
+      _ = await (cloudflareStop, vpsStop)
     }
     teardown = cleanup
     await cleanup.value
@@ -548,7 +625,10 @@ import Observation
   /// Polled state is assigned only when it changes, so an idle window does not
   /// invalidate every observing view on each tick.
   func refresh() async {
-    guard let owned = session else { await cloudflare.refresh(); return }
+    guard let owned = session else {
+      for connection in publicConnections { await connection.refresh() }
+      return
+    }
     let token = revision
     let operation = connectionRevision
     let manager = remote
@@ -556,8 +636,9 @@ import Observation
     async let remoteSnapshotTask = manager?.snapshot()
     async let approvalsTask = owned.router.pendingOperationApprovals()
     async let cloudflareTask: Void = cloudflare.refresh()
+    async let vpsTask: Void = vps.refresh()
     let (snapshot, remoteSnapshot, polled) = await (snapshotTask, remoteSnapshotTask, approvalsTask)
-    guard token == revision else { _ = await cloudflareTask; return }
+    guard token == revision else { _ = await (cloudflareTask, vpsTask); return }
     if currentRunID != snapshot.runID { currentRunID = snapshot.runID }
     if activityFeed == nil { activity = Array(snapshot.activity.prefix(200)) }
     if let remoteSnapshot, operation == connectionRevision, manager === remote, !connectionBusy,
@@ -578,7 +659,7 @@ import Observation
     }
     announcedOperationApprovals = approvalIDs
     retryConnectionIfNeeded()
-    await cloudflareTask
+    _ = await (cloudflareTask, vpsTask)
   }
 
   /// A failed tunnel (client exit, network down at login) reconnects on its own

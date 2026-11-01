@@ -63,7 +63,7 @@ public actor ConnectionManager {
       let context = RequestContext(
         transport: provider.id.transport, clientID: provider.id.rawValue + "-tunnel",
         clientName: provider.id.title, authorizationID: owned.id)
-      guard (provider.id == .cloudflare) == (oauth != nil) else {
+      guard provider.id.requiresOAuth == (oauth != nil) else {
         throw Failure.invalid("Public ingress requires local OAuth authorization.")
       }
       let authentication: MCPAuthentication = oauth.map(MCPAuthentication.oauth)

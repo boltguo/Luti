@@ -11,13 +11,13 @@ struct HomeView: View {
       currentTaskSection
 
       MDSection(title: L10n.text("common.projects")) {
-        MDNavigationRow(
+        MDListRow(
           title: model.activeProject?.name ?? L10n.text("projects.noProjectsYet"),
           symbol: "folder",
           subtitle: model.activeProject?.path ?? L10n.text("projects.chooseLocalFolderProjectWorkspace"),
           prominent: model.activeProject == nil,
-          iconTone: .purple,
-          action: openProjects)
+          iconTone: .purple
+        ) { EmptyView() }
           .accessibilityIdentifier("home-project")
       }
 
@@ -42,11 +42,9 @@ struct HomeView: View {
         id: .openAI,
         status: L10n.text(model.connectionStatusKey)))
     }
-    if model.cloudflare.enabled {
-      items.append(EnabledConnectionItem(
-        id: .cloudflare,
-        status: L10n.text(model.cloudflare.authorization.pending.isEmpty
-          ? model.cloudflare.statusKey : "cloudflare.pending")))
+    for connection in model.publicConnections where connection.enabled {
+      items.append(EnabledConnectionItem(id: connection.providerID,
+        status: L10n.text(connection.authorization.pending.isEmpty ? connection.statusKey : "cloudflare.pending")))
     }
     return items
   }
@@ -68,7 +66,7 @@ struct HomeView: View {
         } else {
           ForEach(Array(enabledConnections.enumerated()), id: \.element.id) { index, item in
             MDListRow(
-              title: item.id.title,
+              title: item.id.displayTitle,
               symbol: item.id.symbol,
               position: MDListRowPosition(index: index, count: enabledConnections.count),
               iconTone: item.id.iconTone

@@ -6,24 +6,78 @@ import XCTest
 
 /// No cloud process, account or public network is used by this suite.
 private actor FixtureProvider: ConnectionProvider {
-  nonisolated let id = ConnectionProviderID.openAI
+  nonisolated let id: ConnectionProviderID
   nonisolated let privateCredential = "lt_" + Budget.token()
   private let stateAfterStart: ConnectionState
   private var state = ConnectionSnapshot.stopped
   private(set) var endpoint: URL?
+  private(set) var starts = 0
+  private(set) var stops = 0
 
-  init(stateAfterStart: ConnectionState = .ready) {
+  init(stateAfterStart: ConnectionState = .ready, id: ConnectionProviderID = .openAI) {
+    self.id = id
     self.stateAfterStart = stateAfterStart
   }
   func start(endpoint: URL) async throws {
+    starts += 1
     self.endpoint = endpoint
     state = ConnectionSnapshot(state: stateAfterStart)
   }
   func snapshot() -> ConnectionSnapshot { state }
-  func stop() { state = .stopped }
+  func stop() { stops += 1; state = .stopped }
 }
 
 @MainActor final class ConnectionProviderTests: XCTestCase {
+  func testRemoteProjectSelectionUpdatesAppAndPersistenceWithoutReconnecting() async throws {
+    let first = try Fixture(), second = try Fixture()
+    let provider = FixtureProvider()
+    let key = "sk-" + String(repeating: "a", count: 40)
+    let store = FixtureKeychain(values: [KeychainService.openAIAPIKey: key])
+    first.defaults.set("tunnel_0123456789abcdef0123456789abcdef", forKey: "connection.openai.tunnelID")
+    let model = AppModel(contextDataRoot: first.contextDataRoot, defaults: first.defaults,
+      credentials: store.client, makeProvider: { _, _, _ in provider })
+    addTeardownBlock { await model.stop(); first.remove(); second.remove() }
+    model.addProject(first.root)
+    let a = try XCTUnwrap(model.activeProject)
+    model.addProject(second.root)
+    let b = try XCTUnwrap(model.activeProject)
+    model.selectProject(a.id)
+    model.requestStart()
+    for _ in 0..<300 {
+      if model.connection.state == .ready { break }
+      try await Task.sleep(for: .milliseconds(25))
+    }
+    XCTAssertEqual(model.connection.state, .ready)
+    let captured = await provider.endpoint
+    let endpoint = try XCTUnwrap(captured)
+    let runID = model.currentRunID
+    let (_, before) = try await rpc(endpoint, bearer: "Bearer " + provider.privateCredential,
+      method: "tools/call", params: ["name": "project_info", "arguments": [:]])
+    let info = before["result"]["structuredContent"]
+    XCTAssertEqual(info["projects"].array?.count, 2)
+    let (status, result) = try await rpc(endpoint, bearer: "Bearer " + provider.privateCredential,
+      method: "tools/call", params: ["name": "project_select", "arguments": [
+        "projectId": .string(b.id), "projectToken": info["projectToken"]]])
+    XCTAssertEqual(status, 200)
+    XCTAssertEqual(result["result"]["isError"], false, result.text())
+    XCTAssertEqual(result["result"]["structuredContent"]["root"], .string(second.root.path))
+    await model.refresh()
+    XCTAssertEqual(model.activeProject, b)
+    XCTAssertEqual(model.currentRunID, runID)
+    XCTAssertEqual(model.phase, .running)
+    XCTAssertEqual(model.connection.state, .ready)
+    let starts = await provider.starts, stops = await provider.stops
+    XCTAssertEqual(starts, 1)
+    XCTAssertEqual(stops, 0)
+    let (_, after) = try await rpc(endpoint, bearer: "Bearer " + provider.privateCredential,
+      method: "tools/call", params: ["name": "project_info", "arguments": [:]])
+    XCTAssertEqual(after["result"]["structuredContent"]["projectId"], .string(b.id))
+    await model.stop()
+    let reopened = AppModel(contextDataRoot: first.contextDataRoot, defaults: first.defaults, credentials: store.client)
+    XCTAssertEqual(reopened.activeProject, b)
+    XCTAssertEqual(reopened.approvedProjects, [a, b])
+  }
+
   private func fixture() throws -> (Fixture, RuntimeCore, ConnectionManager) {
     let f = try Fixture()
     let runtime = try RuntimeCore(root: f.root, helper: Fixture.helper, contextDataRoot: f.contextDataRoot)
@@ -47,7 +101,7 @@ private actor FixtureProvider: ConnectionProvider {
   }
 
   func testProviderCatalogKeepsOnlySupportedTransports() {
-    XCTAssertEqual(ConnectionProviderID.allCases, [.openAI, .cloudflare])
+    XCTAssertEqual(ConnectionProviderID.allCases, [.openAI, .cloudflare, .vps])
     for removed in ["ngrok", "quick", "custom"] {
       XCTAssertNil(ConnectionProviderID(rawValue: removed))
     }
@@ -302,6 +356,320 @@ private actor FixtureProvider: ConnectionProvider {
 }
 
 extension ConnectionProviderTests {
+  private func vpsPublicKey(_ f: Fixture) throws -> String {
+    let key = try VPSIdentity.prepare(in: f.contextDataRoot)
+    return try VPSConfiguration.publicKey(String(decoding: PrivateFiles.read(key.appendingPathExtension("pub"), max: 2048), as: UTF8.self))
+  }
+
+  func testVPSConfigurationRejectsOptionsURLsAndMalformedHostKeys() throws {
+    let f = try Fixture(); defer { f.remove() }
+    let key = try vpsPublicKey(f)
+    for host in ["203.0.113.10", "vps.example.com", "2001:db8::1"] {
+      XCTAssertNoThrow(try VPSConfiguration(host: host, port: "22", hostKey: key))
+    }
+    for host in ["-oProxyCommand=sh", "user@vps.example.com", "https://vps.example.com", "host\ncommand", "256.999.1.1", "host;touch /tmp/example"] {
+      XCTAssertThrowsError(try VPSConfiguration(host: host, port: "22", hostKey: key), host)
+    }
+    for port in ["0", "65536", "22 -oOption=value"] {
+      XCTAssertThrowsError(try VPSConfiguration(host: "203.0.113.10", port: port, hostKey: key))
+    }
+    for key in ["", "ssh-ed25519 AAAA", "ssh-rsa " + key.split(separator: " ")[1]] {
+      XCTAssertThrowsError(try VPSConfiguration(host: "203.0.113.10", port: "22", hostKey: key))
+    }
+  }
+
+  func testVPSIdentityIsPreservedAndSetupScriptParses() throws {
+    let f = try Fixture(); defer { f.remove() }
+    let identity = try VPSIdentity.prepare(in: f.contextDataRoot)
+    let before = Budget.sha256(try PrivateFiles.read(identity, max: 8192))
+    let script = try VPSIdentity.setupScript(origin: URL(string: "https://mcp.example.com")!, root: f.contextDataRoot)
+    XCTAssertEqual(before, Budget.sha256(try PrivateFiles.read(identity, max: 8192)))
+    let permissions = try FileManager.default.attributesOfItem(atPath: identity.path)[.posixPermissions] as? NSNumber
+    XCTAssertEqual(permissions?.intValue, 0o600)
+    XCTAssertFalse(script.contains("__LUTI_"))
+    XCTAssertFalse(script.contains("BEGIN OPENSSH PRIVATE KEY"))
+    try f.write("setup.sh", script)
+    let check = Process()
+    check.executableURL = URL(fileURLWithPath: "/bin/bash")
+    check.arguments = ["-n", f.root.appendingPathComponent("setup.sh").path]
+    try check.run(); check.waitUntilExit()
+    XCTAssertEqual(check.terminationStatus, 0)
+    XCTAssertThrowsError(try VPSIdentity.setupScript(origin: URL(string: "https://mcp.example.com/path")!, root: f.contextDataRoot))
+  }
+
+  func testVPSSSHConfigurationPinsHostKeyAndUsesRestrictedReverseForward() throws {
+    let f = try Fixture(); defer { f.remove() }
+    let configuration = try VPSConfiguration(host: "203.0.113.10", port: "2222", hostKey: vpsPublicKey(f))
+    XCTAssertTrue(configuration.knownHost.hasPrefix("[203.0.113.10]:2222 ssh-ed25519 "))
+    let args = VPSTunnelProvider.arguments(configuration: configuration,
+      identity: VPSIdentity.key(in: f.contextDataRoot), knownHosts: f.root.appendingPathComponent("known_hosts"),
+      control: f.root.appendingPathComponent("ssh.sock"), localPort: 39394)
+    let check = Process(), output = Pipe()
+    check.executableURL = URL(fileURLWithPath: "/usr/bin/ssh")
+    check.arguments = ["-G"] + args
+    check.standardOutput = output
+    check.standardError = FileHandle.nullDevice
+    try check.run()
+    let data = output.fileHandleForReading.readDataToEndOfFile()
+    check.waitUntilExit()
+    XCTAssertEqual(check.terminationStatus, 0)
+    let parsed = String(decoding: data, as: UTF8.self)
+    XCTAssertTrue(parsed.contains("user luti\n"))
+    XCTAssertTrue(parsed.contains("batchmode yes\n"))
+    XCTAssertTrue(parsed.contains("stricthostkeychecking true\n"))
+    XCTAssertTrue(parsed.contains("exitonforwardfailure yes\n"))
+    XCTAssertTrue(parsed.contains("identityagent none\n"))
+    XCTAssertTrue(parsed.contains("remoteforward [127.0.0.1]:39393 [127.0.0.1]:39394"))
+    XCTAssertTrue(parsed.contains("userknownhostsfile " + f.root.appendingPathComponent("known_hosts").path))
+  }
+
+  func testVPSSetupSSHDRestrictionsApplyOnlyToTunnelUser() throws {
+    let f = try Fixture(); defer { f.remove() }
+    let script = try VPSIdentity.setupScript(origin: URL(string: "https://mcp.example.com")!, root: f.contextDataRoot)
+    let block = try XCTUnwrap(script.components(separatedBy: "<<LUTI_SSH\n").dropFirst().first)
+      .components(separatedBy: "\nLUTI_SSH")[0]
+      .replacingOccurrences(of: "$remote_port", with: String(VPSConfiguration.remotePort))
+    try f.write("tunnel.conf", block)
+    try f.write("sshd_config", "Include \(f.root.path)/tunnel.conf\nHostKey \(VPSIdentity.key(in: f.contextDataRoot).path)\nPidFile \(f.root.path)/sshd.pid\n")
+    for user in ["luti", "other-user"] {
+      let check = Process(), output = Pipe()
+      check.executableURL = URL(fileURLWithPath: "/usr/sbin/sshd")
+      check.arguments = ["-T", "-f", f.root.appendingPathComponent("sshd_config").path,
+        "-C", "user=\(user),addr=127.0.0.1,host=localhost"]
+      check.standardOutput = output
+      check.standardError = FileHandle.nullDevice
+      try check.run()
+      let parsed = String(decoding: output.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self).lowercased()
+      check.waitUntilExit()
+      XCTAssertEqual(check.terminationStatus, 0)
+      if user == "luti" {
+        XCTAssertTrue(parsed.contains("allowtcpforwarding remote\n"))
+        XCTAssertTrue(parsed.contains("permitlisten 127.0.0.1:39393\n"))
+        XCTAssertTrue(parsed.contains("maxsessions 0\n"))
+        XCTAssertTrue(parsed.contains("passwordauthentication no\n"))
+        XCTAssertTrue(parsed.contains("authenticationmethods publickey\n"))
+      } else {
+        XCTAssertTrue(parsed.contains("allowtcpforwarding yes\n"))
+        XCTAssertTrue(parsed.contains("maxsessions 10\n"))
+      }
+    }
+  }
+
+  func testVPSPublicListenerRequiresOAuthAndSupportsDiscovery() async throws {
+    let (_, runtime, manager) = try fixture()
+    try await runtime.start()
+    let origin = URL(string: "https://vps.example.com")!
+    let oauth = try OAuthService(origin: origin, transport: .vps)
+    let provider = FixtureProvider(id: .vps)
+    do { try await manager.connect(provider); XCTFail("Public VPS ingress must require OAuth.") }
+    catch { XCTAssertEqual((error as? Failure)?.code, "invalid_arguments") }
+    try await manager.connect(provider, oauth: oauth)
+    let captured = await provider.endpoint
+    let endpoint = try XCTUnwrap(captured)
+    let missing = try await rpc(endpoint)
+    XCTAssertEqual(missing.0, 401)
+    let metadata = try await ConnectionProbe.request(endpoint.deletingLastPathComponent()
+      .appendingPathComponent(".well-known/oauth-protected-resource/mcp"))
+    XCTAssertEqual(metadata.status, 200)
+    XCTAssertEqual(metadata.json["resource"].string, origin.absoluteString + "/mcp")
+    XCTAssertEqual(PublicConnectionContract.port(for: .vps), PublicConnectionContract.port(for: .cloudflare) + 1)
+  }
+
+  func testVPSSettingsAndRuntimeDoNotRequireCloudflareCredentials() async throws {
+    let f = try Fixture()
+    let store = FixtureKeychain()
+    let provider = FixtureProvider(id: .vps)
+    let model = AppModel(contextDataRoot: f.contextDataRoot, defaults: f.defaults, credentials: store.client,
+      makeVPSProvider: { _, _, _, _ in provider })
+    addTeardownBlock { await model.stop(); f.remove() }
+    model.addProject(f.root)
+    model.vps.domain = "https://vps.example.com"
+    model.vps.vpsHost = "203.0.113.10"
+    model.vps.vpsHostKey = try vpsPublicKey(f)
+    await model.vps.save()
+    XCTAssertNil(model.vps.error)
+    XCTAssertTrue(model.vps.configured)
+    XCTAssertTrue(model.canLaunch)
+    XCTAssertFalse(model.cloudflare.configured)
+    model.requestStart()
+    for _ in 0..<150 {
+      if model.vps.connection.state == .ready { break }
+      try await Task.sleep(for: .milliseconds(20))
+    }
+    XCTAssertEqual(model.phase, .running)
+    XCTAssertEqual(model.vps.connection.state, .ready)
+    XCTAssertEqual(model.reachableConnection.providerID, .vps)
+    XCTAssertTrue(store.readInteractions.isEmpty)
+    await model.stop()
+    let reopened = AppModel(contextDataRoot: f.contextDataRoot, defaults: f.defaults, credentials: store.client)
+    addTeardownBlock { await reopened.stop() }
+    XCTAssertTrue(reopened.vps.configured)
+    XCTAssertEqual(reopened.vps.vpsHost, "203.0.113.10")
+    XCTAssertFalse(reopened.cloudflare.enabled)
+  }
+
+  func testInvalidVPSSettingsLeaveCloudflareConfigurationIntact() async throws {
+    let f = try Fixture()
+    let store = FixtureKeychain()
+    let model = AppModel(contextDataRoot: f.contextDataRoot, defaults: f.defaults, credentials: store.client)
+    addTeardownBlock { await model.stop(); f.remove() }
+    model.cloudflare.domain = "https://cf.example.com"
+    model.cloudflare.tokenDraft = String(repeating: "t", count: 80)
+    await model.cloudflare.save()
+    model.vps.domain = "https://vps.example.com"
+    model.vps.vpsHost = "203.0.113.10"
+    model.vps.vpsHostKey = "invalid"
+    await model.vps.save()
+    XCTAssertNotNil(model.vps.error)
+    XCTAssertEqual(model.vps.savedDomain, "")
+    XCTAssertEqual(model.cloudflare.savedDomain, "https://cf.example.com")
+    XCTAssertTrue(model.cloudflare.configured)
+    XCTAssertNotNil(store.value(CloudflareContract.tokenAccount))
+  }
+
+  func testCloudflareAndVPSRunIndependentlyAndStopTogether() async throws {
+    let f = try Fixture()
+    let cf = FixtureProvider(id: .cloudflare), vps = FixtureProvider(id: .vps)
+    let model = AppModel(contextDataRoot: f.contextDataRoot, defaults: f.defaults, credentials: FixtureKeychain().client,
+      makeCloudflareProvider: { _, _ in cf }, makeVPSProvider: { _, _, _, _ in vps })
+    addTeardownBlock { await model.stop(); f.remove() }
+    model.addProject(f.root)
+    model.cloudflare.domain = "https://cf.example.com"
+    model.cloudflare.tokenDraft = String(repeating: "t", count: 80)
+    await model.cloudflare.save()
+    model.vps.domain = "https://vps.example.com"
+    model.vps.vpsHost = "203.0.113.10"
+    model.vps.vpsHostKey = try vpsPublicKey(f)
+    await model.vps.save()
+    model.requestStart()
+    for _ in 0..<150 {
+      if model.publicConnections.allSatisfy({ $0.connection.state == .ready }) { break }
+      try await Task.sleep(for: .milliseconds(20))
+    }
+    XCTAssertEqual(model.cloudflare.connection.state, .ready)
+    XCTAssertEqual(model.vps.connection.state, .ready)
+    let cfEndpoint = await cf.endpoint, vpsEndpoint = await vps.endpoint
+    XCTAssertNotEqual(cfEndpoint?.port, vpsEndpoint?.port)
+    for endpoint in [try XCTUnwrap(cfEndpoint), try XCTUnwrap(vpsEndpoint)] {
+      let response = try await rpc(endpoint)
+      XCTAssertEqual(response.0, 401)
+    }
+    await model.stop()
+    XCTAssertTrue(model.publicConnections.allSatisfy { $0.connection.state == .stopped })
+    model.vps.enabled = false
+    XCTAssertTrue(model.cloudflare.enabled)
+  }
+
+  /// Exercise the real child-process lifecycle without downloading a connector or using the network.
+  private func cloudflareFixture(
+    startupTimeout: Duration = .milliseconds(900), exits: Bool = false, metrics: Bool = true,
+    probe: @escaping @Sendable (URL) async -> Bool
+  ) throws -> (Fixture, CloudflareTunnelProvider) {
+    let f = try Fixture()
+    let binary = f.root.appendingPathComponent("cloudflared-fixture")
+    try f.write("cloudflared-fixture", """
+      #!/bin/sh
+      transport=
+      while [ "$#" -gt 0 ]; do
+        if [ "$1" = "--protocol" ]; then
+          shift
+          transport="$1"
+        fi
+        shift
+      done
+      [ -n "$TUNNEL_TOKEN" ] || exit 42
+      printf '%s\\n' "$transport" >> '\(f.root.path)/launches'
+      \(exits ? "exit 1" : "")
+      port=49151
+      if [ "$transport" = "http2" ]; then port=49152; fi
+      \(metrics ? "printf 'Starting metrics server on 127.0.0.1:%s/metrics\\n' \"$port\"" : "")
+      exec /bin/sleep 60
+      """)
+    try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: binary.path)
+    let provider = try CloudflareTunnelProvider(
+      token: String(repeating: "t", count: 80), helper: Fixture.helper,
+      startupTimeout: startupTimeout, prepareBinary: { binary }, probe: probe)
+    addTeardownBlock { await provider.stop(); f.remove() }
+    return (f, provider)
+  }
+
+  private func cloudflareLaunches(_ f: Fixture) -> [String] {
+    let output = (try? String(contentsOf: f.root.appendingPathComponent("launches"), encoding: .utf8)) ?? ""
+    return output.split(separator: "\n").map(String.init)
+  }
+
+  private var cloudflareEndpoint: URL {
+    URL(string: "http://127.0.0.1:\(CloudflareContract.port)/mcp")!
+  }
+
+  func testCloudflareKeepsAutoWhenInitiallyReady() async throws {
+    let (f, provider) = try cloudflareFixture { $0.port == 49151 }
+    try await provider.start(endpoint: cloudflareEndpoint)
+    let snapshot = await provider.snapshot()
+    XCTAssertEqual(snapshot.state, .ready)
+    XCTAssertEqual(cloudflareLaunches(f), ["auto"])
+  }
+
+  func testCloudflareStartupTimeoutFallsBackToHTTP2() async throws {
+    let (f, provider) = try cloudflareFixture { $0.port == 49152 }
+    try await provider.start(endpoint: cloudflareEndpoint)
+    let snapshot = await provider.snapshot()
+    XCTAssertEqual(snapshot.state, .ready)
+    XCTAssertEqual(cloudflareLaunches(f), ["auto", "http2"])
+  }
+
+  func testCloudflareKeepsLiveHTTP2AfterBothStartupDeadlinesAndRecovers() async throws {
+    let readiness = CloudflareFixtureReadiness()
+    let (f, provider) = try cloudflareFixture { await readiness.probe($0) }
+    try await provider.start(endpoint: cloudflareEndpoint)
+    let pending = await provider.snapshot()
+    XCTAssertEqual(pending.state, .reconnecting)
+    XCTAssertEqual(cloudflareLaunches(f), ["auto", "http2"])
+
+    await readiness.setReady()
+    // Let the existing five-second probe cache expire, well past both fixture startup deadlines.
+    try await Task.sleep(for: .milliseconds(5100))
+    let recovered = await provider.snapshot()
+    XCTAssertEqual(recovered.state, .ready)
+    XCTAssertEqual(cloudflareLaunches(f), ["auto", "http2"], "Network recovery must reuse the HTTP/2 child.")
+    await provider.stop()
+    let stopped = await provider.snapshot()
+    XCTAssertEqual(stopped.state, .stopped)
+  }
+
+  func testCloudflareStopAndCancellationCannotLaunchFallback() async throws {
+    for cancel in [false, true] {
+      let (f, provider) = try cloudflareFixture(startupTimeout: .seconds(5)) { _ in false }
+      let endpoint = cloudflareEndpoint
+      let start = Task { try await provider.start(endpoint: endpoint) }
+      for _ in 0..<100 {
+        if !cloudflareLaunches(f).isEmpty { break }
+        try await Task.sleep(for: .milliseconds(10))
+      }
+      XCTAssertEqual(cloudflareLaunches(f), ["auto"])
+      if cancel { start.cancel() } else { await provider.stop() }
+      do { try await start.value; XCTFail("Stopped startup must not complete.") }
+      catch { XCTAssertTrue(error is CancellationError) }
+      let snapshot = await provider.snapshot()
+      XCTAssertEqual(snapshot.state, .stopped)
+      XCTAssertEqual(cloudflareLaunches(f), ["auto"])
+    }
+  }
+
+  func testCloudflareExitedChildDoesNotTriggerProtocolFallback() async throws {
+    let (f, provider) = try cloudflareFixture(exits: true) { _ in false }
+    do { try await provider.start(endpoint: cloudflareEndpoint); XCTFail("Exited child must fail startup.") }
+    catch { XCTAssertEqual((error as? Failure)?.code, "cloudflare_unavailable") }
+    XCTAssertEqual(cloudflareLaunches(f), ["auto"])
+  }
+
+  func testCloudflareMissingMetricsDoesNotTriggerProtocolFallback() async throws {
+    let (f, provider) = try cloudflareFixture(metrics: false) { _ in false }
+    do { try await provider.start(endpoint: cloudflareEndpoint); XCTFail("Missing metrics must fail startup.") }
+    catch { XCTAssertEqual((error as? Failure)?.code, "cloudflare_unavailable") }
+    XCTAssertEqual(cloudflareLaunches(f), ["auto"])
+  }
+
   func testSavedRuntimeResumesAfterUnavailableKeychainProbeAndRead() async throws {
     let f = try Fixture()
     let key = "sk-" + String(repeating: "a", count: 40)
@@ -409,4 +777,10 @@ extension ConnectionProviderTests {
     XCTAssertEqual(store.readInteractions, [true])
     await model.stop()
   }
+}
+
+private actor CloudflareFixtureReadiness {
+  private var ready = false
+  func setReady() { ready = true }
+  func probe(_ url: URL) -> Bool { ready && url.port == 49152 }
 }

@@ -27,11 +27,19 @@ on `/oauth/register` and `/oauth/authorize` (or restrict source IPs in WAF).
 Tunnel readiness reports an edge connection, not proof that the hostname route or
 an AI client has been tested.
 
+Connections start with `auto` (QUIC first). If the running connector exposes its
+metrics endpoint but is still not ready after 45 seconds, Luti replaces only that
+connector with one forced to HTTP/2. A live HTTP/2 connector keeps retrying and
+reports reconnecting, even if its first 45 seconds also expire. The listener,
+OAuth requests and project jobs stay in place during fallback. A new runtime
+starts with `auto` again; an exited connector uses the existing retry backoff.
+
 ## Authorization behavior
 
 - All MCP tools require approval on this Mac. The browser can only wait and receive
   the result; there is no web approval endpoint. The granted scope is `mcp`, covering
-  the current project's existing file, command, browser and artifact capabilities.
+  file, command, browser and artifact capabilities in locally added projects,
+  including selection of the shared current project through `project_select`.
   Commands run with the current user's privileges, as with the OpenAI connection.
 - Remote OAuth clients (such as ChatGPT, Claude, and Grok web connectors) must use
   public `https://` callback URLs. Loopback (`http://127.0.0.1`) and custom-scheme

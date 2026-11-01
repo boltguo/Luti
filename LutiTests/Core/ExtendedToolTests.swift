@@ -15,8 +15,13 @@ import SwiftUI
 
   func testRenderProjectFirstPages() throws {
     let fixture = try Fixture(); defer { fixture.remove() }
+    let projects = [
+      ApprovedProject(id: "current", name: "Luti", path: "/Projects/Luti"),
+      ApprovedProject(id: "notes", name: "Notes", path: "/Projects/Notes"),
+    ]
+    fixture.defaults.set(try JSONEncoder().encode(projects), forKey: "projectFolders")
+    fixture.defaults.set(try JSONEncoder().encode(projects[0]), forKey: "selectedFolder")
     let model = AppModel(contextDataRoot: fixture.contextDataRoot, defaults: fixture.defaults)
-    model.activeProject = ApprovedProject(id: "current", name: "Luti", path: "/Projects/Luti")
 
     model.phase = .running
     model.connection = ConnectionSnapshot(state: .ready, providerID: .openAI)
@@ -71,10 +76,10 @@ import SwiftUI
 
   func testRenderProjectDetailsAndSettingsPages() async throws {
     let f = try Fixture(); defer { f.remove() }
+    let project = ApprovedProject(id: "fixture", name: "Review project", url: f.root)
+    f.defaults.set(try JSONEncoder().encode(project), forKey: "selectedFolder")
     let model = AppModel(contextDataRoot: f.contextDataRoot, defaults: f.defaults)
     await model.activityLoad?.value
-    let project = ApprovedProject(id: "fixture", name: "Review project", url: f.root)
-    model.activeProject = project
     model.activity = [
       ActivityEvent(id: UUID(), startedAt: .now, finishedAt: .now, tool: "browser_action",
         action: "click", target: "tab_fixture", status: "ok", effect: "submitted",
@@ -102,7 +107,7 @@ import SwiftUI
     }
     language.selection = .english
     var pages: [(String, AnyView)] = [
-      ("project-details", AnyView(ProjectsView(model: model))),
+      ("project-details", AnyView(ProjectDetailView(model: model, project: project, back: {}))),
       ("project-activity", AnyView(ProjectActivityView(model: model, project: project, back: {})))
     ]
     for page in SettingsPage.allCases where page != .root {
@@ -129,8 +134,9 @@ import SwiftUI
   }
 
   func testRenderLocalFirstAndRemoteFailureStates() throws {
-    let f = try Fixture(); defer { f.remove() }
+    let f = try Fixture(), empty = try Fixture(); defer { f.remove(); empty.remove() }
     let model = AppModel(contextDataRoot: f.contextDataRoot, defaults: f.defaults)
+    let emptyModel = AppModel(contextDataRoot: empty.contextDataRoot, defaults: empty.defaults)
     let project = ApprovedProject(id: "preview", name: "Luti", url: f.root)
     let repo = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
     let output = repo.appendingPathComponent("build/ui-review-previews", isDirectory: true)
@@ -168,8 +174,10 @@ import SwiftUI
           let page: AnyView
           if state.hasPrefix("connection-") {
             page = AnyView(ConfigurationView(model: model))
-          } else if state.hasPrefix("project-") {
-            page = AnyView(ProjectsView(model: model))
+          } else if state == "project-empty" {
+            page = AnyView(ProjectsView(model: emptyModel))
+          } else if state == "project-details" {
+            page = AnyView(ProjectDetailView(model: model, project: project, back: {}))
           } else {
             page = AnyView(HomeView(model: model, openProjects: {}))
           }

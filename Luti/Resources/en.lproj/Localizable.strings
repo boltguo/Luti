@@ -76,7 +76,7 @@
 "home.notConnect" = "Could not connect";
 "home.notRunning" = "Not running";
 "home.readyStart" = "Ready to start";
-"home.configureTunnel" = "Set up OpenAI Tunnel to start";
+"home.configureTunnel" = "Configure a connection to start";
 "home.saveConnection" = "Save connection settings to start";
 "home.reconnecting" = "Reconnecting";
 "home.setUpConnectionStarting" = "Set up your connection before starting.";
@@ -122,6 +122,9 @@
 "projects.refresh" = "Refresh";
 "projects.removeProject" = "Remove Folder";
 "projects.selected" = "Selected";
+"projects.current" = "Current";
+"projects.use" = "Use";
+"projects.useProject" = "Use %@";
 "projects.showFinder" = "Show in Finder";
 "projects.stopSessionSwitchRemoveProjects" = "Stop Luti before changing project settings.";
 
@@ -176,7 +179,7 @@
 "home.currentTask" = "Current Task";
 "home.idle" = "Idle";
 
-"projects.stopRuntimeToEditProject" = "Stop Luti before removing this folder.";
+"projects.stopRuntimeToEditProject" = "Stop Luti before adding, switching or removing folders.";
 
 "connection.setupGuide" = "Setup Guide";
 "connection.clearConfigurationConfirmation" = "Clear this configuration?";
@@ -254,7 +257,7 @@
 "permissionMode.fullProjectAccess" = "Full Access";
 "permissionMode.fullProjectAccessDescription" = "All operations run without asking.";
 "cloudflare.verify" = "Match the code and callback domain with your browser. The application name is supplied by the client and is not a verified identity.";
-"cloudflare.access" = "Allow access to this project’s files, commands and browser tools. Commands run with your current macOS user permissions.";
+"cloudflare.access" = "Allow access to files, commands and browser tools in added projects, and switch the current project. Commands run with your macOS user permissions.";
 "cloudflare.deny" = "Deny";
 "cloudflare.allow" = "Allow access";
 "cloudflare.apps" = "Authorized apps";
@@ -286,3 +289,23 @@
 "context.state.active" = "Active";
 "context.state.superseded" = "Superseded";
 "context.state.forgotten" = "Forgotten";
+
+// Public HTTPS and self-hosted VPS
+"connection.publicHTTPS" = "Public HTTPS";
+"connection.publicEnabled" = "Enable public HTTPS";
+"connection.transport" = "Transport";
+"vps.title" = "Self-hosted VPS";
+"vps.host" = "VPS IP or DNS-only hostname";
+"vps.hostKey" = "Server SSH host public key";
+"vps.setup" = "Set up Ubuntu / Debian VPS";
+"vps.copySetup" = "Copy server setup script";
+"vps.scriptCopied" = "Setup script copied";
+"vps.advanced" = "SSH settings";
+"vps.sshPort" = "SSH port";
+"vps.clearNotice" = "Remove the saved domain and VPS connection settings. The SSH identity and existing app authorizations are kept.";
+"vps.step1.title" = "Point your domain to the VPS";
+"vps.step1.detail" = "Use a dedicated subdomain with DNS-only A/AAAA records. Allow inbound TCP SSH, 80 and 443 in the VPS firewall.";
+"vps.step2.title" = "Initialize the empty VPS once";
+"vps.step2.detail" = "Fill in the domain and VPS address, copy the script below and run it as root on your Ubuntu/Debian VPS. It creates a restricted SSH account and configures automatic HTTPS. Existing web servers are not replaced.";
+"vps.step3.title" = "Verify the server identity and save";
+"vps.step3.detail" = "Copy the ssh-ed25519 host public key from the trusted VPS console into the field below. Save, then start Luti. Orange-cloud proxying is optional after HTTPS works; use Full (strict).";

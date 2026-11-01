@@ -76,7 +76,7 @@
 "home.notConnect" = "接続できませんでした";
 "home.notRunning" = "実行していません";
 "home.readyStart" = "開始できます";
-"home.configureTunnel" = "OpenAI Tunnelを設定すると開始できます";
+"home.configureTunnel" = "接続を設定すると開始できます";
 "home.saveConnection" = "接続設定を保存すると開始できます";
 "home.reconnecting" = "再接続中";
 "home.setUpConnectionStarting" = "開始する前に、接続を設定してください。";
@@ -122,6 +122,9 @@
 "projects.refresh" = "更新";
 "projects.removeProject" = "フォルダを削除";
 "projects.selected" = "選択中";
+"projects.current" = "選択中";
+"projects.use" = "使用";
+"projects.useProject" = "%@を使用";
 "projects.showFinder" = "Finderに表示";
 "projects.stopSessionSwitchRemoveProjects" = "プロジェクトの設定を変更する前に、Lutiを停止してください。";
 
@@ -176,7 +179,7 @@
 "home.currentTask" = "現在のタスク";
 "home.idle" = "待機中";
 
-"projects.stopRuntimeToEditProject" = "フォルダを削除する前にLutiを停止してください。";
+"projects.stopRuntimeToEditProject" = "フォルダの追加・切り替え・削除はLutiを停止してから行ってください。";
 
 "connection.setupGuide" = "設定ガイド";
 "connection.clearConfigurationConfirmation" = "この設定を消去しますか？";
@@ -254,7 +257,7 @@
 "permissionMode.fullProjectAccess" = "フルアクセス";
 "permissionMode.fullProjectAccessDescription" = "すべての操作を確認なしで実行します。";
 "cloudflare.verify" = "ブラウザの確認コードとコールバックドメインを照合してください。アプリ名はクライアントの申告であり、本人確認済みの情報ではありません。";
-"cloudflare.access" = "このプロジェクトのファイル、コマンド、ブラウザツールへのアクセスを許可します。コマンドは現在の macOS ユーザー権限で実行されます。";
+"cloudflare.access" = "追加済みプロジェクトのファイル、コマンド、ブラウザツールへのアクセスとプロジェクトの切り替えを許可します。コマンドは現在の macOS ユーザー権限で実行されます。";
 "cloudflare.deny" = "拒否";
 "cloudflare.allow" = "アクセスを許可";
 "cloudflare.apps" = "承認済みアプリ";
@@ -286,3 +289,23 @@
 "context.state.active" = "有効";
 "context.state.superseded" = "置き換え済み";
 "context.state.forgotten" = "忘却済み";
+
+// Public HTTPS and self-hosted VPS
+"connection.publicHTTPS" = "公開 HTTPS";
+"connection.publicEnabled" = "公開 HTTPS を有効にする";
+"connection.transport" = "接続方式";
+"vps.title" = "自己ホスト VPS";
+"vps.host" = "VPS の IP または DNS のみのホスト名";
+"vps.hostKey" = "サーバーの SSH ホスト公開鍵";
+"vps.setup" = "Ubuntu / Debian VPS の初期設定";
+"vps.copySetup" = "サーバー初期設定スクリプトをコピー";
+"vps.scriptCopied" = "初期設定スクリプトをコピーしました";
+"vps.advanced" = "SSH 設定";
+"vps.sshPort" = "SSH ポート";
+"vps.clearNotice" = "保存したドメインと VPS 接続設定を削除します。SSH 秘密鍵と既存のアプリ認可は保持されます。";
+"vps.step1.title" = "ドメインを VPS に向ける";
+"vps.step1.detail" = "専用サブドメインに DNS のみの A/AAAA レコードを設定します。VPS のファイアウォールで SSH、80、443 の TCP ポートを許可します。";
+"vps.step2.title" = "空の VPS を一度だけ初期設定";
+"vps.step2.detail" = "ドメインと VPS アドレスを入力し、下のスクリプトをコピーして Ubuntu/Debian VPS 上で root として実行します。制限付き SSH アカウントと自動 HTTPS を設定します。既存の Web サーバーは置き換えません。";
+"vps.step3.title" = "サーバーの識別情報を確認して保存";
+"vps.step3.detail" = "信頼できる VPS コンソールで表示された ssh-ed25519 ホスト公開鍵を下の欄に貼り付け、保存して Luti を起動します。HTTPS の動作確認後、必要に応じて Full (strict) でオレンジクラウドを有効にします。";

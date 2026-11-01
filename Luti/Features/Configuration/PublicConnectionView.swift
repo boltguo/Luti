@@ -1,33 +1,21 @@
 import AppKit
 import SwiftUI
 
-struct CloudflareConnectionView: View {
+struct PublicConnectionView: View {
   let model: AppModel
-  @Bindable var connection: CloudflareConnectionModel
+  @Bindable var connection: PublicConnectionModel
   @State private var confirmClear = false
   @State private var copied = false
   @State private var copyRevision = 0
+  @State private var setupCopied = false
 
-  init(model: AppModel) {
+  init(model: AppModel, connection: PublicConnectionModel) {
     self.model = model
-    connection = model.cloudflare
+    self.connection = connection
   }
 
   var body: some View {
     VStack(alignment: .leading, spacing: 20) {
-      MDListRow(
-        title: L10n.text("cloudflare.enabled"),
-        symbol: ConnectionProviderID.cloudflare.symbol,
-        iconTone: ConnectionProviderID.cloudflare.iconTone
-      ) {
-        MDSwitch(
-          isOn: $connection.enabled,
-          label: L10n.text("cloudflare.enabled")
-        )
-        .disabled(model.active || connection.saving)
-        .accessibilityIdentifier("cloudflare-enabled")
-      }
-
       if let message = connection.error
         ?? (connection.connection.state == .failed ? connection.connection.message : nil),
         !message.isEmpty
@@ -46,12 +34,16 @@ struct CloudflareConnectionView: View {
               .autocorrectionDisabled()
               .accessibilityIdentifier("cloudflare-domain")
           }
-          MDInput(title: "Tunnel Token") {
-            SecureField(connection.tokenSaved
-              ? L10n.text("connection.savedLeaveBlankKeepCurrentToken") : L10n.text("cloudflare.token"),
-              text: $connection.tokenDraft)
-              .autocorrectionDisabled()
-              .accessibilityIdentifier("cloudflare-token")
+          if connection.providerID == .vps {
+            vpsFields
+          } else {
+            MDInput(title: "Tunnel Token") {
+              SecureField(connection.tokenSaved
+                ? L10n.text("connection.savedLeaveBlankKeepCurrentToken") : L10n.text("cloudflare.token"),
+                text: $connection.tokenDraft)
+                .autocorrectionDisabled()
+                .accessibilityIdentifier("cloudflare-token")
+            }
           }
           MDButtonRun {
             if connection.configured {
@@ -99,7 +91,7 @@ struct CloudflareConnectionView: View {
           try? await Task.sleep(for: .seconds(2))
           copied = false
         }
-      } else {
+      } else if connection.providerID == .cloudflare {
         CloudflareSetupGuide()
       }
 
@@ -107,9 +99,54 @@ struct CloudflareConnectionView: View {
     }
     .sheet(isPresented: $confirmClear) {
       MDConfirmDialog(title: L10n.text("connection.clearConfigurationConfirmation"),
-        message: L10n.text("cloudflare.clearNotice"), confirmTitle: L10n.text("connection.clearConfiguration"), icon: "trash.fill") {
+        message: L10n.text(connection.providerID == .vps ? "vps.clearNotice" : "cloudflare.clearNotice"), confirmTitle: L10n.text("connection.clearConfiguration"), icon: "trash.fill") {
           Task { await connection.clear() }
         }
+    }
+  }
+
+  private var vpsFields: some View {
+    VStack(alignment: .leading, spacing: 16) {
+      MDInput(title: L10n.text("vps.host")) {
+        TextField("203.0.113.10", text: $connection.vpsHost)
+          .autocorrectionDisabled()
+          .accessibilityIdentifier("vps-host")
+      }
+      MDDisclosure(title: L10n.text("vps.setup")) {
+        VStack(alignment: .leading, spacing: 16) {
+          ForEach(1...3, id: \.self) { step in
+            SetupStep(number: step, title: L10n.text("vps.step\(step).title"), detail: L10n.text("vps.step\(step).detail"))
+          }
+          Button {
+            Task {
+              guard let script = await connection.vpsSetupScript() else { return }
+              NSPasteboard.general.clearContents()
+              NSPasteboard.general.setString(script, forType: .string)
+              setupCopied = true
+            }
+          } label: {
+            Label(L10n.text(setupCopied ? "vps.scriptCopied" : "vps.copySetup"), systemImage: setupCopied ? "checkmark" : "doc.on.doc")
+          }
+          .buttonStyle(MDButtonStyle(kind: .tonal))
+          .accessibilityIdentifier("vps-copy-setup")
+          .task(id: setupCopied) {
+            guard setupCopied else { return }
+            try? await Task.sleep(for: .seconds(2))
+            setupCopied = false
+          }
+        }
+      }
+      MDInput(title: L10n.text("vps.hostKey")) {
+        TextField("ssh-ed25519 AAAA…", text: $connection.vpsHostKey)
+          .autocorrectionDisabled()
+          .accessibilityIdentifier("vps-host-key")
+      }
+      MDDisclosure(title: L10n.text("vps.advanced")) {
+        MDInput(title: L10n.text("vps.sshPort")) {
+          TextField("22", text: $connection.vpsPort)
+            .accessibilityIdentifier("vps-ssh-port")
+        }
+      }
     }
   }
 

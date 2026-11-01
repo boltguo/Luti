@@ -76,7 +76,7 @@
 "home.notConnect" = "连接未完成";
 "home.notRunning" = "尚未启动";
 "home.readyStart" = "准备就绪";
-"home.configureTunnel" = "配置 OpenAI Tunnel 后即可启动";
+"home.configureTunnel" = "配置一种连接方式后即可启动";
 "home.saveConnection" = "保存连接配置后即可启动";
 "home.reconnecting" = "重连中";
 "home.setUpConnectionStarting" = "填写连接信息后即可启动。";
@@ -122,6 +122,9 @@
 "projects.refresh" = "刷新";
 "projects.removeProject" = "移除文件夹";
 "projects.selected" = "已选择";
+"projects.current" = "当前";
+"projects.use" = "使用";
+"projects.useProject" = "使用 %@";
 "projects.showFinder" = "在访达中显示";
 "projects.stopSessionSwitchRemoveProjects" = "请先停止 Luti，再修改项目设置。";
 
@@ -176,7 +179,7 @@
 "home.currentTask" = "当前任务";
 "home.idle" = "空闲";
 
-"projects.stopRuntimeToEditProject" = "停止 Luti 后可移除文件夹。";
+"projects.stopRuntimeToEditProject" = "停止 Luti 后可添加、切换或移除文件夹。";
 
 "connection.setupGuide" = "配置向导";
 "connection.clearConfigurationConfirmation" = "清除此配置？";
@@ -254,7 +257,7 @@
 "permissionMode.fullProjectAccess" = "完全访问";
 "permissionMode.fullProjectAccessDescription" = "所有操作直接执行，无需确认。";
 "cloudflare.verify" = "请核对浏览器中的验证码和回调域名。应用名称由客户端提供，不代表身份已验证。";
-"cloudflare.access" = "允许访问当前项目的文件、命令及浏览器工具。命令以你当前的 macOS 用户权限运行。";
+"cloudflare.access" = "允许使用已添加项目的文件、命令和浏览器工具，并切换当前项目。命令以当前 macOS 用户权限运行。";
 "cloudflare.deny" = "拒绝";
 "cloudflare.allow" = "允许访问";
 "cloudflare.apps" = "已授权应用";
@@ -286,3 +289,23 @@
 "context.state.active" = "有效";
 "context.state.superseded" = "已替代";
 "context.state.forgotten" = "已遗忘";
+
+// Public HTTPS and self-hosted VPS
+"connection.publicHTTPS" = "公网 HTTPS";
+"connection.publicEnabled" = "启用公网 HTTPS";
+"connection.transport" = "连接方式";
+"vps.title" = "VPS 自建";
+"vps.host" = "VPS IP 或仅 DNS 域名";
+"vps.hostKey" = "服务器 SSH 主机公钥";
+"vps.setup" = "初始化 Ubuntu / Debian VPS";
+"vps.copySetup" = "复制服务器初始化脚本";
+"vps.scriptCopied" = "初始化脚本已复制";
+"vps.advanced" = "SSH 设置";
+"vps.sshPort" = "SSH 端口";
+"vps.clearNotice" = "移除保存的域名和 VPS 连接配置。SSH 身份密钥和已有应用授权保留。";
+"vps.step1.title" = "将域名解析到 VPS";
+"vps.step1.detail" = "使用独立子域名，先添加仅 DNS 的 A/AAAA 记录。在 VPS 防火墙放行 SSH、80 和 443 的 TCP 端口。";
+"vps.step2.title" = "一次性初始化空 VPS";
+"vps.step2.detail" = "填入域名和 VPS 地址，复制下方脚本，在 Ubuntu/Debian VPS 上以 root 执行。脚本配置受限 SSH 账号和自动 HTTPS，不替换已有网站服务。";
+"vps.step3.title" = "核对服务器身份并保存";
+"vps.step3.detail" = "从可信的 VPS 控制台复制脚本输出的 ssh-ed25519 主机公钥，粘贴到下方后保存并启动 Luti。HTTPS 正常后可选开橙云，使用 Full (strict)。";

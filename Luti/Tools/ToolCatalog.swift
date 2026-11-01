@@ -4,7 +4,7 @@ import Foundation
 enum ProjectBindingContract {
   static let requiredTools: Set<String> = [
     "edit_files", "path_action", "run_process", "run_shell", "import_artifact", "code_query", "memory_action",
-    "browser_session", "browser_action", "browser_transfer", "browser_evaluate",
+    "browser_session", "browser_action", "browser_transfer", "browser_evaluate", "project_select",
   ]
 
   /// Reads never take a binding, so a stale token cannot block observation.
@@ -94,7 +94,12 @@ public enum ToolCatalog {
       memoryActionDefinition,
       tool(
         "project_info",
-        "Start here for the current locally selected workspace and the projectToken required for changes. Includes top-level files, safety boundaries, shared memory files with task progress, and the latest changes made by any AI client."),
+        "Start here for the current workspace, approved projects and the projectToken required for changes. Includes top-level files, safety boundaries, shared memory with task progress, and recent changes from any AI client."),
+      tool(
+        "project_select",
+        "Select a projectId returned by project_info. Changes the shared workspace for all connected clients without restarting connections. Refuses while jobs or other tool calls are unfinished; never stops them. Returns the new projectToken and workspace context. Old tokens, job IDs, tabs and artifacts cannot be reused across a switch.",
+        ["projectId": string("ID of a locally added project from project_info.projects", max: 128)],
+        required: ["projectId"], readOnly: false),
       tool(
         "runtime_status",
         "Inspect real permissions, the Safe Mode or Full Access permission mode, running jobs and the last successful tool call."

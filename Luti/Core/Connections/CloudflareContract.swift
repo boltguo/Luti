@@ -1,9 +1,9 @@
 import Foundation
 
-enum CloudflareContract {
-  // A named tunnel's dashboard route must point to this fixed loopback listener.
+enum PublicConnectionContract {
+  // Public transports have distinct fixed listeners; OpenAI uses an ephemeral private listener.
   static let port = Identity.isDevelopmentBuild ? 39395 : 39393
-  static let tokenAccount = "cloudflare.tunnel-token.v2"
+  static func port(for provider: ConnectionProviderID) -> Int { provider == .vps ? port + 1 : port }
   static var localService: String { "http://127.0.0.1:\(port)" }
 
   static func origin(_ value: String) throws -> URL {
@@ -25,6 +25,15 @@ enum CloudflareContract {
           && label.utf8.allSatisfy { (97...122).contains($0) || (48...57).contains($0) || $0 == 45 }
       }
   }
+
+}
+
+enum CloudflareContract {
+  static let port = PublicConnectionContract.port
+  static let tokenAccount = "cloudflare.tunnel-token.v2"
+  static var localService: String { PublicConnectionContract.localService }
+  static func origin(_ value: String) throws -> URL { try PublicConnectionContract.origin(value) }
+  static func publicHostname(_ value: String) -> Bool { PublicConnectionContract.publicHostname(value) }
 
   static func validateToken(_ value: String) throws {
     guard (40...8192).contains(value.utf8.count),

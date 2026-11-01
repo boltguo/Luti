@@ -68,7 +68,7 @@ enum OAuthContract {
   }
   static func validRedirect(_ value: String) -> Bool {
     guard value.utf8.count <= 2048, let u = URLComponents(string: value),
-      u.scheme == "https", let host = u.host, CloudflareContract.publicHostname(host.lowercased()),
+      u.scheme == "https", let host = u.host, PublicConnectionContract.publicHostname(host.lowercased()),
       u.user == nil, u.password == nil, u.fragment == nil, u.port == nil || u.port == 443
     else { return false }
     return !(u.queryItems ?? []).contains { ["code", "state", "error", "iss"].contains($0.name) }

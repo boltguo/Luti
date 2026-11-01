@@ -2,13 +2,18 @@ import AppKit
 import Foundation
 import Observation
 
-/// Cloudflare settings and one runtime-bound connection. The app's existing poll
+/// Public HTTPS settings and one runtime-bound connection. The app's existing poll
 /// drives status and backoff; this model never owns another permanent poll loop.
-@MainActor @Observable final class CloudflareConnectionModel {
-  var enabled: Bool { didSet { defaults.set(enabled, forKey: Self.enabledKey) } }
+@MainActor @Observable final class PublicConnectionModel {
+  var enabled: Bool { didSet { defaults.set(enabled, forKey: enabledKey) } }
   var domain: String
   var tokenDraft = ""
   var tokenSaved: Bool
+  let providerID: ConnectionProviderID
+  var vpsHost: String
+  var vpsPort: String
+  var vpsHostKey: String
+  var vpsKeyReady: Bool
   var saving = false
   var busy = false
   var connection = ConnectionSnapshot.stopped
@@ -18,6 +23,7 @@ import Observation
   @ObservationIgnored private let credentials: KeychainClient
   @ObservationIgnored private let dataRoot: URL
   @ObservationIgnored private let makeProvider: @Sendable (String, URL) throws -> any ConnectionProvider
+  @ObservationIgnored private let makeVPSProvider: @Sendable (VPSConfiguration, URL, URL, URL) throws -> any ConnectionProvider
   @ObservationIgnored private var manager: ConnectionManager?
   @ObservationIgnored private var service: OAuthService?
   @ObservationIgnored private var operation: Task<Void, Never>?
@@ -29,17 +35,30 @@ import Observation
   @ObservationIgnored private var retryAllowed = true
   @ObservationIgnored private var closing: Task<Void, Never>?
   @ObservationIgnored private var announcedApprovals: Set<UUID> = []
-  private static let domainKey = "connection.cloudflare.v2.domain"
-  private static let enabledKey = "connection.cloudflare.v2.enabled"
+  @ObservationIgnored private let domainKey: String
+  @ObservationIgnored private let enabledKey: String
+  private static let vpsKey = "connection.vps.configuration"
   private struct Context {
     let router: ToolRouter
     let project: URL
     let helper: URL
   }
 
-  var savedDomain: String { defaults.string(forKey: Self.domainKey) ?? "" }
-  var hasUnsavedChanges: Bool { domain.trimmingCharacters(in: .whitespacesAndNewlines) != savedDomain || !tokenDraft.isEmpty }
-  var configured: Bool { tokenSaved && (try? CloudflareContract.origin(savedDomain)) != nil }
+  var savedDomain: String { defaults.string(forKey: domainKey) ?? "" }
+  private var savedVPS: VPSConfiguration? {
+    guard let data = defaults.data(forKey: Self.vpsKey), let value = try? JSONDecoder().decode(VPSConfiguration.self, from: data) else { return nil }
+    return try? VPSConfiguration(host: value.host, port: String(value.port), hostKey: value.hostKey)
+  }
+  var hasUnsavedChanges: Bool {
+    if domain.trimmingCharacters(in: .whitespacesAndNewlines) != savedDomain { return true }
+    if providerID == .cloudflare { return !tokenDraft.isEmpty }
+    return vpsHost.trimmingCharacters(in: .whitespacesAndNewlines) != (savedVPS?.host ?? "")
+      || vpsPort != String(savedVPS?.port ?? 22) || vpsHostKey.trimmingCharacters(in: .whitespacesAndNewlines) != (savedVPS?.hostKey ?? "")
+  }
+  var configured: Bool {
+    (try? PublicConnectionContract.origin(savedDomain)) != nil
+      && (providerID == .cloudflare ? tokenSaved : savedVPS != nil && vpsKeyReady)
+  }
   var canLaunch: Bool { enabled && configured && !hasUnsavedChanges && !saving }
   var endpoint: String { configured ? savedDomain + "/mcp" : "" }
   var statusKey: String {
@@ -47,17 +66,31 @@ import Observation
     return configured ? "connection.state.stopped" : "connection.notConfigured"
   }
 
-  init(defaults: UserDefaults, credentials: KeychainClient, dataRoot: URL,
+  init(defaults: UserDefaults, credentials: KeychainClient, dataRoot: URL, providerID: ConnectionProviderID = .cloudflare,
        makeProvider: @escaping @Sendable (String, URL) throws -> any ConnectionProvider = {
          try CloudflareTunnelProvider(token: $0, helper: $1)
+       }, makeVPSProvider: @escaping @Sendable (VPSConfiguration, URL, URL, URL) throws -> any ConnectionProvider = {
+         try VPSTunnelProvider(configuration: $0, origin: $1, identity: $2, helper: $3)
        }) {
+    precondition(providerID.requiresOAuth)
+    self.providerID = providerID
+    let domainKey = providerID == .vps ? "connection.vps.domain" : "connection.cloudflare.v2.domain"
+    let enabledKey = providerID == .vps ? "connection.vps.enabled" : "connection.cloudflare.v2.enabled"
+    self.domainKey = domainKey
+    self.enabledKey = enabledKey
     self.defaults = defaults
     self.credentials = credentials
     self.dataRoot = dataRoot
     self.makeProvider = makeProvider
-    enabled = defaults.bool(forKey: Self.enabledKey)
-    domain = defaults.string(forKey: Self.domainKey) ?? ""
-    tokenSaved = (try? credentials.exists(CloudflareContract.tokenAccount)) ?? true
+    self.makeVPSProvider = makeVPSProvider
+    enabled = defaults.bool(forKey: enabledKey)
+    domain = defaults.string(forKey: domainKey) ?? ""
+    tokenSaved = providerID == .cloudflare ? ((try? credentials.exists(CloudflareContract.tokenAccount)) ?? true) : false
+    let saved = defaults.data(forKey: Self.vpsKey).flatMap { try? JSONDecoder().decode(VPSConfiguration.self, from: $0) }
+    vpsHost = saved?.host ?? ""
+    vpsPort = String(saved?.port ?? 22)
+    vpsHostKey = saved?.hostKey ?? ""
+    vpsKeyReady = FileManager.default.fileExists(atPath: VPSIdentity.key(in: dataRoot).path)
   }
 
   func save() async {
@@ -65,23 +98,47 @@ import Observation
     saving = true
     defer { saving = false }
     do {
-      let origin = try CloudflareContract.origin(domain.trimmingCharacters(in: .whitespacesAndNewlines))
+      let origin = try PublicConnectionContract.origin(domain.trimmingCharacters(in: .whitespacesAndNewlines))
       let token = tokenDraft.trimmingCharacters(in: .whitespacesAndNewlines)
-      if !token.isEmpty {
+      if providerID == .vps {
+        let value = try VPSConfiguration(host: vpsHost, port: vpsPort, hostKey: vpsHostKey)
+        let root = dataRoot
+        _ = try await Task.detached(priority: .userInitiated) { try VPSIdentity.prepare(in: root) }.value
+        defaults.set(try JSONEncoder().encode(value), forKey: Self.vpsKey)
+        vpsHost = value.host
+        vpsPort = String(value.port)
+        vpsHostKey = value.hostKey
+        vpsKeyReady = true
+      } else if !token.isEmpty {
         try CloudflareContract.validateToken(token)
         let credentials = self.credentials
         try await Task.detached(priority: .userInitiated) {
           try credentials.save(token, CloudflareContract.tokenAccount)
         }.value
       } else if !tokenSaved { throw Failure.invalid("Enter the Cloudflare Tunnel Token.") }
-      defaults.set(origin.absoluteString, forKey: Self.domainKey)
+      defaults.set(origin.absoluteString, forKey: domainKey)
       domain = origin.absoluteString
       tokenDraft = ""
-      tokenSaved = true
+      if providerID == .cloudflare { tokenSaved = true }
       enabled = true
       error = nil
       loadAuthorizations()
     } catch { self.error = Failure.safe(error).localizedDescription }
+  }
+
+  func vpsSetupScript() async -> String? {
+    guard context == nil, !busy, !saving, closing == nil else { return nil }
+    saving = true
+    defer { saving = false }
+    do {
+      _ = try VPSConfiguration.validateHost(vpsHost)
+      let origin = try PublicConnectionContract.origin(domain.trimmingCharacters(in: .whitespacesAndNewlines))
+      let root = dataRoot
+      let script = try await Task.detached(priority: .userInitiated) { try VPSIdentity.setupScript(origin: origin, root: root) }.value
+      vpsKeyReady = true
+      error = nil
+      return script
+    } catch { self.error = Failure.safe(error).localizedDescription; return nil }
   }
 
   func clear() async {
@@ -90,11 +147,17 @@ import Observation
     defer { saving = false }
     do {
       let credentials = self.credentials
-      try await Task.detached(priority: .userInitiated) { try credentials.remove(CloudflareContract.tokenAccount) }.value
-      defaults.removeObject(forKey: Self.domainKey)
+      if providerID == .cloudflare {
+        try await Task.detached(priority: .userInitiated) { try credentials.remove(CloudflareContract.tokenAccount) }.value
+        tokenSaved = false
+      }
+      defaults.removeObject(forKey: domainKey)
       domain = ""
       tokenDraft = ""
-      tokenSaved = false
+      if providerID == .vps { defaults.removeObject(forKey: Self.vpsKey) }
+      vpsHost = ""
+      vpsPort = "22"
+      vpsHostKey = ""
       enabled = false
       error = nil
       loadAuthorizations()
@@ -112,17 +175,18 @@ import Observation
     service = nil
     authorization = OAuthSnapshot()
     announcedApprovals.removeAll()
-    guard let origin = try? CloudflareContract.origin(savedDomain) else {
+    guard let origin = try? PublicConnectionContract.origin(savedDomain) else {
       loading = Task { await old?.shutdown() }
       return
     }
     let dataRoot = self.dataRoot
+    let transport = providerID.transport
     loading = Task { [weak self] in
       await old?.shutdown()
       do {
         let service = try await Task.detached(priority: .utility) {
-          let file = Self.authorizationFile(dataRoot: dataRoot, origin: origin)
-          return try OAuthService(origin: origin, file: file)
+          let file = Self.authorizationFile(dataRoot: dataRoot, origin: origin, transport: transport)
+          return try OAuthService(origin: origin, file: file, transport: transport)
         }.value
         await service.shutdown()
         let snapshot = await service.snapshot()
@@ -140,8 +204,8 @@ import Observation
     let resource: String
   }
 
-  nonisolated private static func authorizationFile(dataRoot: URL, origin: URL) -> URL {
-    let dir = dataRoot.appendingPathComponent("cloudflare-authorizations-v2")
+  nonisolated private static func authorizationFile(dataRoot: URL, origin: URL, transport: TransportProviderID) -> URL {
+    let dir = dataRoot.appendingPathComponent(transport == .vps ? "vps-authorizations-v1" : "cloudflare-authorizations-v2")
     let target = dir.appendingPathComponent(OAuthContract.hash(origin.absoluteString) + ".json")
     if !FileManager.default.fileExists(atPath: target.path) {
       let resource = origin.absoluteString + "/mcp"
@@ -189,33 +253,41 @@ import Observation
     busy = true
     error = nil
     retryAllowed = true
-    connection = ConnectionSnapshot(state: .starting, providerID: .cloudflare)
+    connection = ConnectionSnapshot(state: .starting, providerID: providerID)
     operation = Task { [weak self] in
       guard let self else { return }
       await oldService?.shutdown()
       do {
-        let credentials = self.credentials
-        let token = try await Task.detached(priority: .userInitiated) {
-          try credentials.read(CloudflareContract.tokenAccount, !isRetry)
-        }.value
+        let origin = try PublicConnectionContract.origin(self.savedDomain)
+        let dataRoot = self.dataRoot
+        let transport = self.providerID.transport
+        let provider: any ConnectionProvider
+        if self.providerID == .vps {
+          guard let configuration = self.savedVPS else { throw Failure.invalid("Save the VPS configuration before connecting.") }
+          let identity = try await Task.detached(priority: .userInitiated) { try VPSIdentity.prepare(in: dataRoot) }.value
+          provider = try self.makeVPSProvider(configuration, origin, identity, context.helper)
+        } else {
+          let credentials = self.credentials
+          let token = try await Task.detached(priority: .userInitiated) {
+            try credentials.read(CloudflareContract.tokenAccount, !isRetry)
+          }.value
+          guard let token else {
+            self.tokenSaved = false
+            throw Failure.invalid("Save a Cloudflare Tunnel Token before connecting.")
+          }
+          provider = try self.makeProvider(token, context.helper)
+        }
         try Task.checkCancellation()
         guard self.generation == revision else { throw CancellationError() }
-        guard let token else {
-          self.tokenSaved = false
-          throw Failure.invalid("Save a Cloudflare Tunnel Token before connecting.")
-        }
-        let origin = try CloudflareContract.origin(self.savedDomain)
-        let dataRoot = self.dataRoot
         let service = try await Task.detached(priority: .utility) {
-          let file = Self.authorizationFile(dataRoot: dataRoot, origin: origin)
-          return try OAuthService(origin: origin, file: file)
+          let file = Self.authorizationFile(dataRoot: dataRoot, origin: origin, transport: transport)
+          return try OAuthService(origin: origin, file: file, transport: transport)
         }.value
         guard !Task.isCancelled, self.generation == revision else { await service.shutdown(); throw CancellationError() }
         self.service = service
-        let provider = try self.makeProvider(token, context.helper)
         let manager = ConnectionManager(router: context.router)
         self.manager = manager
-        try await manager.connect(provider, oauth: service, port: CloudflareContract.port)
+        try await manager.connect(provider, oauth: service, port: PublicConnectionContract.port(for: self.providerID))
         let snapshot = await manager.snapshot()
         guard self.generation == revision else { return }
         self.connection = snapshot
@@ -229,7 +301,7 @@ import Observation
         if !(error is CancellationError) {
           self.error = Failure.safe(error).localizedDescription
           self.retryAllowed = ConnectionContract.isRetryable(error)
-          self.connection = ConnectionSnapshot(state: .failed, message: self.error ?? "", providerID: .cloudflare)
+          self.connection = ConnectionSnapshot(state: .failed, message: self.error ?? "", providerID: self.providerID)
         }
       }
       guard self.generation == revision else { return }

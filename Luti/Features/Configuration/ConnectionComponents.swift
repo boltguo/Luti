@@ -2,7 +2,8 @@ import AppKit
 import SwiftUI
 
 extension ConnectionProviderID {
-  var symbol: String { self == .openAI ? "lock.icloud" : "cloud" }
+  @MainActor var displayTitle: String { self == .vps ? L10n.text("vps.title") : title }
+  var symbol: String { self == .openAI ? "lock.icloud" : self == .vps ? "server.rack" : "cloud" }
   var iconTone: MDIconTone { self == .openAI ? .green : .yellow }
 }
 

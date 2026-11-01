@@ -7,19 +7,6 @@ struct OpenAIConnectionView: View {
 
   var body: some View {
     VStack(alignment: .leading, spacing: 20) {
-      MDListRow(
-        title: L10n.text("openai.enabled"),
-        symbol: ConnectionProviderID.openAI.symbol,
-        iconTone: ConnectionProviderID.openAI.iconTone
-      ) {
-        MDSwitch(
-          isOn: $model.openAIEnabled,
-          label: L10n.text("openai.enabled")
-        )
-        .disabled(!model.canEditConnection)
-        .accessibilityIdentifier("openai-enabled")
-      }
-
       if let message = model.connectionError
         ?? (model.connection.state == .failed ? model.connection.message : nil)
       {

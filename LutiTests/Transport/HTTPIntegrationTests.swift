@@ -26,7 +26,7 @@ import XCTest
     let (data, response) = try await URLSession.shared.data(for: request)
     XCTAssertEqual((response as? HTTPURLResponse)?.statusCode, 200)
     let tools = try JSONValue.decode(data)["result"]["tools"].array ?? []
-    XCTAssertEqual(tools.count, 24)
+    XCTAssertEqual(tools.count, 25)
     XCTAssertNil(tools.first { $0["name"] == "projects" })
     XCTAssertNotNil(tools.first { $0["name"] == "memory_query" })
     XCTAssertNotNil(tools.first { $0["name"] == "project_info" })

@@ -2,7 +2,7 @@ import XCTest
 @testable import Luti
 
 @MainActor final class ProjectEnablementTests: XCTestCase {
-  func testAddingOneFolderRejectsAnotherUntilRemoved() throws {
+  func testProjectsCanBeAddedSelectedAndRestored() throws {
     let first = try Fixture(), second = try Fixture()
     defer { first.remove(); second.remove() }
     let model = AppModel(contextDataRoot: first.contextDataRoot, defaults: first.defaults)
@@ -16,7 +16,31 @@ import XCTest
     XCTAssertEqual(selected.path, first.root.path)
     XCTAssertTrue(model.canStart)
     model.addProject(second.root)
+    let added = try XCTUnwrap(model.activeProject)
+    XCTAssertEqual(added.path, second.root.path)
+    XCTAssertEqual(model.approvedProjects, [selected, added])
+    XCTAssertTrue(model.selectProject(selected.id))
     XCTAssertEqual(model.activeProject, selected)
+    XCTAssertFalse(model.selectProject("missing"))
+    let reopened = AppModel(contextDataRoot: first.contextDataRoot, defaults: first.defaults)
+    XCTAssertEqual(reopened.approvedProjects, [selected, added])
+    XCTAssertEqual(reopened.activeProject, selected)
+    XCTAssertEqual(reopened.phase, .stopped)
+  }
+
+  func testAddingAnExistingFolderKeepsItsIdentityAndPermission() throws {
+    let first = try Fixture(), second = try Fixture()
+    defer { first.remove(); second.remove() }
+    let model = AppModel(contextDataRoot: first.contextDataRoot, defaults: first.defaults)
+    model.addProject(first.root)
+    model.setPermissionMode(.fullProjectAccess)
+    let original = try XCTUnwrap(model.activeProject)
+    model.addProject(second.root)
+    let alias = second.root.appendingPathComponent("first-alias")
+    try FileManager.default.createSymbolicLink(at: alias, withDestinationURL: first.root)
+    model.addProject(alias)
+    XCTAssertEqual(model.approvedProjects.count, 2)
+    XCTAssertEqual(model.activeProject, original)
   }
 
   func testNewFolderStartsInSafeModeAndKeepsFullAccessAcrossRelaunch() throws {
@@ -27,6 +51,82 @@ import XCTest
     model.setPermissionMode(.fullProjectAccess)
     let reopened = AppModel(contextDataRoot: f.contextDataRoot, defaults: f.defaults)
     XCTAssertEqual(reopened.activeProject?.permissionMode, .fullProjectAccess)
+  }
+
+  func testManagingAnotherProjectsPermissionKeepsTheRunningProjectSelected() throws {
+    let first = try Fixture(), second = try Fixture()
+    defer { first.remove(); second.remove() }
+    let model = AppModel(contextDataRoot: first.contextDataRoot, defaults: first.defaults)
+    model.addProject(first.root)
+    let a = try XCTUnwrap(model.activeProject)
+    model.addProject(second.root)
+    let b = try XCTUnwrap(model.activeProject)
+    model.phase = .running
+    model.setPermissionMode(.fullProjectAccess, for: a.id)
+    XCTAssertEqual(model.activeProject, b)
+    XCTAssertEqual(model.approvedProjects.first { $0.id == a.id }?.permissionMode, .fullProjectAccess)
+    let reopened = AppModel(contextDataRoot: first.contextDataRoot, defaults: first.defaults)
+    XCTAssertEqual(reopened.activeProject, b)
+    XCTAssertEqual(reopened.approvedProjects.first { $0.id == a.id }?.permissionMode, .fullProjectAccess)
+  }
+
+  func testSwitchingKeepsPermissionsMemoryAndActivityScoped() async throws {
+    let first = try Fixture(), second = try Fixture()
+    defer { first.remove(); second.remove() }
+    let model = AppModel(contextDataRoot: first.contextDataRoot, defaults: first.defaults)
+    model.addProject(first.root)
+    model.setPermissionMode(.fullProjectAccess)
+    let a = try XCTUnwrap(model.activeProject)
+    model.addProject(second.root)
+    let b = try XCTUnwrap(model.activeProject)
+    for project in [a, b] {
+      let directory = LocalLogStore.activityDirectory(for: project.url, dataRoot: first.contextDataRoot)
+      let event = ActivityEvent(id: UUID(), startedAt: .now, finishedAt: .now, tool: "read_files",
+        target: project.id, status: "ok", summary: project.name, durationSeconds: 0)
+      LocalLogStore.appendActivity(event, directory: directory)
+      let memory = try ProjectMemoryStore(project: project, dataRoot: first.contextDataRoot)
+      _ = try memory.write(file: "decision.md", name: project.name, description: "Project decision",
+        kind: .decision, content: project.id, source: .model(grant: .local, redactor: Redactor()))
+    }
+    for project in [a, b, a] {
+      XCTAssertTrue(model.selectProject(project.id))
+      await model.activityLoad?.value
+      XCTAssertEqual(model.activeProject, project)
+      XCTAssertEqual(model.activity.map(\.target), [project.id])
+      let memory = try ProjectMemoryStore(project: project, dataRoot: first.contextDataRoot)
+      XCTAssertEqual(try memory.snapshot().documents.map(\.content), [project.id])
+    }
+    let reopened = AppModel(contextDataRoot: first.contextDataRoot, defaults: first.defaults)
+    XCTAssertEqual(reopened.approvedProjects.map(\.permissionMode), [.fullProjectAccess, .ask])
+    XCTAssertEqual(reopened.activeProject, a)
+
+    try await model.clearProjectActivity(b)
+    try await model.clearProjectMemory(b)
+    XCTAssertEqual(model.activeProject, a)
+    XCTAssertEqual(model.activity.map(\.target), [a.id])
+    let bActivity = LocalLogStore.activityDirectory(for: b.url, dataRoot: first.contextDataRoot)
+    XCTAssertTrue(LocalLogStore.recentActivities(limit: 10, directory: bActivity).isEmpty)
+    let aMemory = try ProjectMemoryStore(project: a, dataRoot: first.contextDataRoot)
+    let bMemory = try ProjectMemoryStore(project: b, dataRoot: first.contextDataRoot)
+    XCTAssertEqual(try aMemory.snapshot().documents.map(\.content), [a.id])
+    XCTAssertTrue(try bMemory.snapshot().documents.isEmpty)
+  }
+
+  func testRemovingProjectsKeepsTheOtherSelectionAndItsSettings() throws {
+    let first = try Fixture(), second = try Fixture()
+    defer { first.remove(); second.remove() }
+    let model = AppModel(contextDataRoot: first.contextDataRoot, defaults: first.defaults)
+    model.addProject(first.root)
+    let a = try XCTUnwrap(model.activeProject)
+    model.addProject(second.root)
+    let b = try XCTUnwrap(model.activeProject)
+    model.removeProject(a.id)
+    XCTAssertEqual(model.activeProject, b)
+    XCTAssertEqual(model.approvedProjects, [b])
+    model.addProject(first.root)
+    model.removeProject(try XCTUnwrap(model.activeProject).id)
+    XCTAssertEqual(model.activeProject, b)
+    XCTAssertEqual(AppModel(contextDataRoot: first.contextDataRoot, defaults: first.defaults).approvedProjects, [b])
   }
 
   func testToolListNoticeAppearsOnlyForClientsHoldingAnOlderList() throws {
@@ -83,10 +183,16 @@ import XCTest
     let model = AppModel(contextDataRoot: f.contextDataRoot, defaults: f.defaults)
     model.addProject(f.root)
     let selected = try XCTUnwrap(model.activeProject)
+    model.addProject(other.root)
+    let added = try XCTUnwrap(model.activeProject)
+    model.selectProject(selected.id)
     model.phase = .running
     model.removeProject(selected.id)
     model.addProject(other.root)
+    XCTAssertFalse(model.selectProject(added.id))
+    XCTAssertTrue(model.selectProject(selected.id))
     XCTAssertEqual(model.activeProject, selected)
+    XCTAssertEqual(model.approvedProjects, [selected, added])
   }
 
   func testRelaunchRestoresCurrentSettingsCredentialsAndActivity() async throws {
@@ -107,6 +213,7 @@ import XCTest
       let model = AppModel(contextDataRoot: f.contextDataRoot, defaults: f.defaults, credentials: store.client)
       await model.activityLoad?.value
       XCTAssertEqual(model.activeProject, selected)
+      XCTAssertEqual(model.approvedProjects, [selected], "The saved single folder becomes the first list entry.")
       XCTAssertEqual(model.tunnelID, tunnel)
       XCTAssertEqual(model.savedTunnelID, tunnel)
       XCTAssertTrue(model.apiKeySaved)

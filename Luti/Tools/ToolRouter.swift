@@ -40,7 +40,12 @@ public actor ToolRouter {
   public nonisolated let activity: ActivityStore
   private let executionPolicy: ProjectExecutionPolicy
   private let redactor: Redactor
-  private let context: ProjectRuntimeContext
+  private var context: ProjectRuntimeContext
+  private var approvedProjects: [ApprovedProject]
+  private let helper: URL
+  private let onProjectSelected: @Sendable (ApprovedProject) async -> Void
+  private var projectGeneration = 1
+  private var selectingProject = false
   private let operationApprovals = OperationApprovalBroker()
   /// Live, not captured at Start: the Mac user may switch it while running.
   private var permissionMode: ProjectPermissionMode
@@ -97,11 +102,73 @@ public actor ToolRouter {
     do { return try memoryStore.summary() } catch { return ["error": .string(Failure.safe(error).code)] }
   }
 
+  private var projectBusy: Failure {
+    Failure("project_busy", "The shared workspace is busy; no project was changed and no task was stopped.",
+            "Wait for unfinished jobs and tool calls, including local approvals, to complete before selecting another project.")
+  }
+
+  private func projectInfo(_ observed: JSONValue? = nil) async throws -> JSONValue {
+    let info: JSONValue
+    if let observed { info = observed } else { info = try await workspace.projectInfo() }
+    return info
+      .adding("projectId", .string(context.project.id))
+      .adding("generation", .int(projectGeneration))
+      .adding("projectToken", .string(context.projectToken))
+      .adding("permissionMode", .string(permissionMode.rawValue))
+      .adding("projects", .array(approvedProjects.map { project in
+        ["projectId": .string(project.id), "name": .string(project.name),
+         "path": .string(project.path), "permissionMode": .string(project.permissionMode.rawValue),
+         "selected": .bool(project.id == context.project.id)]
+      }))
+      .adding("memory", memorySummary())
+      .adding("recentActivity", await recentActivity())
+  }
+
+  private func selectProject(_ id: String) async throws -> ToolOutput {
+    guard let index = approvedProjects.firstIndex(where: { $0.id == id }) else {
+      throw Failure("project_not_found", "This project is not in the locally approved list.",
+                    "Use a projectId returned by project_info.projects. Add new folders in Luti on the Mac.")
+    }
+    let project = approvedProjects[index]
+    if id == context.project.id {
+      return ToolOutput(try await projectInfo().adding("changed", false).adding("effect", "none"))
+    }
+    let owned = context
+    guard await owned.jobs.activeCount() == 0 else { throw projectBusy }
+    guard accepting else { throw Failure.stopped }
+    let files = try WorkspaceFiles(root: project.url)
+    guard files.root.path == project.path else {
+      throw Failure("path_outside_workspace", "The approved project path now points to a different folder.",
+                    "Re-add the intended folder locally in Luti.")
+    }
+    // Validate the destination before releasing the current, idle context.
+    let info = try await files.projectInfo()
+    try Task.checkCancellation()
+    guard accepting else { throw Failure.stopped }
+    let next = ProjectRuntimeContext(
+      project: project, workspace: files, jobs: JobManager(helper: helper, redactor: redactor),
+      redactor: redactor, dataRoot: owned.dataRoot, helper: helper)
+    await activity.reconcileJobs(await owned.jobs.lifecycles())
+    await owned.shutdown()
+    guard accepting else { await next.shutdown(); throw Failure.stopped }
+    context = next
+    projectGeneration += 1
+    permissionMode = approvedProjects[index].permissionMode
+    cachedMemoryStore = nil
+    touchedFiles.removeAll()
+    lastSuccess = nil
+    await activity.selectProject(directory: next.activityDirectory)
+    await onProjectSelected(project)
+    return ToolOutput(try await projectInfo(info).adding("changed", true).adding("effect", "confirmed"))
+  }
+
   public init(
     workspace: WorkspaceFiles, jobs: JobManager,
     activity: ActivityStore, executionPolicy: ProjectExecutionPolicy = .readOnly,
     redactor: Redactor = Redactor(), project: ApprovedProject? = nil,
-    helper: URL = JobManager.defaultHelper, contextDataRoot: URL? = nil
+    helper: URL = JobManager.defaultHelper, contextDataRoot: URL? = nil,
+    approvedProjects: [ApprovedProject]? = nil,
+    onProjectSelected: @escaping @Sendable (ApprovedProject) async -> Void = { _ in }
   ) throws {
     let selected = project ?? ApprovedProject(id: "runtime-project", url: workspace.root)
     guard selected.url.standardizedFileURL.resolvingSymlinksInPath() == workspace.root else {
@@ -110,15 +177,27 @@ public actor ToolRouter {
     self.activity = activity
     self.executionPolicy = executionPolicy
     self.redactor = redactor
-    permissionMode = selected.permissionMode
+    self.helper = helper
+    self.approvedProjects = approvedProjects ?? [selected]
+    guard let approved = self.approvedProjects.first(where: { $0.id == selected.id && $0.path == selected.path }) else {
+      throw Failure.invalid("The current project must belong to the locally approved project list.")
+    }
+    self.onProjectSelected = onProjectSelected
+    permissionMode = approved.permissionMode
     context = ProjectRuntimeContext(
-      project: selected, workspace: workspace, jobs: jobs, redactor: redactor,
+      project: approved, workspace: workspace, jobs: jobs, redactor: redactor,
       dataRoot: contextDataRoot ?? LutiPaths.root, helper: helper)
   }
 
   public func lastSuccessfulCall() -> Date? { lastSuccess }
 
-  public func setPermissionMode(_ mode: ProjectPermissionMode) { permissionMode = mode }
+  public func setPermissionMode(_ mode: ProjectPermissionMode, for projectID: String? = nil) {
+    let id = projectID ?? context.project.id
+    if let index = approvedProjects.firstIndex(where: { $0.id == id }) {
+      approvedProjects[index] = approvedProjects[index].withPermissionMode(mode)
+    }
+    if context.project.id == id { permissionMode = mode }
+  }
 
   public func pendingOperationApprovals() async -> [PendingOperationApproval] {
     await operationApprovals.pendingApprovals()
@@ -178,8 +257,17 @@ public actor ToolRouter {
     // history. Track every admitted call until its final activity write finishes.
     guard accepting else { return .failure(.stopped) }
     guard ToolCatalog.names.contains(name) else { return .failure(.invalid("Unknown tool.")) }
+    guard !selectingProject else { return .failure(projectBusy) }
+    if name == "project_select" {
+      guard callsInFlight == 0 else { return .failure(projectBusy) }
+      // Set before the first suspension so a launch, approval or read cannot race a switch.
+      selectingProject = true
+    }
     callsInFlight += 1
-    defer { finishTrackedCall() }
+    defer {
+      if name == "project_select" { selectingProject = false }
+      finishTrackedCall()
+    }
     let started = Date()
     let owner = context
     let descriptor = activityDescriptor(name, value)
@@ -216,7 +304,7 @@ public actor ToolRouter {
         ?? (["outcome_unknown", "browser_outcome_unknown", "browser_transport_unknown"].contains(failure.code) ? "possible" : "none")
       if ["project_binding_required", "project_binding_mismatch"].contains(failure.code) {
         output = ToolOutput(failure.json.adding("currentProject", [
-          "projectId": .string(context.project.id), "generation": .int(1),
+          "projectId": .string(context.project.id), "generation": .int(projectGeneration),
         ]), isError: true)
       } else {
         output = .failure(failure)
@@ -260,6 +348,8 @@ public actor ToolRouter {
     case "memory_query", "memory_action":
       return ActivityDescriptor(
         action: action, targetType: "memory", target: value["file"].string ?? "MEMORY.md")
+    case "project_select":
+      return ActivityDescriptor(action: "select", targetType: "project", target: value["projectId"].string ?? "")
     case "project_info":
       return ActivityDescriptor(action: nil, targetType: "project", target: "")
     case "runtime_status":
@@ -509,14 +599,10 @@ public actor ToolRouter {
     switch name {
     case "project_info":
       _ = try Arguments(value, allowed: [])
-      let info = try await workspace.projectInfo()
-      return ToolOutput(
-        info
-          .adding("projectId", .string(context.project.id))
-          .adding("generation", .int(1))
-          .adding("projectToken", .string(context.projectToken))
-          .adding("memory", memorySummary())
-          .adding("recentActivity", await recentActivity()))
+      return ToolOutput(try await projectInfo())
+    case "project_select":
+      let a = try Arguments(value, allowed: ["projectId"])
+      return try await selectProject(a.string("projectId", max: 128))
     case "runtime_status":
       _ = try Arguments(value, allowed: [])
       return ToolOutput([
@@ -528,7 +614,7 @@ public actor ToolRouter {
         "activeProject": [
           "id": .string(context.project.id), "name": .string(context.project.name),
           "path": .string(context.project.path),
-          "generation": .int(1),
+          "generation": .int(projectGeneration),
         ],
         "jobs": .array(await jobs.list().map { $0.removing(["stdoutTail", "stderrTail", "stdoutHead", "stderrHead"]) }),
         "capabilities": [

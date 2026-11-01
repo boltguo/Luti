@@ -27,8 +27,8 @@ Luti 把 AI 客户端连接到一个已授权项目。AI Host 负责推理和编
 ## 快速开始
 
 1. **安装 Luti。** 从最新 GitHub Release 下载已签名的 DMG，或从源码构建。
-2. **添加文件夹。** 在 **Projects** 中选择一个文件夹，默认安全模式；可在项目页打开完全访问以跳过确认。移除后回到空状态，可重新添加。
-3. **配置连接方式。** 在 **Connections** 中配置 **OpenAI Secure MCP Tunnel** 或 **Cloudflare Tunnel**（两者可单独或同时启用）。
+2. **添加项目。** 在 **Projects** 列表右下角添加文件夹，点击项目进入管理，点击右侧“使用”切换当前项目。每个项目独立保存权限、记忆和活动记录，默认安全模式。所有客户端共享一个当前项目。本地切换需先停止 Runtime；AI 可在空闲时通过 `project_select` 切换。
+3. **配置连接方式。** 在 **Connections** 的三项列表中启用 OpenAI、Cloudflare 或 VPS 自建，点击对应项进入配置。多种连接可以同时运行。
 4. **启动并连接。** 启动本地 Runtime 后，在 AI 客户端中添加对应的 MCP 服务即可开始使用。
 
 **升级到 1.4.0：** 在每个已连接的 AI 客户端中刷新 Luti 的工具列表，或移除后重新添加连接。已有项目默认以安全模式打开，如需保持之前的行为，请在项目页打开完全访问。1.0.x 的数据不会迁移。
@@ -39,8 +39,9 @@ Luti 把 AI 客户端连接到一个已授权项目。AI Host 负责推理和编
 |---|---|---|---|
 | **OpenAI Secure MCP Tunnel** | Tunnel ID + 运行 API Key | ChatGPT 工作区关联 | ChatGPT，无需公开入口 |
 | **Cloudflare Tunnel** | HTTPS 域名 + Tunnel Token | OAuth，在本机弹窗批准 | 通过固定公开地址连接的自定义 MCP 客户端 |
+| **VPS 自建** | HTTPS 域名 + VPS 地址 + SSH 主机公钥 | OAuth，在本机批准 | 通过自己的 VPS 中转；[部署说明](docs/vps.md) |
 
-OpenAI 使用独立的回环监听和每次连接新生成的私有凭据，通过 `tunnel-client` 主动出站连接。Cloudflare 为固定 HTTPS 域名单独提供 OAuth 保护的入口。任意一种连接配置完成即可启动，两种连接也可同时运行；传输失败会重连，不重启项目任务。修改配置前先停止 Runtime；停止会结束 Job 和浏览器会话。参见 [Cloudflare 配置与本机授权](docs/cloudflare.md)。
+OpenAI 使用独立的回环监听和每次连接新生成的私有凭据，通过 `tunnel-client` 主动出站连接。Cloudflare 为固定 HTTPS 域名单独提供 OAuth 保护的入口。VPS 自建通过受限 SSH 反向转发提供独立的 OAuth 入口，见 [VPS 部署说明](docs/vps.md)。任意一种连接配置完成即可启动，三种连接可以同时运行；传输失败会重连，不重启项目任务。修改配置前先停止 Runtime；停止会结束 Job 和浏览器会话。参见 [Cloudflare 配置与本机授权](docs/cloudflare.md)。
 
 ### 1. OpenAI Secure MCP Tunnel（ChatGPT）
 
@@ -107,12 +108,12 @@ def mcp_call(access_token, method, params=None, mid=1):
 
 ## 能力
 
-Luti 对外暴露 **24 个 MCP Tool**，分为 7 个领域。MCP 使用本地选定的文件夹，不提供 `projects` 或 `skills` 工具。
+Luti 对外暴露 **25 个 MCP Tool**，分为 7 个领域。AI 可在本地已添加的项目间切换，不能通过 MCP 添加文件夹。
 
 | 领域 | Public Tools | 范围 |
 |---|---|---|
 | Memory | `memory_query`、`memory_action` | 跨 AI 客户端共享的项目记忆：只读的 `index`、`read`；`write`、`delete` 以文件 `sha256` 校验，不会盲目覆盖；`kind=task` 清单把未完成的工作交给下一个会话 |
-| Project | `project_info`, `inspect_project`, `runtime_status` | 当前目录、发现、Runtime 状态 |
+| Project | `project_info`, `project_select`, `inspect_project`, `runtime_status` | 项目列表、切换当前项目、发现、Runtime 状态 |
 | Files & Code | `list_directory`, `read_files`, `read_image`, `search_project`, `edit_files`, `path_action`, `code_query` | 搜索、读取、编辑、移动、结构化代码查询 |
 | Process & Jobs | `run_process`, `run_shell`, `job_query`, `job_action` | 构建、测试、长任务、日志、PTY 输入、停止 |
 | Git | `git_query` | Status、Diff、Log、Show、Blame；只读 |
@@ -121,7 +122,7 @@ Luti 对外暴露 **24 个 MCP Tool**，分为 7 个领域。MCP 使用本地选
 
 项目专属能力由项目自己的 manifest、instructions 和 tasks 提供，无需不断增加 Public Tool。
 
-先调用 `project_info`，取得当前目录信息、`projectToken`、带任务进度的记忆文件，以及各 AI 客户端最近的改动。项目写入、记忆修改（`memory_action`）、命令执行、浏览器修改和 Job 输入需携带该标识；在本地选择其他文件夹或重启 Runtime 后会失效。遇到失配应重新观察并确认目标目录。停止仍归 Runtime 管理的 Job 不受旧标识阻碍。
+先调用 `project_info`，取得当前目录信息、已添加的 `projects` 列表、`projectToken`、带任务进度的记忆文件，以及各 AI 客户端最近的改动。项目写入、记忆修改（`memory_action`）、命令执行、浏览器修改和 Job 输入需携带该标识；使用 `project_select(projectId, projectToken)` 可切换共享项目，连接保持不变。有未结束的 Job 或工具调用（含待确认操作）时拒绝切换，不会停止任务。成功后返回新标识和目标项目上下文；权限、文件、记忆和活动记录按项目隔离，旧 Job ID、浏览器标签和产物失效。每次切换项目或重启 Runtime 后，旧标识都会失效。遇到失配应重新观察并确认目标目录。停止仍归 Runtime 管理的 Job 不受旧标识阻碍。
 
 `code_query` 会启动已安装的语言服务，需要当前 `projectToken`；语言服务可能产生副作用。
 
@@ -141,7 +142,7 @@ Luti 在 `~/.luti/` 中按项目保存 `MEMORY.md` 索引与独立 `.md` 决策�
 |---|---|
 | **项目范围** | 文件与项目操作限制在当前已授权项目中 |
 | **权限模式** | `安全模式`（默认）在删除文件、修改 Git、运行 Shell 或内联代码前于本机弹窗确认；`完全访问` 直接执行。两种模式下外部操作均遵守原有权限边界 |
-| **凭据** | Runtime 凭据存入 macOS Keychain；敏感值在持久化前脱敏 |
+| **凭据** | API Key 和 Tunnel Token 存入 macOS Keychain；VPS 专用 SSH 密钥保存在私有文件中；敏感值在持久化前脱敏 |
 | **远程访问** | 独立的回环监听：OpenAI 使用私有连接凭据，Cloudflare 使用本机批准且绑定域名的 OAuth |
 | **Git** | 对外 Git 能力只读 |
 | **浏览器自动化** | Luti 只操作自己拥有的 Browser Session；不提供桌面截图或鼠标、键盘控制 |

@@ -27,8 +27,8 @@ Lutiは、AIクライアントを承認済みのひとつのプロジェクト�
 ## クイックスタート
 
 1. **Lutiをインストール。** 最新のGitHub Releaseから署名済みのDMGを入手するか、ソースからビルドします。
-2. **フォルダを追加。** **Projects**でフォルダを1つ選択します。初期状態はセーフモードで、プロジェクトページでフルアクセスをオンにすると確認を省略できます。削除すると空の状態に戻ります。
-3. **接続を設定。** **Connections**で**OpenAI Secure MCP Tunnel**または**Cloudflare Tunnel**を設定します（単独でも同時でも利用可能）。
+2. **プロジェクトを追加。** **Projects**の右下ボタンからフォルダを追加し、プロジェクトをクリックして管理します。右側の「使用」で現在のプロジェクトを切り替えます。権限、メモリ、活動履歴はプロジェクトごとに保存され、初期状態はセーフモードです。現在のプロジェクトは全クライアントで共有します。ローカルでの切り替えにはRuntimeの停止が必要ですが、AIはアイドル時に `project_select` で切り替えられます。
+3. **接続を設定。** **Connections** の3項目から OpenAI、Cloudflare、自己ホスト VPS を有効にし、項目をクリックして設定します。複数の接続を同時に利用できます。
 4. **起動して接続。** ローカルでRuntimeを起動し、AIクライアントにMCPサーバーを追加して利用を開始します。
 
 **1.4.0へのアップグレード：** 接続中の各AIクライアントでLutiのツール一覧を更新するか、コネクタを削除して追加し直してください。既存のプロジェクトはセーフモードで開きます。従来の動作にするにはプロジェクトページでフルアクセスをオンにしてください。1.0.xのデータは移行されません。
@@ -39,8 +39,9 @@ Lutiは、AIクライアントを承認済みのひとつのプロジェクト�
 |---|---|---|---|
 | **OpenAI Secure MCP Tunnel** | Tunnel ID + ランタイムAPIキー | ChatGPTワークスペースの関連付け | 公開Endpointなしで使うChatGPT |
 | **Cloudflare Tunnel** | HTTPS ドメイン + Tunnel Token | この Mac のダイアログで承認する OAuth | 固定の公開 URL を使うカスタム MCP クライアント |
+| **自己ホスト VPS** | HTTPS ドメイン + VPS アドレス + SSH ホスト公開鍵 | この Mac で承認する OAuth | 自分の VPS 経由の MCP。[設定手順](docs/vps.md) |
 
-OpenAI は接続ごとの新しい Credential と専用 Loopback Listener を使い、`tunnel-client` で送信方向に接続します。Cloudflare は固定 HTTPS ドメイン用に OAuth で保護された独立した入口を提供します。どちらか一方の設定で起動でき、同時接続も可能です。接続障害ではプロジェクトの Job を再起動せず再接続します。設定変更前に Runtime を停止してください。停止すると Job と Browser Session も終了します。[Cloudflare 設定とローカル承認](docs/cloudflare.md)を参照してください。
+OpenAI は接続ごとの新しい Credential と専用 Loopback Listener を使い、`tunnel-client` で送信方向に接続します。Cloudflare は固定 HTTPS ドメイン用に OAuth で保護された独立した入口を提供します。自己ホスト VPS は制限付き SSH リバース転送と独立した OAuth 入口を利用します。[VPS 設定手順](docs/vps.md)を参照してください。いずれかの接続設定で起動でき、3種類の同時接続も可能です。接続障害ではプロジェクトの Job を再起動せず再接続します。設定変更前に Runtime を停止してください。停止すると Job と Browser Session も終了します。[Cloudflare 設定とローカル承認](docs/cloudflare.md)を参照してください。
 
 ### 1. OpenAI Secure MCP Tunnel（ChatGPT）
 
@@ -107,12 +108,12 @@ def mcp_call(access_token, method, params=None, mid=1):
 
 ## 機能
 
-Lutiは7領域・**24個のPublic MCP Tool**を公開します。MCPはローカルで選択したフォルダを使用し、`projects`、`skills`のToolは公開しません。
+Lutiは7領域・**25個のPublic MCP Tool**を公開します。AIはローカルで追加済みのプロジェクト間を切り替えられます。MCPからフォルダを追加することはできません。
 
 | Domain | Public Tools | 範囲 |
 |---|---|---|
 | Memory | `memory_query`, `memory_action` | AIクライアント間で共有するプロジェクトメモリ。読み取り専用の `index`/`read`、ファイルの `sha256` で保護された `write`/`delete`（無条件の上書きなし）。`kind=task` のチェックリストで未完了の作業を次のセッションに引き継ぎ |
-| Project | `project_info`, `inspect_project`, `runtime_status` | 現在のWorkspace、Discovery、Runtime状態 |
+| Project | `project_info`, `project_select`, `inspect_project`, `runtime_status` | プロジェクト一覧、Workspace切り替え、Discovery、Runtime状態 |
 | Files & Code | `list_directory`, `read_files`, `read_image`, `search_project`, `edit_files`, `path_action`, `code_query` | 検索、読み取り、編集、移動、構造化コード照会 |
 | Process & Jobs | `run_process`, `run_shell`, `job_query`, `job_action` | Build、Test、長時間Job、Log、PTY入力、停止 |
 | Git | `git_query` | Status、Diff、Log、Show、Blame。読み取り専用 |
@@ -121,7 +122,7 @@ Lutiは7領域・**24個のPublic MCP Tool**を公開します。MCPはローカ
 
 プロジェクト固有の動作は、そのプロジェクトのmanifest、instructions、tasksで定義します。Public Toolを増やす必要はありません。
 
-最初に `project_info` を呼び出して、現在のWorkspace、`projectToken`、タスク進捗付きのメモリファイル、各AIクライアントによる最近の変更を取得します。Projectへの書き込み、Memoryの更新（`memory_action`）、コマンド実行、Browserの変更、Job入力にはこの値が必要です。ローカルで別のフォルダを選択するかRuntimeを再起動すると失効するため、不一致の場合は対象Workspaceを再確認してください。所有するJobの停止は古い値によって妨げられません。
+最初に `project_info` を呼び出して、現在のWorkspace、追加済みの `projects` 一覧、`projectToken`、タスク進捗付きのメモリファイル、各AIクライアントによる最近の変更を取得します。Projectへの書き込み、Memoryの更新（`memory_action`）、コマンド実行、Browserの変更、Job入力にはこの値が必要です。`project_select(projectId, projectToken)` は接続を維持して共有Workspaceを切り替えます。未完了のJobやツール呼び出し（承認待ちを含む）がある場合は拒否し、タスクを停止しません。成功時は新しいトークンと対象プロジェクトのコンテキストを返します。権限、ファイル、メモリ、活動履歴は分離され、古いJob ID、ブラウザータブ、成果物は失効します。切り替えやRuntime再起動後は古いトークンが失効するため、不一致の場合は対象Workspaceを再確認してください。所有するJobの停止は古い値によって妨げられません。
 
 `code_query` はインストール済みの言語サーバーを起動するため、現在の `projectToken` が必要です。言語サーバーは副作用を伴う場合があります。
 
@@ -141,7 +142,7 @@ Lutiはプロジェクトごとのメモリ（`MEMORY.md` インデックスと�
 |---|---|
 | **Project Scope** | ファイルとProject操作を現在の承認済みProjectに限定 |
 | **Permission Mode** | `セーフモード`（既定）はファイル削除、Git変更、シェル・インラインコード実行の前にこのMacで確認します。`フルアクセス`は確認なしで実行します。どちらでも外部操作の権限境界は維持します |
-| **Credential** | Runtime CredentialをmacOS Keychainに保存し、機密値を永続化前にRedact |
+| **Credential** | API Key と Tunnel Token は macOS Keychain、VPS 専用 SSH 鍵は非公開ファイルに保存し、機密値を永続化前に Redact |
 | **Remote Access** | 独立した Loopback Listener。OpenAI は専用 Credential、Cloudflare はこの Mac で承認したドメインごとの OAuth を使用 |
 | **Git** | 公開Git Capabilityは読み取り専用 |
 | **ブラウザ自動化** | Lutiが所有するBrowser Sessionのみを操作。デスクトップ撮影やマウス・キーボード操作は提供しません |

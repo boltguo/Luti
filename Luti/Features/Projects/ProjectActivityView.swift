@@ -7,6 +7,9 @@ struct ProjectActivityView: View {
   @State private var query = ""
   @State private var confirmClear = false
   @State private var error: String?
+  @State private var storedActivity: [ActivityEvent] = []
+
+  private var isCurrentProject: Bool { model.activeProject?.id == project.id }
 
   var body: some View {
     VStack(spacing: 0) {
@@ -17,14 +20,18 @@ struct ProjectActivityView: View {
         .disabled(model.active || model.contextBusy)
         .accessibilityIdentifier("clear-project-activity")
       }
-      ActivityView(events: model.activity, query: $query, lastCall: model.lastCall,
-                   currentRunID: model.currentRunID)
+      ActivityView(
+        events: isCurrentProject ? model.activity : storedActivity,
+        query: $query,
+        lastCall: isCurrentProject ? model.lastCall : nil,
+        currentRunID: isCurrentProject ? model.currentRunID : nil)
       if let error {
         InlineNotice(text: error, icon: "exclamationmark.triangle", color: MDTheme.error)
           .padding(.horizontal, 20)
           .padding(.bottom, 20)
       }
     }
+    .task { await loadStoredActivity() }
     .sheet(isPresented: $confirmClear) {
       MDConfirmDialog(
         title: clearTitle,
@@ -34,6 +41,7 @@ struct ProjectActivityView: View {
         Task {
           do {
             try await model.clearProjectActivity(project)
+            await loadStoredActivity()
             error = nil
           } catch {
             self.error = Failure.safe(error).localizedDescription
@@ -45,5 +53,15 @@ struct ProjectActivityView: View {
 
   private var clearTitle: String {
     L10n.format("context.clearSelection", L10n.text("context.activity"))
+  }
+
+  private func loadStoredActivity() async {
+    guard !isCurrentProject else { return }
+    let directory = LocalLogStore.activityDirectory(for: project.url, dataRoot: model.contextDataRoot)
+    let events = await Task.detached(priority: .userInitiated) {
+      LocalLogStore.recentActivities(limit: 200, directory: directory)
+    }.value
+    guard !Task.isCancelled else { return }
+    storedActivity = Array(events.reversed())
   }
 }

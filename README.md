@@ -27,8 +27,8 @@ Luti connects an AI client to one approved project. The AI host handles reasonin
 ## Get started
 
 1. **Install Luti.** Download the signed DMG from the latest GitHub Release, or build it from source.
-2. **Add a folder.** Choose one folder in **Projects**. It starts in Safe Mode; switch on Full Access on the project page to skip approvals. Removing it returns the page to its empty state.
-3. **Configure a connection.** In **Connections**, configure **OpenAI Secure MCP Tunnel** or **Cloudflare Tunnel** (either or both may be enabled).
+2. **Add projects.** Use the bottom-right add button in **Projects**, click a project to manage it, and use its right-hand Use control to select the current project. Each project keeps its own permissions, memory, and activity. Safe Mode is the default. One workspace is shared by all clients. Local selection requires stopping the Runtime; AI clients can use `project_select` while it is idle.
+3. **Configure a connection.** In **Connections**, enable OpenAI, Cloudflare or Self-hosted VPS from the three-row list, then click a row to configure it. Multiple connections may run together.
 4. **Start and connect.** Start the local Runtime, then add the MCP server in your AI client.
 
 **Upgrading to 1.4.0:** Refresh Luti's tool list in each connected AI client, or remove and re-add the connector. Existing projects open in Safe Mode; turn on Full Access on the project page to keep the previous behavior. Data from 1.0.x is not migrated.
@@ -39,8 +39,9 @@ Luti connects an AI client to one approved project. The AI host handles reasonin
 |---|---|---|---|
 | **OpenAI Secure MCP Tunnel** | Tunnel ID + runtime API key | ChatGPT workspace association | ChatGPT, with no public endpoint |
 | **Cloudflare Tunnel** | HTTPS domain + Tunnel Token | OAuth approved via Luti popup on this Mac | Custom MCP clients using a stable public URL |
+| **Self-hosted VPS** | HTTPS domain + VPS address + server SSH host public key | OAuth approved on this Mac | Public MCP through your own VPS; [setup](docs/vps.md) |
 
-OpenAI uses its private, credential-bound loopback listener and outbound `tunnel-client`; Cloudflare adds an independent OAuth-protected listener for a named HTTPS domain. Either connection can start the runtime, and both may run together. Failed transports reconnect without restarting project jobs. Stop the runtime before changing connection settings; stopping also ends jobs and browser sessions. See [Cloudflare setup and authorization](docs/cloudflare.md).
+OpenAI uses its private, credential-bound loopback listener and outbound `tunnel-client`; Cloudflare adds an independent OAuth-protected listener for a named HTTPS domain. Any configured connection can start the runtime; all three can run together. Self-hosted VPS uses a restricted SSH reverse forward and the same native OAuth approval flow. See [VPS setup](docs/vps.md). Failed transports reconnect without restarting project jobs. Stop the runtime before changing connection settings; stopping also ends jobs and browser sessions. See [Cloudflare setup and authorization](docs/cloudflare.md).
 
 ### 1. OpenAI Secure MCP Tunnel (ChatGPT)
 
@@ -107,12 +108,12 @@ def mcp_call(access_token, method, params=None, mid=1):
 
 ## Capabilities
 
-Luti exposes **24 public MCP tools** across seven domains. MCP uses the folder selected locally, with no `projects` or `skills` tool.
+Luti exposes **25 public MCP tools** across seven domains. AI clients can select among locally added projects; MCP cannot add folders.
 
 | Domain | Public tools | Scope |
 |---|---|---|
 | Memory | `memory_query`, `memory_action` | Project memory shared across AI clients: read-only `index`/`read`; `write`/`delete` guarded by the file's `sha256`, so writes never overwrite blindly; `kind=task` checklists hand unfinished work to the next session |
-| Project | `project_info`, `inspect_project`, `runtime_status` | Current workspace, discovery, runtime state |
+| Project | `project_info`, `project_select`, `inspect_project`, `runtime_status` | Approved projects, workspace selection, discovery, runtime state |
 | Files & Code | `list_directory`, `read_files`, `read_image`, `search_project`, `edit_files`, `path_action`, `code_query` | Search, read, edit, move, structured code queries |
 | Process & Jobs | `run_process`, `run_shell`, `job_query`, `job_action` | Builds, tests, long jobs, logs, PTY input, stop |
 | Git | `git_query` | Status, diff, log, show, blame; read-only |
@@ -121,7 +122,7 @@ Luti exposes **24 public MCP tools** across seven domains. MCP uses the folder s
 
 Project-specific behavior comes from the project's own manifest, instructions, and tasks rather than an expanding public tool set.
 
-Start with `project_info` for the current workspace, `projectToken`, memory files with task progress and the latest changes from any AI client. Project writes, memory mutations (`memory_action`), command execution, browser mutations and Job input require this token. It changes after selecting a different folder locally or restarting the Runtime; re-observe the intended workspace after a mismatch. Stopping an owned Job remains available without a current token.
+Start with `project_info` for the current workspace, the approved `projects` list, `projectToken`, memory files with task progress and the latest changes from any AI client. Project writes, memory mutations (`memory_action`), command execution, browser mutations and Job input require this token. Use `project_select(projectId, projectToken)` to switch the shared workspace without reconnecting. It refuses while jobs or other tool calls, including approvals, are unfinished; it never stops them. Switching returns a new token and the target project’s context. Permissions, files, memory and activity stay scoped to each project; old job IDs, browser tabs and artifacts are discarded. The token changes after every project switch or Runtime restart; re-observe the intended workspace after a mismatch. Stopping an owned Job remains available without a current token.
 
 `code_query` starts an installed language server and requires the current `projectToken`; the server may have side effects.
 
@@ -141,7 +142,7 @@ Luti stores per-project memory (`MEMORY.md` index and topic `.md` decision files
 |---|---|
 | **Project scope** | File and project operations stay inside the active approved project |
 | **Permission mode** | `Safe Mode` (default) asks on this Mac before deleting files, mutating Git, or running shell/inline code; `Full Access` runs them without asking. External operations retain their permission boundaries in both modes |
-| **Secrets** | Runtime credentials use macOS Keychain; sensitive values are redacted before persistence |
+| **Secrets** | API keys and Tunnel Tokens use macOS Keychain; the dedicated VPS SSH key uses private files; sensitive values are redacted before persistence |
 | **Remote access** | Separate loopback listeners: OpenAI uses a private transport credential; Cloudflare requires domain-bound OAuth approved on this Mac |
 | **Git** | Public Git capability is read-only |
 | **Browser automation** | Luti owns its browser sessions; desktop capture and input are unavailable |

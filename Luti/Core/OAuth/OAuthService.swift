@@ -21,6 +21,7 @@ public actor OAuthService {
   public nonisolated var resource: String { origin.absoluteString + "/mcp" }
   public nonisolated var metadataURL: String { origin.absoluteString + "/.well-known/oauth-protected-resource/mcp" }
   private let file: URL?
+  private let transport: TransportProviderID
   private let now: @Sendable () -> Date
   private var state: State
   private var registrations: [String: OAuthClient] = [:]
@@ -32,8 +33,11 @@ public actor OAuthService {
   private var registrationCredits = 8.0
   private var creditTime: Date
 
-  init(origin: URL, file: URL? = nil, now: @escaping @Sendable () -> Date = { Date() }) throws {
-    self.origin = try CloudflareContract.origin(origin.absoluteString)
+  init(origin: URL, file: URL? = nil, transport: TransportProviderID = .cloudflare,
+       now: @escaping @Sendable () -> Date = { Date() }) throws {
+    guard [.cloudflare, .vps].contains(transport) else { throw Failure.invalid("Public OAuth requires a public HTTPS transport.") }
+    self.origin = try PublicConnectionContract.origin(origin.absoluteString)
+    self.transport = transport
     self.file = file
     self.now = now
     creditTime = now()
@@ -45,7 +49,7 @@ public actor OAuthService {
         guard loaded.version == 1, loaded.resource == resource,
           loaded.clients.count <= 64, loaded.grants.count <= 32,
           loaded.grants.allSatisfy({ $0.spentRefreshHashes.count <= 1024 })
-        else { throw Failure.invalid("The saved Cloudflare authorizations do not match this domain.") }
+        else { throw Failure.invalid("The saved authorizations do not match this domain.") }
         state = loaded
         return
       }
@@ -128,7 +132,7 @@ public actor OAuthService {
     if let grant = active.first(where: { Budget.constantTimeEqual($0.accessHash, hash) }),
       let client = state.clients.first(where: { $0.id == grant.clientID })
     {
-      return (.remote(RequestContext(transport: .cloudflare, clientID: client.id,
+      return (.remote(RequestContext(transport: transport, clientID: client.id,
         clientName: client.name, authorizationID: grant.id)), "")
     }
     // Never echo active grants' hashes: this reason reaches unauthenticated callers.

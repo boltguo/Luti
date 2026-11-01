@@ -315,8 +315,7 @@ private actor TestConnectionProvider: ConnectionProvider {
     let f = try Fixture()
     let model = AppModel(contextDataRoot: f.contextDataRoot, defaults: f.defaults)
     addTeardownBlock { await model.stop(); f.remove() }
-    let project = ApprovedProject(url: f.root)
-    model.activeProject = project
+    model.addProject(f.root)
 
     model.requestStart()
     await model.stop()
@@ -331,8 +330,7 @@ private actor TestConnectionProvider: ConnectionProvider {
     f.defaults.set("tunnel_0123456789abcdef0123456789abcdef", forKey: "connection.openai.tunnelID")
     let model = AppModel(contextDataRoot: f.contextDataRoot, defaults: f.defaults)
     addTeardownBlock { await model.stop(); f.remove() }
-    let project = ApprovedProject(url: f.root)
-    model.activeProject = project
+    model.addProject(f.root)
 
     model.apiKeySaved = false
     model.requestStart()

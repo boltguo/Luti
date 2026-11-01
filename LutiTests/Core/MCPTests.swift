@@ -46,7 +46,7 @@ import XCTest
     XCTAssertEqual(initResult.json["result"]["protocolVersion"], "2025-11-25")
     let list = await endpoint.handle(try request("tools/list"))
     let tools = try XCTUnwrap(list.json["result"]["tools"].array)
-    XCTAssertEqual(tools.count, 24)
+    XCTAssertEqual(tools.count, 25)
     XCTAssertNil(tools.first { $0["name"] == "projects" })
     XCTAssertNotNil(tools.first { $0["name"] == "memory_query" })
     XCTAssertNotNil(tools.first { $0["name"] == "project_info" })
@@ -94,7 +94,7 @@ import XCTest
       for modern in [false, true] {
         let list = await endpoint.handle(try request("tools/list", modern: modern))
         let tools = try XCTUnwrap(list.json["result"]["tools"].array)
-        XCTAssertEqual(tools.count, 24)
+        XCTAssertEqual(tools.count, 25)
         XCTAssertFalse(tools.contains { desktopTools.contains($0["name"].string ?? "") })
         for tool in desktopTools {
           let response = await endpoint.handle(try request("tools/call",
@@ -143,7 +143,7 @@ import XCTest
       for modern in [false, true] {
         let list = await endpoint.handle(try request("tools/list", modern: modern))
         let tools = try XCTUnwrap(list.json["result"]["tools"].array)
-        XCTAssertEqual(tools.count, 24)
+        XCTAssertEqual(tools.count, 25)
         XCTAssertNil(tools.first { $0["name"] == "projects" })
         XCTAssertNotNil(tools.first { $0["name"] == "memory_query" })
         XCTAssertNil(tools.first { $0["name"] == "skills" })
@@ -389,7 +389,7 @@ import XCTest
     await endpoint.shutdown()
   }
   func testActionSchemasShareBoundariesAndNeverInjectForeignDefaults() throws {
-    XCTAssertEqual(ToolCatalog.names.count, 24)
+    XCTAssertEqual(ToolCatalog.names.count, 25)
     for (name, contracts) in ActionContracts.rules where ToolCatalog.names.contains(name) {
       let definition = try XCTUnwrap(ToolCatalog.definitions.first { $0["name"].string == name })
       let schema = definition["inputSchema"]
