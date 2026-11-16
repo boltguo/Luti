@@ -14,6 +14,6 @@
 
 **Refresh Luti's tool list in each connected AI client**, or remove and re-add the connector. There are now 25 tools, including `project_select`. After a project switch, clients must read the new project token before making changes.
 
-Existing projects, permission choices, memory, activity and connection settings are retained. VPS setup is optional. HTTPS and SSH encrypt the network links; the VPS reverse proxy can read traffic where HTTPS terminates, as can Cloudflare when its proxy is enabled. See [VPS setup and security](vps.md).
+Existing projects, permission choices, memory, activity and connection settings are retained. VPS setup is optional. HTTPS and SSH encrypt the network links; the VPS reverse proxy can read traffic where HTTPS terminates, as can Cloudflare when its proxy is enabled. See [VPS setup and security](https://github.com/boltguo/Luti/blob/v1.5.0/docs/vps.md).
 
 macOS 14 or later on Apple Silicon. Browser automation requires Google Chrome.

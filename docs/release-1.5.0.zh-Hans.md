@@ -14,6 +14,6 @@
 
 **在每个已连接的 AI 客户端中刷新 Luti 工具列表**，或移除后重新添加连接。工具数量现为 25 个，新增 `project_select`。切换项目后，客户端需要读取新项目令牌才能修改内容。
 
-保留已有项目、权限选择、记忆、活动记录和连接设置。VPS 为可选连接方式。HTTPS 和 SSH 加密各段网络传输；VPS 反向代理可在 HTTPS 终止处读取内容，开启 Cloudflare 代理时 Cloudflare 也可读取。详见 [VPS 配置与安全边界](vps.md)。
+保留已有项目、权限选择、记忆、活动记录和连接设置。VPS 为可选连接方式。HTTPS 和 SSH 加密各段网络传输；VPS 反向代理可在 HTTPS 终止处读取内容，开启 Cloudflare 代理时 Cloudflare 也可读取。详见 [VPS 配置与安全边界](https://github.com/boltguo/Luti/blob/v1.5.0/docs/vps.md)。
 
 支持 Apple Silicon Mac，要求 macOS 14 或更新版本。浏览器自动化需要 Google Chrome。
