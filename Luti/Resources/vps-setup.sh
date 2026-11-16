@@ -5,6 +5,13 @@ domain='__LUTI_DOMAIN__'
 public_key='__LUTI_PUBLIC_KEY__'
 remote_port='__LUTI_REMOTE_PORT__'
 
+configure_firewall() {
+  if command -v ufw >/dev/null 2>&1 && LC_ALL=C ufw status | grep '^Status: active$' >/dev/null; then
+    ufw allow 80/tcp
+    ufw allow 443/tcp
+  fi
+}
+
 if [ "$(id -u)" -ne 0 ]; then
   echo 'Run this setup as root on the VPS.' >&2
   exit 1
@@ -69,14 +76,19 @@ $domain {
 }
 LUTI_CADDY
 caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+configure_firewall
 systemctl reload ssh
 systemctl enable --now caddy
 systemctl reload caddy
 
 echo
-echo 'Paste this server host public key into Luti (verify it from this VPS console):'
+echo 'Optional: paste this complete server host public key into Luti > SSH settings (verify it from this VPS console):'
 awk '{print $1 " " $2}' /etc/ssh/ssh_host_ed25519_key.pub
 echo
 echo "MCP URL: https://$domain/mcp"
-echo 'Allow inbound TCP 22 (or your SSH port), 80 and 443 in the VPS firewall/security group.'
+echo 'If UFW was already active, the script allowed TCP 80/443.'
+echo 'In the cloud security group, allow TCP 22 (or your SSH port), 80 and 443.'
+echo 'For other system firewalls, allow TCP 80/443 manually. Keep port 39393 private.'
 echo 'Point the domain A/AAAA records to this VPS. Start with DNS-only; enable orange-cloud Full (strict) after HTTPS works.'
+echo 'Configuration validation does not confirm certificate issuance. Caddy still needs public access on TCP 80/443.'
+echo 'Save settings and start Luti on the Mac. Wait for Connected, then add the MCP URL to your AI client and approve OAuth in Luti.'

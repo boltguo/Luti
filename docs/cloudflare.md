@@ -12,6 +12,8 @@ permission is requested by Luti. OpenAI and Cloudflare can run together.
    Release, `http://127.0.0.1:39395` in development. OAuth discovery and callbacks
    need the same origin as `/mcp`. Keep the default Host header.
 3. Save that HTTPS origin and the Tunnel Token in Luti's Cloudflare section.
+   Use the token from the same tunnel that owns the hostname's DNS record and
+   published route. Recreating a tunnel requires saving its new token in Luti.
    Luti downloads and verifies the pinned official `cloudflared`; the token is
    stored in Keychain and supplied only to the child process's environment.
 4. Select your project and start Luti. Copy the MCP URL into ChatGPT or another
@@ -33,6 +35,45 @@ connector with one forced to HTTP/2. A live HTTP/2 connector keeps retrying and
 reports reconnecting, even if its first 45 seconds also expire. The listener,
 OAuth requests and project jobs stay in place during fallback. A new runtime
 starts with `auto` again; an exited connector uses the existing retry backoff.
+
+QUIC uses UDP port 7844; HTTP/2 uses TCP port 7844. A proxy path with working TCP
+but no UDP can use the HTTP/2 fallback. If TCP 7844 is also blocked, fallback
+cannot establish the tunnel. HY2 or VLESS by itself does not establish which
+traffic a particular proxy node forwards; check its routing and UDP support.
+Use the local service URL displayed by the current Luti build when configuring
+Cloudflare's hostname route. The in-app guide uses that same URL automatically;
+the Cloudflare settings page provides a one-click copy action, available while
+the Runtime is running.
+
+See [Cloudflare connectivity pre-checks](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/troubleshoot-tunnels/connectivity-prechecks/).
+
+## Troubleshooting
+
+- **Connected, but the domain returns 1033:** check that the hostname's CNAME
+  points to the tunnel whose token is saved in Luti. A connector can be healthy
+  while the domain points to a different, inactive or deleted tunnel. Keep the
+  domain, published route and token on the same tunnel.
+- **502 Bad Gateway:** check the published route's local service against the URL
+  shown in Luti. Release uses port `39393`; development uses `39395`.
+- Verify `https://<your-domain>/.well-known/oauth-authorization-server` returns
+  JSON with the configured domain as its issuer. Without credentials, `/mcp`
+  should return `401`; then authorize an AI client and test a tool call.
+
+See [Cloudflare error 1033](https://developers.cloudflare.com/support/troubleshooting/http-status-codes/cloudflare-1xxx-errors/error-1033/).
+
+## Local listener ports
+
+| Connection | Release on the Mac | Development on the Mac |
+|---|---|---|
+| Cloudflare | `127.0.0.1:39393` | `127.0.0.1:39395` |
+| Self-hosted VPS | `127.0.0.1:39394` | `127.0.0.1:39396` |
+| OpenAI | Automatically assigned loopback port | Automatically assigned loopback port |
+
+Only configured, enabled connections start their MCP listeners. The project
+runtime adds no separate MCP listener. Transport helpers may also use loopback
+health/metrics ports; no manual configuration is needed for those. The VPS's
+`127.0.0.1:39393` belongs to the remote server and forwards through SSH to the
+Mac's VPS listener. Public VPS clients use HTTPS port 443.
 
 ## Authorization behavior
 

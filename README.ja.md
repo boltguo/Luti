@@ -31,7 +31,7 @@ Lutiは、AIクライアントを承認済みのひとつのプロジェクト�
 3. **接続を設定。** **Connections** の3項目から OpenAI、Cloudflare、自己ホスト VPS を有効にし、項目をクリックして設定します。複数の接続を同時に利用できます。
 4. **起動して接続。** ローカルでRuntimeを起動し、AIクライアントにMCPサーバーを追加して利用を開始します。
 
-**1.4.0へのアップグレード：** 接続中の各AIクライアントでLutiのツール一覧を更新するか、コネクタを削除して追加し直してください。既存のプロジェクトはセーフモードで開きます。従来の動作にするにはプロジェクトページでフルアクセスをオンにしてください。1.0.xのデータは移行されません。
+**1.5.0へのアップグレード：** 接続中の各AIクライアントでLutiのツール一覧を更新するか、コネクタを削除して追加し直し、`project_select` と新しいツール説明を読み込んでください。既存のプロジェクトと権限設定は保持されます。[リリースノート](docs/release-1.5.0.ja.md)も参照してください。1.0.xのデータは移行されません。
 
 ## 接続方式と設定ガイド
 
@@ -39,7 +39,7 @@ Lutiは、AIクライアントを承認済みのひとつのプロジェクト�
 |---|---|---|---|
 | **OpenAI Secure MCP Tunnel** | Tunnel ID + ランタイムAPIキー | ChatGPTワークスペースの関連付け | 公開Endpointなしで使うChatGPT |
 | **Cloudflare Tunnel** | HTTPS ドメイン + Tunnel Token | この Mac のダイアログで承認する OAuth | 固定の公開 URL を使うカスタム MCP クライアント |
-| **自己ホスト VPS** | HTTPS ドメイン（詳細設定で SSH IP / ホスト公開鍵を任意指定） | この Mac で承認する OAuth | 自分の VPS 経由の MCP。[設定手順](docs/vps.md) |
+| **自己ホスト VPS** | HTTPS ドメイン（SSH IP / サーバー公開鍵を任意指定） | この Mac で承認する OAuth | 自分の VPS 経由の MCP。[設定手順](docs/vps.md) |
 
 OpenAI は接続ごとの新しい Credential と専用 Loopback Listener を使い、`tunnel-client` で送信方向に接続します。Cloudflare は固定 HTTPS ドメイン用に OAuth で保護された独立した入口を提供します。自己ホスト VPS は制限付き SSH リバース転送と独立した OAuth 入口を利用します。[VPS 設定手順](docs/vps.md)を参照してください。いずれかの接続設定で起動でき、3種類の同時接続も可能です。接続障害ではプロジェクトの Job を再起動せず再接続します。設定変更前に Runtime を停止してください。停止すると Job と Browser Session も終了します。[Cloudflare 設定とローカル承認](docs/cloudflare.md)を参照してください。
 

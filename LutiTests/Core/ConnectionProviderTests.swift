@@ -246,13 +246,74 @@ private actor FixtureProvider: ConnectionProvider {
     // 2. Upgrade from v1.2.0: saved tunnelID exists, but connection.openai.enabled was never set -> openAIEnabled is true.
     f.defaults.removeObject(forKey: "connection.openai.enabled")
     f.defaults.set("tunnel_0123456789abcdef0123456789abcdef", forKey: "connection.openai.tunnelID")
-    let upgraded = AppModel(contextDataRoot: f.contextDataRoot, defaults: f.defaults)
+    let keychain = FixtureKeychain(values: [KeychainService.openAIAPIKey: "sk-" + String(repeating: "a", count: 40)])
+    let upgraded = AppModel(contextDataRoot: f.contextDataRoot, defaults: f.defaults, credentials: keychain.client)
     XCTAssertTrue(upgraded.openAIEnabled)
 
     // 3. Explicit user toggle off persists across launches even when tunnelID is saved.
     upgraded.openAIEnabled = false
-    let reopened = AppModel(contextDataRoot: f.contextDataRoot, defaults: f.defaults)
+    let reopened = AppModel(contextDataRoot: f.contextDataRoot, defaults: f.defaults, credentials: keychain.client)
     XCTAssertFalse(reopened.openAIEnabled)
+  }
+
+  func testUnconfiguredSwitchDoesNotEnableOrPersistUntilSaveSucceeds() async throws {
+    let f = try Fixture(); defer { f.remove() }
+    let keychain = FixtureKeychain()
+    let model = AppModel(contextDataRoot: f.contextDataRoot, defaults: f.defaults, credentials: keychain.client)
+    addTeardownBlock { await model.stop() }
+    let keys = ["connection.openai.enabled", "connection.cloudflare.v2.enabled", "connection.vps.enabled"]
+    for provider in ConnectionProviderID.allCases {
+      XCTAssertFalse(model.setConnectionEnabled(true, for: provider))
+    }
+    XCTAssertFalse(model.openAIEnabled)
+    XCTAssertTrue(model.publicConnections.allSatisfy { !$0.enabled })
+    XCTAssertTrue(keys.allSatisfy { !f.defaults.bool(forKey: $0) })
+
+    // Partially entered or invalid settings still do not enable the connection.
+    model.tunnelID = "invalid"
+    let saved = await model.saveConnection()
+    XCTAssertFalse(saved)
+    model.cloudflare.domain = "mcp.example.com"
+    await model.cloudflare.save()
+    model.vps.domain = "invalid"
+    await model.vps.save()
+    XCTAssertFalse(model.openAIEnabled)
+    XCTAssertTrue(model.publicConnections.allSatisfy { !$0.enabled })
+    XCTAssertTrue(keys.allSatisfy { !f.defaults.bool(forKey: $0) })
+
+    model.tunnelID = "tunnel_0123456789abcdef0123456789abcdef"
+    model.apiKeyDraft = "sk-" + String(repeating: "a", count: 40)
+    let savedValid = await model.saveConnection()
+    XCTAssertTrue(savedValid)
+    model.cloudflare.tokenDraft = String(repeating: "t", count: 80)
+    await model.cloudflare.save()
+    model.vps.domain = "vps.example.com"
+    await model.vps.save()
+    XCTAssertTrue(model.openAIEnabled)
+    XCTAssertTrue(model.publicConnections.allSatisfy { $0.enabled && $0.configured })
+
+    // Configured connections can be turned off and back on without setup.
+    for provider in ConnectionProviderID.allCases {
+      XCTAssertTrue(model.setConnectionEnabled(false, for: provider))
+    }
+    let disabled = AppModel(contextDataRoot: f.contextDataRoot, defaults: f.defaults, credentials: keychain.client)
+    addTeardownBlock { await disabled.stop() }
+    XCTAssertFalse(disabled.openAIEnabled)
+    XCTAssertTrue(disabled.publicConnections.allSatisfy { !$0.enabled && $0.configured })
+    for provider in ConnectionProviderID.allCases {
+      XCTAssertTrue(disabled.setConnectionEnabled(true, for: provider))
+    }
+    XCTAssertTrue(keys.allSatisfy { f.defaults.bool(forKey: $0) })
+  }
+
+  func testReopeningClearsPreviouslyEnabledButUnconfiguredSwitches() throws {
+    let f = try Fixture(); defer { f.remove() }
+    let keys = ["connection.openai.enabled", "connection.cloudflare.v2.enabled", "connection.vps.enabled"]
+    for key in keys { f.defaults.set(true, forKey: key) }
+    let model = AppModel(contextDataRoot: f.contextDataRoot, defaults: f.defaults)
+    XCTAssertFalse(model.openAIEnabled)
+    XCTAssertTrue(model.publicConnections.allSatisfy { !$0.enabled })
+    XCTAssertTrue(keys.allSatisfy { !f.defaults.bool(forKey: $0) })
   }
 
   func testPollReasonKeepsOnlyTheBoundedCause() {
@@ -401,13 +462,77 @@ extension ConnectionProviderTests {
     XCTAssertThrowsError(try VPSIdentity.setupScript(origin: URL(string: "https://mcp.example.com/path")!, root: f.contextDataRoot))
   }
 
+  func testVPSSetupRequiresAValidDraftDomainBeforeGeneratingAnIdentity() async throws {
+    let f = try Fixture(); defer { f.remove() }
+    let connection = PublicConnectionModel(defaults: f.defaults, credentials: FixtureKeychain().client,
+      dataRoot: f.contextDataRoot, providerID: .vps)
+    for domain in ["", "  \n ", "http://mcp.example.com", "https://mcp.example.com/mcp"] {
+      connection.domain = domain
+      XCTAssertNil(connection.setupDomain)
+      let script = await connection.vpsSetupScript()
+      XCTAssertNil(script, domain)
+      XCTAssertNotNil(connection.error)
+      XCTAssertFalse(connection.saving)
+      XCTAssertFalse(connection.enabled)
+      XCTAssertEqual(connection.savedDomain, "")
+      XCTAssertFalse(FileManager.default.fileExists(atPath: VPSIdentity.key(in: f.contextDataRoot).path))
+    }
+    // The current draft drives script generation, even before saving settings.
+    connection.domain = "  MCP.Example.com  "
+    XCTAssertEqual(connection.setupDomain, "mcp.example.com")
+    let script = await connection.vpsSetupScript()
+    XCTAssertTrue(script?.contains("domain='mcp.example.com'") == true)
+    XCTAssertNil(connection.error)
+    XCTAssertTrue(connection.vpsKeyReady)
+    XCTAssertFalse(connection.enabled)
+    XCTAssertEqual(connection.savedDomain, "")
+  }
+
+  func testVPSSetupOpensOnlyWebPortsInAnAlreadyActiveUFW() throws {
+    let f = try Fixture(); defer { f.remove() }
+    let script = try VPSIdentity.setupScript(origin: URL(string: "https://mcp.example.com")!, root: f.contextDataRoot)
+    let start = try XCTUnwrap(script.range(of: "configure_firewall() {"))
+    let end = try XCTUnwrap(script.range(of: "\n}\n", range: start.upperBound..<script.endIndex))
+    let function = String(script[start.lowerBound..<end.upperBound])
+    // Run the actual firewall function against a fake CLI; no host firewall is changed.
+    let mock = """
+      ufw() {
+        if [ "$1" = status ]; then
+          printf 'Status: %s\\n' "$UFW_TEST_STATE"
+        else
+          printf '%s\\n' "$*"
+          if [ "$UFW_TEST_FAIL" = 1 ]; then return 7; fi
+        fi
+      }
+      """
+    for state in ["active", "inactive", "missing", "failed"] {
+      let process = Process(), output = Pipe()
+      process.executableURL = URL(fileURLWithPath: "/bin/bash")
+      let harness = "set -euo pipefail\n" + (state == "missing" ? "" : mock)
+        + "\n" + function + "\nconfigure_firewall\n"
+      process.arguments = ["-c", harness]
+      process.environment = ["PATH": state == "missing" ? f.root.path : "/usr/bin:/bin",
+        "UFW_TEST_STATE": state == "failed" ? "active" : state,
+        "UFW_TEST_FAIL": state == "failed" ? "1" : "0"]
+      // A rule-write failure must stop deployment, rather than printing success.
+      process.standardOutput = output
+      process.standardError = FileHandle.nullDevice
+      try process.run()
+      let text = String(decoding: output.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
+      process.waitUntilExit()
+      XCTAssertEqual(process.terminationStatus, state == "failed" ? 7 : 0, state)
+      XCTAssertEqual(text, state == "active" ? "allow 80/tcp\nallow 443/tcp\n"
+        : state == "failed" ? "allow 80/tcp\n" : "", state)
+    }
+  }
+
   func testVPSSSHConfigurationPinsHostKeyAndUsesRestrictedReverseForward() throws {
     let f = try Fixture(); defer { f.remove() }
     let configuration = try VPSConfiguration(host: "203.0.113.10", port: "2222", hostKey: vpsPublicKey(f))
     XCTAssertTrue(configuration.knownHost.hasPrefix("[203.0.113.10]:2222 ssh-ed25519 "))
     let args = VPSTunnelProvider.arguments(configuration: configuration,
       identity: VPSIdentity.key(in: f.contextDataRoot), knownHosts: f.root.appendingPathComponent("known_hosts"),
-      control: f.root.appendingPathComponent("ssh.sock"), localPort: 39394)
+      localPort: 39394)
     let check = Process(), output = Pipe()
     check.executableURL = URL(fileURLWithPath: "/usr/bin/ssh")
     check.arguments = ["-G"] + args
@@ -419,6 +544,7 @@ extension ConnectionProviderTests {
     XCTAssertEqual(check.terminationStatus, 0)
     let parsed = String(decoding: data, as: UTF8.self)
     XCTAssertTrue(parsed.contains("user luti\n"))
+    XCTAssertTrue(parsed.contains("controlpath ssh.sock\n"))
     XCTAssertTrue(parsed.contains("batchmode yes\n"))
     XCTAssertTrue(parsed.contains("stricthostkeychecking true\n"))
     XCTAssertTrue(parsed.contains("exitonforwardfailure yes\n"))
@@ -430,7 +556,7 @@ extension ConnectionProviderTests {
     XCTAssertEqual(autoPin.knownHost, "")
     let autoArgs = VPSTunnelProvider.arguments(configuration: autoPin,
       identity: VPSIdentity.key(in: f.contextDataRoot), knownHosts: f.root.appendingPathComponent("known_hosts"),
-      control: f.root.appendingPathComponent("ssh.sock"), localPort: 39394)
+      localPort: 39394)
     let autoCheck = Process(), autoOutput = Pipe()
     autoCheck.executableURL = URL(fileURLWithPath: "/usr/bin/ssh")
     autoCheck.arguments = ["-G"] + autoArgs
@@ -553,6 +679,34 @@ extension ConnectionProviderTests {
     XCTAssertNotNil(store.value(CloudflareContract.tokenAccount))
   }
 
+  func testSavingVPSSettingsPreservesHostPinsUntilExplicitClear() async throws {
+    let f = try Fixture(); defer { f.remove() }
+    let model = AppModel(contextDataRoot: f.contextDataRoot, defaults: f.defaults, credentials: FixtureKeychain().client)
+    addTeardownBlock { await model.stop() }
+    model.vps.domain = "mcp.example.com"
+    model.vps.vpsHost = "vps.example.com"
+    await model.vps.save()
+    XCTAssertNil(model.vps.error)
+    let pin = VPSIdentity.knownHosts(in: f.contextDataRoot)
+    let contents = Data("vps.example.com \(try vpsPublicKey(f))\n".utf8)
+    try PrivateFiles.atomicWrite(contents, to: pin)
+    for domain in ["mcp.example.com", "new-mcp.example.com"] {
+      model.vps.domain = domain
+      await model.vps.save()
+      XCTAssertNil(model.vps.error)
+      XCTAssertEqual(try Data(contentsOf: pin), contents)
+    }
+    // Other hosts have separate known_hosts entries; editing settings never resets trust.
+    model.vps.vpsHost = "other.example.com"
+    await model.vps.save()
+    XCTAssertNil(model.vps.error)
+    XCTAssertEqual(try Data(contentsOf: pin), contents)
+    await model.vps.clear()
+    XCTAssertNil(model.vps.error)
+    XCTAssertFalse(FileManager.default.fileExists(atPath: pin.path))
+    XCTAssertTrue(FileManager.default.fileExists(atPath: VPSIdentity.key(in: f.contextDataRoot).path))
+  }
+
   func testCloudflareAndVPSRunIndependentlyAndStopTogether() async throws {
     let f = try Fixture()
     let cf = FixtureProvider(id: .cloudflare), vps = FixtureProvider(id: .vps)
@@ -588,7 +742,7 @@ extension ConnectionProviderTests {
 
   /// Exercise the real child-process lifecycle without downloading a connector or using the network.
   private func cloudflareFixture(
-    startupTimeout: Duration = .milliseconds(900), exits: Bool = false, metrics: Bool = true,
+    startupTimeout: Duration = .seconds(3), exits: Bool = false, metrics: Bool = true,
     probe: @escaping @Sendable (URL) async -> Bool
   ) throws -> (Fixture, CloudflareTunnelProvider) {
     let f = try Fixture()
@@ -668,7 +822,7 @@ extension ConnectionProviderTests {
       let (f, provider) = try cloudflareFixture(startupTimeout: .seconds(5)) { _ in false }
       let endpoint = cloudflareEndpoint
       let start = Task { try await provider.start(endpoint: endpoint) }
-      for _ in 0..<100 {
+      for _ in 0..<300 {
         if !cloudflareLaunches(f).isEmpty { break }
         try await Task.sleep(for: .milliseconds(10))
       }
@@ -788,10 +942,10 @@ extension ConnectionProviderTests {
 
   func testMissingCredentialStaysFailedWithoutAutomaticReadLoop() async throws {
     let f = try Fixture(); defer { f.remove() }
-    let store = FixtureKeychain()
+    let store = FixtureKeychain(values: [KeychainService.openAIAPIKey: "synthetic-key"])
     f.defaults.set("tunnel_0123456789abcdef0123456789abcdef", forKey: "connection.openai.tunnelID")
     let model = AppModel(contextDataRoot: f.contextDataRoot, defaults: f.defaults, credentials: store.client)
-    model.apiKeySaved = true // A credential removed after launch.
+    try store.client.remove(KeychainService.openAIAPIKey) // A credential removed after launch.
     model.addProject(f.root); model.requestStart()
     for _ in 0..<200 {
       if model.connection.state == .failed && !model.connectionBusy { break }

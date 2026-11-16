@@ -113,7 +113,7 @@ private enum NativeApproval: Identifiable {
 
 /// Native on purpose: only the person at the Mac can reach this sheet, so
 /// a remote AI cannot approve its own dangerous operation.
-private struct OperationApprovalView: View {
+struct OperationApprovalView: View {
   let request: PendingOperationApproval
   let queued: Int
   let decide: (Bool) -> Void
@@ -150,6 +150,26 @@ private struct OperationApprovalView: View {
       .frame(maxWidth: .infinity, alignment: .leading)
       .background(MDTheme.surfaceContainerLow, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
 
+      MDDisclosure(title: L10n.text("operationApproval.details"), symbol: "text.alignleft") {
+        ScrollView {
+          VStack(alignment: .leading, spacing: 14) {
+            detail("operationApproval.command", request.details.command)
+            detail("operationApproval.cwd", request.details.workingDirectory)
+            if let input = request.details.input { detail("operationApproval.stdin", input) }
+            if let script = request.details.projectScript { detail("operationApproval.script", script) }
+            if let environment = request.details.environment { detail("operationApproval.environment", environment) }
+            if request.details.interactive {
+              Text(L10n.text("operationApproval.interactive"))
+                .font(.system(size: 12))
+            }
+          }
+          .frame(maxWidth: .infinity, alignment: .leading)
+          .padding(.trailing, 8)
+        }
+        .frame(height: 200)
+      }
+      .accessibilityIdentifier("operation-approval-details")
+
       if queued > 0 {
         Text(L10n.format("approval.moreRequestsWaiting", queued))
           .font(.system(size: 12))
@@ -179,6 +199,19 @@ private struct OperationApprovalView: View {
       }
     }
     .accessibilityIdentifier("operation-approval-sheet")
+  }
+
+  private func detail(_ key: String, _ value: String) -> some View {
+    VStack(alignment: .leading, spacing: 5) {
+      Text(L10n.text(key))
+        .font(.system(size: 12, weight: .semibold))
+        .foregroundStyle(MDTheme.onSurfaceVariant)
+      Text(value)
+        .font(.system(size: 11, design: .monospaced))
+        .foregroundStyle(MDTheme.onSurface)
+        .textSelection(.enabled)
+        .fixedSize(horizontal: false, vertical: true)
+    }
   }
 
   private var reasonKey: String {

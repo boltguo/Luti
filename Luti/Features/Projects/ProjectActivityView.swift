@@ -31,7 +31,7 @@ struct ProjectActivityView: View {
           .padding(.bottom, 20)
       }
     }
-    .task { await loadStoredActivity() }
+    .task(id: isCurrentProject) { await loadStoredActivity() }
     .sheet(isPresented: $confirmClear) {
       MDConfirmDialog(
         title: clearTitle,

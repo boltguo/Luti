@@ -130,7 +130,7 @@ public actor VPSTunnelProvider: ConnectionProvider {
       guard !stopped else { throw CancellationError() }
       try await process.launch(binary: URL(fileURLWithPath: "/usr/bin/ssh"), helper: helper,
         args: Self.arguments(configuration: configuration, identity: identity, knownHosts: knownHosts,
-          control: socket, localPort: endpoint.port!))
+          localPort: endpoint.port!))
       let deadline = ContinuousClock.now.advanced(by: .seconds(45))
       while ContinuousClock.now < deadline {
         try Task.checkCancellation()
@@ -146,8 +146,10 @@ public actor VPSTunnelProvider: ConnectionProvider {
     }
   }
 
-  static func arguments(configuration: VPSConfiguration, identity: URL, knownHosts: URL, control: URL, localPort: Int) -> [String] {
-    ["-F", "/dev/null", "-N", "-T", "-M", "-S", control.path,
+  static func arguments(configuration: VPSConfiguration, identity: URL, knownHosts: URL, localPort: Int) -> [String] {
+    // ProviderProcess runs in its private connection directory. An absolute path
+    // plus OpenSSH's temporary suffix can exceed macOS's Unix socket path limit.
+    ["-F", "/dev/null", "-N", "-T", "-M", "-S", "ssh.sock",
       "-i", identity.path, "-l", VPSConfiguration.user, "-p", String(configuration.port),
       "-o", "BatchMode=yes", "-o", "IdentitiesOnly=yes", "-o", "IdentityAgent=none",
       "-o", "StrictHostKeyChecking=" + (configuration.hostKey.isEmpty ? "accept-new" : "yes"),

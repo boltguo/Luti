@@ -349,6 +349,136 @@ import Darwin
 
   // MARK: - Safe mode
 
+  func testInlineInterpreterArgumentVariantsRequireApproval() throws {
+    let f = try Fixture(); defer { f.remove() }
+    let examples: [(String, [String])] = [
+      ("node", ["--eval=console.log('ok')"]), ("node", ["-econsole.log('ok')"]),
+      ("node", ["-p", "1+1"]), ("node", ["-p1+1"]),
+      ("node", ["--print", "1+1"]), ("node", ["--print=1+1"]), ("node", ["-pe", "1+1"]),
+      ("python3", ["-cprint('ok')"]), ("python", ["-c", "print('ok')"]),
+      ("python3", ["-Icprint('ok')"]), ("python3", ["-Buc", "print('ok')"]),
+      ("ruby", ["-eputs 'ok'"]), ("ruby", ["-neputs $_"]),
+      ("perl", ["-eprint 'ok'"]), ("perl", ["-Esay 'ok'"]), ("perl", ["-neprint $_"]),
+    ]
+    for (program, args) in examples {
+      let request = ProcessRequest(program: program, args: args, cwd: f.root, projectRoot: f.root)
+      XCTAssertEqual(ProcessPolicy.approvalRequirement(request)?.code, "inline_code", "\(program) \(args)")
+    }
+    for program in ["node", "python3", "ruby", "perl"] {
+      XCTAssertNil(ProcessPolicy.approvalRequirement(
+        ProcessRequest(program: program, args: ["--", "-example"], cwd: f.root)))
+      XCTAssertNil(ProcessPolicy.approvalRequirement(
+        ProcessRequest(program: program, args: ["script.txt"], cwd: f.root)))
+    }
+  }
+
+  func testInlineVariantsWaitForApprovalAndDenialExecutesNothing() async throws {
+    let f = try Fixture(); defer { f.remove() }
+    let router = try f.router(execution: true, permissionMode: .ask)
+    addTeardownBlock { await router.stop() }
+    let examples: [(String, [String], String)] = [
+      ("node", ["--eval=require('fs').writeFileSync('eval.txt','ran')"], "eval.txt"),
+      ("node", ["-p", "require('fs').writeFileSync('print.txt','ran')"], "print.txt"),
+      ("python3", ["-copen('python.txt','w').write('ran')"], "python.txt"),
+    ]
+    for (program, args, file) in examples {
+      let target = f.root.appendingPathComponent(file)
+      for approved in [false, true] {
+        let call = Task { await router.callInCurrentProject("run_process", arguments: [
+          "program": .string(program), "args": .array(args.map(JSONValue.string)), "syncWait": 3]) }
+        let pending = try await waitForApproval(router)
+        XCTAssertEqual(pending.code, "inline_code")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: target.path))
+        await router.resolveOperationApproval(pending.id, approved: approved)
+        let result = await call.value
+        if approved {
+          XCTAssertFalse(result.isError, result.data.text())
+          XCTAssertEqual(result.data["exitCode"], 0, result.data.text())
+          XCTAssertEqual(try String(contentsOf: target, encoding: .utf8), "ran")
+        } else {
+          XCTAssertEqual(result.data["error"], "local_action_denied")
+          XCTAssertFalse(FileManager.default.fileExists(atPath: target.path))
+        }
+      }
+    }
+  }
+
+  func testProjectGitScriptsShareGlobalOptionRecognition() throws {
+    for script in [
+      "git -C . reset --hard", "git -c color.ui=false push", "git -C. -ccolor.ui=false reset --hard",
+      "echo build && git -C 'folder with spaces' --no-pager reset --hard",
+      "git --git-dir=.git --work-tree=. checkout -- file", "git -c 'user.name=Test User' commit -m test",
+      "/usr/bin/git -C . reset --hard", "git status; git -C . clean -fd",
+    ] {
+      XCTAssertEqual(try ProcessPolicy.projectScriptApprovalRequirement(script)?.code,
+        "project_script_git_mutation", script)
+    }
+    for script in ["git -C . status", "git -c color.ui=false diff", "rm -rf dist && tsc", "echo 'git reset --hard'"] {
+      XCTAssertNil(try ProcessPolicy.projectScriptApprovalRequirement(script), script)
+    }
+  }
+
+  func testTaskGitGlobalOptionsWaitBeforeDiscardingFixtureChanges() async throws {
+    let f = try Fixture(); defer { f.remove() }
+    func git(_ args: [String]) throws {
+      let process = Process()
+      process.executableURL = URL(fileURLWithPath: "/usr/bin/git")
+      process.arguments = args; process.currentDirectoryURL = f.root
+      process.standardOutput = FileHandle.nullDevice; process.standardError = FileHandle.nullDevice
+      process.environment = ["PATH": "/usr/bin:/bin", "GIT_CONFIG_NOSYSTEM": "1", "GIT_CONFIG_GLOBAL": "/dev/null"]
+      try process.run(); process.waitUntilExit()
+      XCTAssertEqual(process.terminationStatus, 0)
+    }
+    try f.write("tracked.txt", "committed")
+    try git(["init", "-q"]); try git(["add", "tracked.txt"])
+    try git(["-c", "user.name=Test", "-c", "user.email=test@example.invalid", "-c", "commit.gpgsign=false", "commit", "-qm", "fixture"])
+    let router = try f.router(execution: true, permissionMode: .ask)
+    addTeardownBlock { await router.stop() }
+    for script in ["git -C . reset --hard", "git -c color.ui=false reset --hard"] {
+      try f.write("tracked.txt", "uncommitted")
+      try JSONSerialization.data(withJSONObject: ["scripts": ["test": script]])
+        .write(to: f.root.appendingPathComponent("package.json"))
+      for approved in [false, true] {
+        let call = Task { await router.callInCurrentProject("run_process", arguments: ["taskId": "task:test", "syncWait": 3]) }
+        let pending = try await waitForApproval(router)
+        XCTAssertEqual(pending.code, "project_script_git_mutation")
+        XCTAssertEqual(pending.details.projectScript, script)
+        XCTAssertEqual(try String(contentsOf: f.root.appendingPathComponent("tracked.txt"), encoding: .utf8), "uncommitted")
+        await router.resolveOperationApproval(pending.id, approved: approved)
+        let result = await call.value
+        XCTAssertEqual(result.data[approved ? "exitCode" : "error"], approved ? 0 : "local_action_denied", result.data.text())
+        XCTAssertEqual(try String(contentsOf: f.root.appendingPathComponent("tracked.txt"), encoding: .utf8), approved ? "committed" : "uncommitted")
+      }
+    }
+    try f.write("package.json", #"{"scripts":{"build":"rm tracked.txt"}}"#)
+    let cleanup = await router.callInCurrentProject("run_process", arguments: ["taskId": "task:build", "syncWait": 3])
+    XCTAssertFalse(cleanup.isError, cleanup.data.text())
+    XCTAssertFalse(FileManager.default.fileExists(atPath: f.root.appendingPathComponent("tracked.txt").path))
+  }
+
+  func testApprovalIncludesFullRedactedInputAndWorkingDirectory() async throws {
+    let f = try Fixture(); defer { f.remove() }
+    try f.write("sub/placeholder", "")
+    let router = try f.router(execution: true, permissionMode: .ask)
+    addTeardownBlock { await router.stop() }
+    let code = "# token=private-fixture-token\n" + String(repeating: "# long code\n", count: 800) + "print('stdin-tail')"
+    let argument = String(repeating: "x", count: 1000) + "argument-tail"
+    let call = Task { await router.callInCurrentProject("run_process", arguments: [
+      "program": "python3", "args": ["-", .string(argument)], "cwd": "sub",
+      "stdin": .string(code), "environment": ["LANG": "C"], "syncWait": 3]) }
+    let pending = try await waitForApproval(router)
+    XCTAssertLessThanOrEqual(pending.summary.utf8.count, 768)
+    XCTAssertTrue(pending.details.command.contains("argument-tail"))
+    XCTAssertEqual(pending.details.workingDirectory, f.root.appendingPathComponent("sub").path)
+    XCTAssertTrue(pending.details.input?.hasSuffix("print('stdin-tail')") == true)
+    XCTAssertFalse(pending.details.input?.contains("private-fixture-token") == true)
+    XCTAssertTrue(pending.details.input?.contains("[REDACTED]") == true)
+    XCTAssertTrue(pending.details.environment?.contains("LANG") == true)
+    await router.resolveOperationApproval(pending.id, approved: false)
+    let result = await call.value
+    XCTAssertEqual(result.data["error"], "local_action_denied")
+  }
+
   func testSafeModeClassifiesDangerousOperations() throws {
     let f = try Fixture(); defer { f.remove() }
     func code(_ program: String, _ args: [String]) -> String? {

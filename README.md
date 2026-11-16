@@ -31,7 +31,7 @@ Luti connects an AI client to one approved project. The AI host handles reasonin
 3. **Configure a connection.** In **Connections**, enable OpenAI, Cloudflare or Self-hosted VPS from the three-row list, then click a row to configure it. Multiple connections may run together.
 4. **Start and connect.** Start the local Runtime, then add the MCP server in your AI client.
 
-**Upgrading to 1.4.0:** Refresh Luti's tool list in each connected AI client, or remove and re-add the connector. Existing projects open in Safe Mode; turn on Full Access on the project page to keep the previous behavior. Data from 1.0.x is not migrated.
+**Upgrading to 1.5.0:** Refresh Luti's tool list in each connected AI client, or remove and re-add the connector, to load `project_select` and the updated tool instructions. Existing projects and permission choices are retained. See the [release notes](docs/release-1.5.0.md). Data from 1.0.x is not migrated.
 
 ## Connections and setup guides
 
@@ -39,7 +39,7 @@ Luti connects an AI client to one approved project. The AI host handles reasonin
 |---|---|---|---|
 | **OpenAI Secure MCP Tunnel** | Tunnel ID + runtime API key | ChatGPT workspace association | ChatGPT, with no public endpoint |
 | **Cloudflare Tunnel** | HTTPS domain + Tunnel Token | OAuth approved via Luti popup on this Mac | Custom MCP clients using a stable public URL |
-| **Self-hosted VPS** | HTTPS domain (optional SSH IP / host key in advanced) | OAuth approved on this Mac | Public MCP through your own VPS; [setup](docs/vps.md) |
+| **Self-hosted VPS** | HTTPS domain (optional SSH IP / host public key) | OAuth approved on this Mac | Public MCP through your own VPS; [setup](docs/vps.md) |
 
 OpenAI uses its private, credential-bound loopback listener and outbound `tunnel-client`; Cloudflare adds an independent OAuth-protected listener for a named HTTPS domain. Any configured connection can start the runtime; all three can run together. Self-hosted VPS uses a restricted SSH reverse forward and the same native OAuth approval flow. See [VPS setup](docs/vps.md). Failed transports reconnect without restarting project jobs. Stop the runtime before changing connection settings; stopping also ends jobs and browser sessions. See [Cloudflare setup and authorization](docs/cloudflare.md).
 

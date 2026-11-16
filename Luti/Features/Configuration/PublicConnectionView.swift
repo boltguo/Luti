@@ -8,6 +8,8 @@ struct PublicConnectionView: View {
   @State private var copied = false
   @State private var copyRevision = 0
   @State private var setupCopied = false
+  @State private var serviceCopied = false
+  @State private var serviceCopyRevision = 0
 
   init(model: AppModel, connection: PublicConnectionModel) {
     self.model = model
@@ -23,7 +25,8 @@ struct PublicConnectionView: View {
         MDBanner(text: message, symbol: "exclamationmark.triangle", tone: .red)
           .textSelection(.enabled)
       } else if connection.connection.state == .reconnecting, !connection.connection.message.isEmpty {
-        MDBanner(text: connection.connection.message, symbol: "arrow.triangle.2.circlepath")
+        MDBanner(text: connection.providerID == .vps ? L10n.text("vps.waitingHTTPS") : connection.connection.message,
+          symbol: "arrow.triangle.2.circlepath")
           .textSelection(.enabled)
       }
 
@@ -67,6 +70,12 @@ struct PublicConnectionView: View {
         }
       }
 
+      if connection.providerID == .vps {
+        vpsSetupGuide
+      } else {
+        cloudflareService
+      }
+
       if connection.configured {
         MDListRow(
           title: connection.endpoint,
@@ -106,48 +115,89 @@ struct PublicConnectionView: View {
   }
 
   private var vpsFields: some View {
-    VStack(alignment: .leading, spacing: 16) {
-      MDDisclosure(title: L10n.text("vps.setup")) {
-        VStack(alignment: .leading, spacing: 16) {
-          ForEach(1...3, id: \.self) { step in
-            SetupStep(number: step, title: L10n.text("vps.step\(step).title"), detail: L10n.text("vps.step\(step).detail"))
-          }
-          Button {
-            Task {
-              guard let script = await connection.vpsSetupScript() else { return }
-              NSPasteboard.general.clearContents()
-              NSPasteboard.general.setString(script, forType: .string)
-              setupCopied = true
-            }
-          } label: {
-            Label(L10n.text(setupCopied ? "vps.scriptCopied" : "vps.copySetup"), systemImage: setupCopied ? "checkmark" : "doc.on.doc")
-          }
-          .buttonStyle(MDButtonStyle(kind: .tonal))
-          .accessibilityIdentifier("vps-copy-setup")
-          .task(id: setupCopied) {
-            guard setupCopied else { return }
-            try? await Task.sleep(for: .seconds(2))
-            setupCopied = false
-          }
-        }
-      }
-      MDDisclosure(title: L10n.text("vps.advanced")) {
-        VStack(alignment: .leading, spacing: 16) {
+    MDSection(title: L10n.text("vps.advanced")) {
+      VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 6) {
           MDInput(title: L10n.text("vps.host")) {
             TextField("203.0.113.10", text: $connection.vpsHost)
               .autocorrectionDisabled()
               .accessibilityIdentifier("vps-host")
           }
-          MDInput(title: L10n.text("vps.sshPort")) {
-            TextField("22", text: $connection.vpsPort)
-              .accessibilityIdentifier("vps-ssh-port")
-          }
+          Text(L10n.text("vps.hostHint"))
+            .font(.system(size: 12))
+            .foregroundStyle(MDTheme.onSurfaceVariant)
+        }
+        MDInput(title: L10n.text("vps.sshPort")) {
+          TextField("22", text: $connection.vpsPort)
+            .accessibilityIdentifier("vps-ssh-port")
+        }
+        VStack(alignment: .leading, spacing: 6) {
           MDInput(title: L10n.text("vps.hostKey")) {
             TextField("ssh-ed25519 AAAA…", text: $connection.vpsHostKey)
               .autocorrectionDisabled()
               .accessibilityIdentifier("vps-host-key")
           }
+          Text(L10n.text("vps.hostKeyHint"))
+            .font(.system(size: 12))
+            .foregroundStyle(MDTheme.onSurfaceVariant)
         }
+      }
+    }
+  }
+
+  private var cloudflareService: some View {
+    MDListRow(
+      title: CloudflareContract.localService,
+      symbol: "network",
+      subtitle: L10n.text("cloudflare.originService"),
+      iconTone: .yellow
+    ) {
+      MDIconActionButton(
+        symbol: serviceCopied ? "checkmark" : "doc.on.doc",
+        label: L10n.text(serviceCopied ? "connection.copied" : "cloudflare.copyService")
+      ) {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(CloudflareContract.localService, forType: .string)
+        serviceCopied = true
+        serviceCopyRevision += 1
+      }
+      .accessibilityIdentifier("cloudflare-copy-service")
+    }
+    .accessibilityIdentifier("cloudflare-local-service")
+    .task(id: serviceCopyRevision) {
+      guard serviceCopied else { return }
+      try? await Task.sleep(for: .seconds(2))
+      guard !Task.isCancelled else { return }
+      serviceCopied = false
+    }
+  }
+
+  private var vpsSetupGuide: some View {
+    MDDisclosure(title: L10n.text("vps.setup")) {
+      ForEach(1...4, id: \.self) { step in
+        SetupStep(number: step, title: L10n.text("vps.step\(step).title"), detail: L10n.text("vps.step\(step).detail"))
+      }
+      Text(connection.setupDomain.map { L10n.format("vps.scriptDomain", $0) }
+        ?? L10n.text("vps.enterDomainToCopy"))
+        .font(.system(size: 12))
+        .foregroundStyle(MDTheme.onSurfaceVariant)
+      Button {
+        Task {
+          guard let script = await connection.vpsSetupScript() else { return }
+          NSPasteboard.general.clearContents()
+          NSPasteboard.general.setString(script, forType: .string)
+          setupCopied = true
+        }
+      } label: {
+        Label(L10n.text(setupCopied ? "vps.scriptCopied" : "vps.copySetup"), systemImage: setupCopied ? "checkmark" : "doc.on.doc")
+      }
+      .buttonStyle(MDButtonStyle(kind: .tonal))
+      .disabled(model.active || connection.saving || connection.setupDomain == nil)
+      .accessibilityIdentifier("vps-copy-setup")
+      .task(id: setupCopied) {
+        guard setupCopied else { return }
+        try? await Task.sleep(for: .seconds(2))
+        setupCopied = false
       }
     }
   }
@@ -190,7 +240,9 @@ private struct CloudflareSetupGuide: View {
           SetupStep(
             number: step,
             title: L10n.text("provider.cloudflare.step\(step).title"),
-            detail: L10n.text("provider.cloudflare.step\(step).detail"))
+            detail: step == 2
+              ? L10n.format("provider.cloudflare.step2.detail", CloudflareContract.localService)
+              : L10n.text("provider.cloudflare.step\(step).detail"))
         }
       }
 

@@ -29,6 +29,7 @@ struct SetupStep: View {
         Text(detail)
           .font(.system(size: 12))
           .foregroundStyle(MDTheme.onSurfaceVariant)
+          .textSelection(.enabled)
           .fixedSize(horizontal: false, vertical: true)
       }
       .frame(maxWidth: .infinity, alignment: .leading)

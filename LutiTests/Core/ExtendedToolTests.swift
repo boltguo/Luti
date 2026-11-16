@@ -6,6 +6,119 @@ import SwiftUI
 @testable import Luti
 
 @MainActor final class ExtendedToolTests: XCTestCase {
+  func testRenderProjectActivityAfterRemoteSelection() async throws {
+    let f = try Fixture(), other = try Fixture()
+    defer { f.remove(); other.remove() }
+    let model = AppModel(contextDataRoot: f.contextDataRoot, defaults: f.defaults, credentials: FixtureKeychain().client)
+    addTeardownBlock { await model.stop() }
+    model.addProject(f.root)
+    let project = try XCTUnwrap(model.activeProject)
+    await model.activityLoad?.value
+    let event = ActivityEvent(id: UUID(), startedAt: .now, finishedAt: .now,
+      tool: "edit_files", target: "RetainedFile.swift", status: "ok",
+      effect: "confirmed", summary: "File created.", durationSeconds: 0)
+    LocalLogStore.appendActivity(event, directory: LocalLogStore.activityDirectory(for: f.root, dataRoot: f.contextDataRoot))
+    model.activity = [event]
+    let hosting = NSHostingView(rootView: ProjectActivityView(model: model, project: project, back: {})
+      .frame(width: 460, height: 736))
+    let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 460, height: 736),
+      styleMask: [.borderless], backing: .buffered, defer: false)
+    window.isReleasedWhenClosed = false
+    window.contentView = hosting
+    window.orderBack(nil)
+    defer { window.close() }
+    try await Task.sleep(for: .milliseconds(150))
+    hosting.layoutSubtreeIfNeeded()
+    try savePreview(hosting, name: "activity-before-selection")
+    // Mirror a remote project selection: keep this page open while the live feed changes.
+    model.activeProject = ApprovedProject(id: "other", name: "Other", url: other.root)
+    model.activity = []
+    try await Task.sleep(for: .milliseconds(300))
+    hosting.layoutSubtreeIfNeeded()
+    try savePreview(hosting, name: "activity-after-selection")
+  }
+
+  func testApprovalDetailsExpandAndRender() async throws {
+    let request = PendingOperationApproval(id: UUID(), tool: "run_process", summary: "python3",
+      details: OperationApprovalDetails(command: #"["python3", "-"]"#, workingDirectory: "/Projects/Demo/scripts",
+        input: "print('approval-input-marker')\nprint('second line')"),
+      code: "inline_code", reason: "Inline code", projectName: "Demo", projectPath: "/Projects/Demo",
+      createdAt: .now, expiresAt: .now.addingTimeInterval(120))
+    let output = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+      .deletingLastPathComponent().appendingPathComponent("build/ui-review-previews")
+    try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
+    let language = LanguageSettings.shared
+    let original = language.selection
+    defer { language.selection = original }
+    for locale in AppLanguage.allCases where locale != .system {
+      language.selection = locale
+      let hosting = NSHostingView(rootView: OperationApprovalView(request: request, queued: 0, decide: { _ in }))
+      let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 430, height: 736),
+        styleMask: [.borderless], backing: .buffered, defer: false)
+      window.isReleasedWhenClosed = false
+      window.contentView = hosting
+      window.orderBack(nil)
+      defer { window.close() }
+      hosting.frame.size = hosting.fittingSize
+      hosting.layoutSubtreeIfNeeded()
+      try await Task.sleep(for: .milliseconds(400))
+      let originalHeight = hosting.fittingSize.height
+      // The disclosure row sits above the fixed modal actions and bottom padding.
+      let point = hosting.convert(NSPoint(x: 215, y: hosting.isFlipped ? originalHeight - 128 : 128), to: nil)
+      for type in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
+        let event = try XCTUnwrap(NSEvent.mouseEvent(with: type, location: point, modifierFlags: [],
+          timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber,
+          context: nil, eventNumber: 1, clickCount: 1, pressure: 1))
+        window.sendEvent(event)
+      }
+      try await Task.sleep(for: .milliseconds(400))
+      hosting.frame.size = hosting.fittingSize
+      hosting.layoutSubtreeIfNeeded()
+      XCTAssertGreaterThan(hosting.fittingSize.height, originalHeight + 150)
+      XCTAssertLessThanOrEqual(hosting.fittingSize.height, 736)
+      let rep = try XCTUnwrap(hosting.bitmapImageRepForCachingDisplay(in: hosting.bounds))
+      hosting.cacheDisplay(in: hosting.bounds, to: rep)
+      try XCTUnwrap(rep.representation(using: .png, properties: [:]))
+        .write(to: output.appendingPathComponent("approval-" + locale.rawValue + ".png"))
+    }
+  }
+
+  private func savePreview<V: View>(_ hosting: NSHostingView<V>, name: String) throws {
+    let output = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+      .deletingLastPathComponent().appendingPathComponent("build/ui-review-previews")
+    try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
+    let rep = try XCTUnwrap(hosting.bitmapImageRepForCachingDisplay(in: hosting.bounds))
+    hosting.cacheDisplay(in: hosting.bounds, to: rep)
+    try XCTUnwrap(rep.representation(using: .png, properties: [:]))
+      .write(to: output.appendingPathComponent(name + ".png"))
+  }
+
+  func testHandoffKeepsRealChangesAfterDryRunsAndPendingWork() async throws {
+    let f = try Fixture(); defer { f.remove() }
+    let router = try f.router(execution: true)
+    addTeardownBlock { await router.stop() }
+    let created = await router.callInCurrentProject("edit_files", arguments: ["action": "create", "path": "real.txt", "content": "real"])
+    XCTAssertFalse(created.isError)
+    for index in 0..<10 {
+      let preview = await router.callInCurrentProject("edit_files", arguments: [
+        "action": "create", "path": .string("dry-\(index).txt"), "content": "preview", "dryRun": true])
+      XCTAssertFalse(preview.isError)
+      XCTAssertEqual(preview.data["effect"], "none")
+    }
+    let pending = await router.activity.begin(tool: "run_process", target: "pending")
+    let possible = await router.activity.begin(tool: "run_process", target: "interrupted")
+    await router.activity.finish(id: possible, status: "failed", started: .now, effect: "possible")
+    let info = await router.call("project_info", arguments: [:])
+    let recent = try XCTUnwrap(info.data["recentActivity"].array)
+    XCTAssertEqual(recent.count, 3)
+    XCTAssertTrue(recent.contains { $0["target"] == "real.txt" && $0["effect"] == "confirmed" })
+    XCTAssertTrue(recent.contains { $0["target"] == "pending" })
+    XCTAssertTrue(recent.contains { $0["target"] == "interrupted" && $0["effect"] == "possible" })
+    await router.activity.finish(id: pending, status: "failed", started: .now, effect: "none")
+    let after = await router.call("project_info", arguments: [:])
+    XCTAssertEqual(after.data["recentActivity"].array?.count, 2)
+  }
+
   func testProjectFirstNavigationKeepsFourDestinations() {
     XCTAssertEqual(AppTab.allCases.map(\.rawValue), ["home", "configuration", "projects", "settings"])
     XCTAssertEqual(

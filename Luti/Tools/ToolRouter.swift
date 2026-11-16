@@ -80,7 +80,10 @@ public actor ToolRouter {
   private func recentActivity() async -> JSONValue {
     let formatter = ISO8601DateFormatter()
     let events = await activity.snapshot()
-      .filter { !ToolCatalog.readOnlyNames.contains($0.tool) }.prefix(10)
+      .filter {
+        !ToolCatalog.readOnlyNames.contains($0.tool)
+          && ($0.finishedAt == nil || $0.effect != "none")
+      }.prefix(10)
     return .array(events.map { event -> JSONValue in
       var row: [String: JSONValue] = [
         "at": .string(formatter.string(from: event.finishedAt ?? event.startedAt)),
@@ -210,14 +213,21 @@ public actor ToolRouter {
   /// Suspends a dangerous operation in safe mode until the Mac user decides.
   /// The approval is one-shot for this exact call and never outlives Stop.
   func approveIfNeeded(
-    tool: String, summary: String, requirement: ProcessApprovalRequirement?
+    tool: String, summary: String, requirement: ProcessApprovalRequirement?,
+    details: OperationApprovalDetails? = nil
   ) async throws -> PendingOperationApproval? {
     guard let requirement, executionPolicy.profile == .fullLocal,
       permissionMode.asksForSensitiveProjectOperations
     else { return nil }
+    let source = details ?? OperationApprovalDetails(command: summary, workingDirectory: context.project.path)
+    let cleanDetails = OperationApprovalDetails(
+      command: redactor.clean(source.command), workingDirectory: redactor.clean(source.workingDirectory),
+      input: source.input.map { redactor.clean($0) },
+      projectScript: source.projectScript.map { redactor.clean($0) },
+      environment: source.environment.map { redactor.clean($0) }, interactive: source.interactive)
     let approval = try await operationApprovals.request(
       tool: tool, summary: Budget.prefix(redactor.clean(summary), bytes: 768),
-      requirement: requirement, project: context.project)
+      requirement: requirement, project: context.project, details: cleanDetails)
     guard accepting else { throw Failure.stopped }
     return approval
   }
@@ -768,7 +778,13 @@ public actor ToolRouter {
       let approval = try await approveIfNeeded(
         tool: name, summary: ([request.program] + request.args).joined(separator: " "),
         requirement: try ProcessPolicy.approvalRequirement(request, rawShell: name == "run_shell")
-          ?? discoveredScript.flatMap(ProcessPolicy.projectScriptApprovalRequirement))
+          ?? discoveredScript.flatMap(ProcessPolicy.projectScriptApprovalRequirement),
+        details: OperationApprovalDetails(
+          command: JSONValue.array(([request.program] + request.args).map(JSONValue.string)).text(),
+          workingDirectory: cwd.path, input: request.input,
+          projectScript: discoveredScript,
+          environment: environment.isEmpty ? nil : JSONValue.object(environment.mapValues(JSONValue.string)).text(),
+          interactive: request.interactive))
 
       let graph = try? await ProjectInspector(workspace: workspace).graph(path: workingPath)
       let scope = ValidationScopeRequest(

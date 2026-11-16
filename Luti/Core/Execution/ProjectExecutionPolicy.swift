@@ -8,10 +8,21 @@ public enum ExecutionCapability: String, Sendable {
   case workspaceWrite, process, rawShell, codeIntelligence, browserAutomation
 }
 
+/// Full, redacted execution input. Kept only in memory while local approval is pending.
+public struct OperationApprovalDetails: Sendable, Equatable {
+  public let command: String
+  public let workingDirectory: String
+  public var input: String? = nil
+  public var projectScript: String? = nil
+  public var environment: String? = nil
+  public var interactive = false
+}
+
 public struct PendingOperationApproval: Sendable, Identifiable, Equatable {
   public let id: UUID
   public let tool: String
   public let summary: String
+  public let details: OperationApprovalDetails
   public let code: String
   public let reason: String
   public let projectName: String
@@ -44,7 +55,8 @@ public actor OperationApprovalBroker {
     tool: String,
     summary: String,
     requirement: ProcessApprovalRequirement,
-    project: ApprovedProject
+    project: ApprovedProject,
+    details: OperationApprovalDetails? = nil
   ) async throws -> PendingOperationApproval {
     guard !stopped else { throw Failure.stopped }
     let now = Date()
@@ -52,6 +64,7 @@ public actor OperationApprovalBroker {
       id: UUID(),
       tool: Budget.prefix(tool, bytes: 32),
       summary: Budget.prefix(summary, bytes: 768),
+      details: details ?? OperationApprovalDetails(command: summary, workingDirectory: project.path),
       code: requirement.code,
       reason: Budget.prefix(requirement.reason, bytes: 512),
       projectName: Budget.prefix(project.name, bytes: 128),

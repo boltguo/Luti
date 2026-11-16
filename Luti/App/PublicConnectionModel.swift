@@ -45,6 +45,7 @@ import Observation
   }
 
   var savedDomain: String { defaults.string(forKey: domainKey) ?? "" }
+  var setupDomain: String? { (try? PublicConnectionContract.origin(domain))?.host }
   private var savedVPS: VPSConfiguration? {
     guard let data = defaults.data(forKey: Self.vpsKey), let value = try? JSONDecoder().decode(VPSConfiguration.self, from: data) else { return nil }
     return try? VPSConfiguration(host: value.host, port: String(value.port), hostKey: value.hostKey)
@@ -97,6 +98,10 @@ import Observation
     vpsPort = String(saved?.port ?? 22)
     vpsHostKey = saved?.hostKey ?? ""
     vpsKeyReady = FileManager.default.fileExists(atPath: VPSIdentity.key(in: dataRoot).path)
+    if enabled && !configured {
+      enabled = false
+      defaults.set(false, forKey: enabledKey)
+    }
   }
 
   func save() async {
@@ -110,9 +115,7 @@ import Observation
         let value = try VPSConfiguration(host: vpsHost, port: vpsPort, hostKey: vpsHostKey, fallbackHost: origin.host)
         let root = dataRoot
         _ = try await Task.detached(priority: .userInitiated) {
-          let key = try VPSIdentity.prepare(in: root)
-          try? FileManager.default.removeItem(at: VPSIdentity.knownHosts(in: root))
-          return key
+          try VPSIdentity.prepare(in: root)
         }.value
         defaults.set(try JSONEncoder().encode(value), forKey: Self.vpsKey)
         vpsHost = value.host == origin.host ? "" : value.host

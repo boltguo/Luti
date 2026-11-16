@@ -149,6 +149,10 @@ import Observation
       makeProvider: makeCloudflareProvider, makeVPSProvider: makeVPSProvider)
     vps = PublicConnectionModel(defaults: defaults, credentials: credentials, dataRoot: contextDataRoot,
       providerID: .vps, makeVPSProvider: makeVPSProvider)
+    if openAIEnabled && !connectionConfigured {
+      openAIEnabled = false
+      defaults.set(false, forKey: Self.openAIEnabledKey)
+    }
     for connection in publicConnections { connection.loadAuthorizations() }
     if let seen = defaults.string(forKey: Self.toolListKey) {
       toolListChanged = seen != ToolCatalog.fingerprint
@@ -168,6 +172,20 @@ import Observation
         self?.requestStart()
       }
     }
+  }
+
+  /// An unfinished setup opens its detail page without persisting an enabled switch.
+  @discardableResult
+  func setConnectionEnabled(_ enabled: Bool, for provider: ConnectionProviderID) -> Bool {
+    if provider == .openAI {
+      guard !enabled || connectionConfigured else { return false }
+      openAIEnabled = enabled
+    } else {
+      let connection = publicConnection(for: provider)
+      guard !enabled || connection.configured else { return false }
+      connection.enabled = enabled
+    }
+    return true
   }
 
   /// Nothing runs yet, so every per-run directory left by a crash or force-quit is

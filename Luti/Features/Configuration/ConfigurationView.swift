@@ -46,14 +46,7 @@ struct ConfigurationView: View {
       provider == .openAI ? model.openAIEnabled : model.publicConnection(for: provider).enabled
     }, set: { enabled in
       guard !model.active else { return }
-      if provider == .openAI {
-        model.openAIEnabled = enabled
-        if enabled && !model.connectionConfigured { selectedProvider = provider }
-      } else {
-        let connection = model.publicConnection(for: provider)
-        connection.enabled = enabled
-        if enabled && !connection.configured { selectedProvider = provider }
-      }
+      if !model.setConnectionEnabled(enabled, for: provider), enabled { selectedProvider = provider }
     })
   }
 }

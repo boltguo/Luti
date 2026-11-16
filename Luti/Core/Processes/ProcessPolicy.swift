@@ -290,13 +290,33 @@ public enum ProcessPolicy {
     }
 
     if ["python", "python3", "node", "ruby", "perl"].contains(base),
-      codeFromInput || request.args.contains(where: { ["-c", "-e", "--eval"].contains($0) })
+      codeFromInput || hasInlineCode(program: base, args: request.args)
     {
       return ProcessApprovalRequirement(
         code: "inline_code",
         reason: "Inline interpreter code is treated as a sensitive project operation in safe mode.")
     }
     return nil
+  }
+
+  private static func hasInlineCode(program: String, args: [String]) -> Bool {
+    let short: [String]
+    let long: [String]
+    switch program {
+    case "python", "python3": short = ["-c"]; long = []
+    case "node": short = ["-e", "-p"]; long = ["--eval", "--print"]
+    case "perl": short = ["-e", "-E"]; long = []
+    default: short = ["-e"]; long = []
+    }
+    return args.prefix(while: { $0 != "--" }).contains { argument in
+      short.contains(where: argument.hasPrefix)
+        || long.contains { argument == $0 || argument.hasPrefix($0 + "=") }
+        || (["python", "python3"].contains(program)
+          && argument.range(of: #"^-[bBdEhiIOPqRsSuvVx]*c"#, options: .regularExpression) != nil)
+        // Ruby/Perl allow switches such as -neCODE; Node accepts -peCODE.
+        || (["ruby", "perl", "node"].contains(program)
+          && argument.range(of: #"^-[anplw]*[eE]"#, options: .regularExpression) != nil)
+    }
   }
 
   public static func validateProjectScriptScope(
@@ -339,13 +359,39 @@ public enum ProcessPolicy {
     try validateShell(script)
     // The project's own scripts may clear their build output without asking;
     // project scope is still enforced. Git mutations can reach a remote, so they ask.
-    let gitMutationPattern = #"(?i)(?:^|[\s;&|])git\s+("# + gitMutations.joined(separator: "|") + #")(?:\s|$)"#
-    if script.range(of: gitMutationPattern, options: .regularExpression) != nil {
+    let words = scriptWords(script)
+    if words.indices.contains(where: { index in
+      URL(fileURLWithPath: words[index]).lastPathComponent.lowercased() == "git"
+        && gitSubcommand(Array(words.dropFirst(index + 1).prefix(while: { $0 != ";" })))
+          .map(gitMutations.contains) == true
+    }) {
       return ProcessApprovalRequirement(
         code: "project_script_git_mutation",
         reason: "The discovered project script contains a mutating Git operation.")
     }
     return nil
+  }
+
+  /// Recognize literal command words and separators, without evaluating shell code.
+  /// Direct commands and discovered scripts then share Git's global-option handling.
+  private static func scriptWords(_ script: String) -> [String] {
+    var words: [String] = [], word = ""
+    var quote: Character?, escaped = false
+    func flush() {
+      if !word.isEmpty { words.append(word); word = "" }
+    }
+    for character in script {
+      if escaped { word.append(character); escaped = false }
+      else if character == "\\", quote != "'" { escaped = true }
+      else if let current = quote {
+        if character == current { quote = nil } else { word.append(character) }
+      } else if character == "'" || character == "\"" { quote = character }
+      else if ";&|\n()".contains(character) { flush(); words.append(";") }
+      else if character.isWhitespace { flush() }
+      else { word.append(character) }
+    }
+    flush()
+    return words
   }
 
   public static func userEnvironment(_ value: JSONValue) throws -> [String: String] {

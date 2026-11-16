@@ -1381,6 +1381,7 @@ struct MDInput<Content: View>: View {
           .offset(x: 12, y: -7)
       }
       .padding(.top, 7)
+      .compositingGroup()
       .opacity(isEnabled ? 1 : 0.38)
       .animation(reduceMotion ? nil : MDMotion.fastEffects, value: isFocused)
       .animation(reduceMotion ? nil : MDMotion.fastEffects, value: isHovered)
