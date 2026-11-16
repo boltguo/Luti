@@ -30,24 +30,18 @@ struct ProjectsView: View {
               MDSplitActionRow(
                 title: project.name, symbol: "folder", subtitle: project.path,
                 position: MDListRowPosition(index: index, count: model.approvedProjects.count),
+                selected: current,
                 iconTone: current ? .purple : .blue,
                 accessory: "chevron.right", action: { selectedProjectID = project.id }
               ) {
-                Button { model.selectProject(project.id) } label: {
-                  HStack(spacing: 0) {
-                    MDRadioMark(isSelected: current)
-                    Text(L10n.text(current ? "projects.current" : "projects.use"))
-                      .font(.system(size: 12, weight: current ? .semibold : .regular))
-                  }
-                  .foregroundStyle(current ? MDTheme.primary : MDTheme.onSurfaceVariant)
-                  .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .disabled(model.active)
-                .opacity(model.active && !current ? 0.38 : 1)
-                .accessibilityLabel(L10n.format("projects.useProject", project.name))
-                .accessibilityValue(L10n.text(current ? "projects.selected" : "common.notSelected"))
-                .accessibilityIdentifier("select-project-" + project.id)
+                MDSwitch(
+                  isOn: Binding(
+                    get: { current },
+                    set: { if $0 { _ = model.selectProject(project.id) } }),
+                  label: L10n.format("projects.useProject", project.name))
+                  .disabled(model.active)
+                  .accessibilityValue(L10n.text(current ? "projects.selected" : "common.notSelected"))
+                  .accessibilityIdentifier("select-project-" + project.id)
               }
               .disabled(model.contextBusy)
               .accessibilityIdentifier("project-" + project.id)
@@ -57,9 +51,9 @@ struct ProjectsView: View {
       }
 
       if model.active {
-        InlineNotice(text: L10n.text("projects.stopRuntimeToEditProject"), icon: "lock")
+        MDBanner(text: L10n.text("projects.stopRuntimeToEditProject"), symbol: "lock", tone: .gray)
       }
-      Color.clear.frame(height: 56)
+      Color.clear.frame(height: 72)
     }
     .overlay(alignment: .bottomTrailing) {
       MDFloatingActionButton(label: L10n.text("projects.addProject"), action: model.chooseProject)
@@ -94,14 +88,17 @@ struct ProjectDetailView: View {
         .accessibilityIdentifier("project-title")
 
       MDPage {
-        permissionModeRow
+        MDList {
+          permissionModeRow
 
-        MDListRow(
-          title: L10n.text("projects.projectFolder"),
-          symbol: "folder",
-          subtitle: project.path,
-          iconTone: .purple
-        ) { EmptyView() }
+          MDListRow(
+            title: L10n.text("projects.projectFolder"),
+            symbol: "folder",
+            subtitle: project.path,
+            position: .last,
+            iconTone: .purple
+          ) { EmptyView() }
+        }
 
         MDList {
           MDNavigationRow(
@@ -127,34 +124,22 @@ struct ProjectDetailView: View {
             Button {
               NSWorkspace.shared.selectFile(project.path, inFileViewerRootedAtPath: "")
             } label: {
-              HStack(spacing: 8) {
-                Image(systemName: "folder")
-                Text(L10n.text("projects.showFinder"))
-                Spacer(minLength: 4)
-                Image(systemName: "arrow.up.right")
-                  .font(.system(size: 10, weight: .semibold))
-              }
-              .frame(maxWidth: .infinity)
+              Label(L10n.text("projects.showFinder"), systemImage: "folder")
+                .frame(maxWidth: .infinity)
             }
             .buttonStyle(MDConnectedButtonStyle(kind: .tonal, position: .first))
-            .frame(maxWidth: .infinity)
 
             Button(role: .destructive) { model.removeProject(project.id) } label: {
-              HStack(spacing: 8) {
-                Image(systemName: "trash")
-                Text(L10n.text("projects.removeProject"))
-                Spacer(minLength: 4)
-              }
-              .frame(maxWidth: .infinity)
+              Label(L10n.text("projects.removeProject"), systemImage: "trash")
+                .frame(maxWidth: .infinity)
             }
             .buttonStyle(MDConnectedButtonStyle(kind: .tonal, position: .last))
-            .frame(maxWidth: .infinity)
             .disabled(model.active || model.contextBusy)
             .accessibilityIdentifier("remove-project")
           }
         }
         if model.active {
-          InlineNotice(text: L10n.text("projects.stopRuntimeToEditProject"), icon: "lock")
+          MDBanner(text: L10n.text("projects.stopRuntimeToEditProject"), symbol: "lock", tone: .gray)
         }
       }
     }
@@ -170,6 +155,7 @@ struct ProjectDetailView: View {
       symbol: full ? "exclamationmark.shield" : "checkmark.shield",
       subtitle: L10n.text(
         full ? "permissionMode.fullProjectAccessDescription" : "permissionMode.askDescription"),
+      position: .first,
       iconTone: full ? .orange : .green
     ) {
       MDSwitch(

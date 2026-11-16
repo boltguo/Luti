@@ -106,20 +106,14 @@ struct ActivityView: View {
           if let lastCall {
             Text(L10n.format("activity.last", lastCall.formatted(date: .omitted, time: .shortened)))
           }
-        }.font(.system(size: 12)).foregroundStyle(MDTheme.secondary)
+        }.font(.system(size: 12)).foregroundStyle(MDTheme.onSurfaceVariant)
       }
       if filteredEvents.isEmpty {
-        VStack(spacing: 14) {
-          Image(systemName: events.isEmpty ? "clock.arrow.circlepath" : "magnifyingglass")
-            .font(.system(size: 32, weight: .light)).foregroundStyle(MDTheme.primary)
-            .frame(width: 72, height: 72)
-            .background(MDTheme.primaryContainer, in: RoundedRectangle(cornerRadius: 24))
-          Text(events.isEmpty ? L10n.text("activity.noActivityYet") : L10n.text("activity.noActivityMatchesFilter")).font(.system(size: 16, weight: .medium))
-          if !events.isEmpty {
-            Text(L10n.text("activity.tryAnotherToolNameKeyword"))
-              .font(.system(size: 13)).foregroundStyle(MDTheme.secondary)
-          }
-        }.frame(maxWidth: .infinity, maxHeight: .infinity)
+        MDEmptyState(
+          title: events.isEmpty ? L10n.text("activity.noActivityYet") : L10n.text("activity.noActivityMatchesFilter"),
+          message: events.isEmpty ? nil : L10n.text("activity.tryAnotherToolNameKeyword"),
+          symbol: events.isEmpty ? "clock.arrow.circlepath" : "magnifyingglass")
+        Spacer(minLength: 0)
       } else {
         MDScrollView {
           LazyVStack(spacing: 12) {
@@ -148,17 +142,17 @@ private struct ActivityEventRow: View {
         if let action = event.action, !action.isEmpty {
           Text("·")
             .font(.system(size: 12, weight: .medium))
-            .foregroundStyle(MDTheme.secondary)
+            .foregroundStyle(MDTheme.onSurfaceVariant)
           Text(action)
             .font(.system(size: 12, weight: .medium, design: .monospaced))
-            .foregroundStyle(MDTheme.secondary)
+            .foregroundStyle(MDTheme.onSurfaceVariant)
         }
         if repeatCount > 1 {
           Text("×\(repeatCount)")
             .font(.system(size: 10, weight: .semibold, design: .monospaced))
-            .foregroundStyle(MDTheme.secondary)
+            .foregroundStyle(MDTheme.onSurfaceVariant)
             .padding(.horizontal, 6).padding(.vertical, 2)
-            .background(MDTheme.containerHigh, in: Capsule())
+            .background(MDTheme.surfaceContainerHigh, in: Capsule())
             .help(L10n.text("activity.repeatedObservationsCollapsed"))
         }
         Spacer(minLength: 8)
@@ -168,7 +162,7 @@ private struct ActivityEventRow: View {
         }
         Text(timing)
           .font(.system(size: 11).monospacedDigit())
-          .foregroundStyle(MDTheme.secondary)
+          .foregroundStyle(MDTheme.onSurfaceVariant)
           .help(event.startedAt.formatted(date: .complete, time: .standard))
       }
 
@@ -179,7 +173,7 @@ private struct ActivityEventRow: View {
       }
 
       if !displaySummary.isEmpty {
-        Text(displaySummary).font(.system(size: 12)).foregroundStyle(MDTheme.secondary)
+        Text(displaySummary).font(.system(size: 12)).foregroundStyle(MDTheme.onSurfaceVariant)
           .textSelection(.enabled)
       }
 
@@ -197,19 +191,19 @@ private struct ActivityEventRow: View {
       }
 
       if let recovery = event.recovery, !recovery.isEmpty {
-        Text(recovery).font(.system(size: 11)).foregroundStyle(MDTheme.secondary)
+        Text(recovery).font(.system(size: 11)).foregroundStyle(MDTheme.onSurfaceVariant)
           .textSelection(.enabled)
       }
 
       if let cwd = event.cwd, !["", "."].contains(cwd) {
         Label(cwd, systemImage: "folder").font(.system(size: 11, design: .monospaced))
-          .foregroundStyle(MDTheme.secondary).textSelection(.enabled)
+          .foregroundStyle(MDTheme.onSurfaceVariant).textSelection(.enabled)
       }
 
       if let job = event.jobID, job != event.target {
         Label(job, systemImage: "terminal")
           .font(.system(size: 11, design: .monospaced))
-          .foregroundStyle(MDTheme.secondary).textSelection(.enabled)
+          .foregroundStyle(MDTheme.onSurfaceVariant).textSelection(.enabled)
       }
 
       if let artifactURI = event.artifactURI {

@@ -295,8 +295,8 @@
 "connection.publicEnabled" = "公開 HTTPS を有効にする";
 "connection.transport" = "接続方式";
 "vps.title" = "自己ホスト VPS";
-"vps.host" = "VPS の IP または DNS のみのホスト名";
-"vps.hostKey" = "サーバーの SSH ホスト公開鍵";
+"vps.host" = "SSH 接続先 IP またはホスト名（任意、未入力時はドメインを使用）";
+"vps.hostKey" = "サーバーの SSH ホスト公開鍵（任意、初回接続時に自動固定）";
 "vps.setup" = "Ubuntu / Debian VPS の初期設定";
 "vps.copySetup" = "サーバー初期設定スクリプトをコピー";
 "vps.scriptCopied" = "初期設定スクリプトをコピーしました";
@@ -306,6 +306,6 @@
 "vps.step1.title" = "ドメインを VPS に向ける";
 "vps.step1.detail" = "専用サブドメインに DNS のみの A/AAAA レコードを設定します。VPS のファイアウォールで SSH、80、443 の TCP ポートを許可します。";
 "vps.step2.title" = "空の VPS を一度だけ初期設定";
-"vps.step2.detail" = "ドメインと VPS アドレスを入力し、下のスクリプトをコピーして Ubuntu/Debian VPS 上で root として実行します。制限付き SSH アカウントと自動 HTTPS を設定します。既存の Web サーバーは置き換えません。";
-"vps.step3.title" = "サーバーの識別情報を確認して保存";
-"vps.step3.detail" = "信頼できる VPS コンソールで表示された ssh-ed25519 ホスト公開鍵を下の欄に貼り付け、保存して Luti を起動します。HTTPS の動作確認後、必要に応じて Full (strict) でオレンジクラウドを有効にします。";
+"vps.step2.detail" = "上の欄にドメインを入力し、下のスクリプトをコピーして Ubuntu/Debian VPS 上で root として実行します。制限付き SSH アカウントと自動 HTTPS を設定します。既存の Web サーバーは置き換えません。";
+"vps.step3.title" = "保存して Luti を起動";
+"vps.step3.detail" = "設定を保存して Luti を起動すると、初回接続時にサーバーの SSH ホスト公開鍵を自動的に固定します。後でオレンジクラウド（Full strict）を有効にする場合は、SSH 設定に VPS の IP を入力してください。";

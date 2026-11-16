@@ -34,7 +34,7 @@ struct ConfigurationView: View {
             }
           }
           if model.active {
-            ProviderInfoCallout(text: L10n.text("connection.stopToEdit"), symbol: "lock", tone: .gray)
+            MDBanner(text: L10n.text("connection.stopToEdit"), symbol: "lock", tone: .gray)
           }
         }
       }

@@ -26,7 +26,7 @@ struct ProjectActivityView: View {
         lastCall: isCurrentProject ? model.lastCall : nil,
         currentRunID: isCurrentProject ? model.currentRunID : nil)
       if let error {
-        InlineNotice(text: error, icon: "exclamationmark.triangle", color: MDTheme.error)
+        MDBanner(text: error, symbol: "exclamationmark.triangle", tone: .red)
           .padding(.horizontal, 20)
           .padding(.bottom, 20)
       }

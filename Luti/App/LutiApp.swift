@@ -170,12 +170,12 @@ private struct RuntimeMenu: View {
       .foregroundStyle(statusColor)
       .padding(.horizontal, 10)
       .frame(height: 26)
-      .background(statusColor.opacity(0.12), in: Capsule())
+      .background(statusColor.opacity(0.12), in: Capsule(style: .circular))
     }
   }
 
   private var contextSummary: some View {
-    VStack(spacing: 3) {
+    MDList {
       RuntimeMenuSummaryRow(
         title: connectionStatus,
         symbol: "link",
@@ -193,7 +193,7 @@ private struct RuntimeMenu: View {
   }
 
   private var primaryActions: some View {
-    VStack(spacing: 3) {
+    MDList {
       RuntimeMenuAction(
         L10n.text("menu.openLuti"),
         symbol: "macwindow",
@@ -309,7 +309,7 @@ private struct RuntimeMenuSummaryRow: View {
     .padding(.horizontal, 12)
     .padding(.vertical, 8)
     .frame(maxWidth: .infinity, minHeight: 50, alignment: .leading)
-    .background(MDTheme.surfaceContainerLow, in: position.shape)
+    .background(MDListRowSurface(position: position))
   }
 }
 
@@ -356,37 +356,8 @@ private struct RuntimeMenuAction: View {
       .padding(.horizontal, 12)
       .frame(maxWidth: .infinity, alignment: .leading)
       .frame(height: 44)
-      .background(MDTheme.surfaceContainerLow, in: position.shape)
       .contentShape(position.shape)
     }
-    .buttonStyle(RuntimeMenuActionStyle(position: position))
-  }
-}
-
-private struct RuntimeMenuActionStyle: ButtonStyle {
-  let position: MDListRowPosition
-
-  func makeBody(configuration: Configuration) -> some View {
-    RuntimeMenuActionBody(configuration: configuration, position: position)
-  }
-}
-
-private struct RuntimeMenuActionBody: View {
-  let configuration: ButtonStyleConfiguration
-  let position: MDListRowPosition
-  @Environment(\.isEnabled) private var isEnabled
-  @State private var hovered = false
-
-  var body: some View {
-    configuration.label
-      .overlay(
-        position.shape
-          .fill(MDTheme.primary.opacity(
-            isEnabled ? (configuration.isPressed ? 0.12 : hovered ? 0.06 : 0) : 0
-          ))
-          .allowsHitTesting(false)
-      )
-      .opacity(isEnabled ? 1 : 0.38)
-      .onHover { hovered = $0 && isEnabled }
+    .buttonStyle(MDRowButtonStyle(position: position))
   }
 }

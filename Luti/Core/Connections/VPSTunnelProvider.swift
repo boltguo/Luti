@@ -8,13 +8,16 @@ struct VPSConfiguration: Codable, Equatable, Sendable {
   let port: Int
   let hostKey: String
 
-  init(host: String, port: String, hostKey: String) throws {
-    self.host = try Self.validateHost(host)
-    guard let port = Int(port), (1...65535).contains(port) else {
+  init(host: String = "", port: String = "22", hostKey: String = "", fallbackHost: String? = nil) throws {
+    let trimmedHost = host.trimmingCharacters(in: .whitespacesAndNewlines)
+    self.host = try Self.validateHost(trimmedHost.isEmpty ? (fallbackHost ?? "") : trimmedHost)
+    let trimmedPort = port.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard let port = Int(trimmedPort), (1...65535).contains(port) else {
       throw Failure.invalid("Enter an SSH port between 1 and 65535.")
     }
     self.port = port
-    self.hostKey = try Self.publicKey(hostKey)
+    let trimmedKey = hostKey.trimmingCharacters(in: .whitespacesAndNewlines)
+    self.hostKey = trimmedKey.isEmpty ? "" : try Self.publicKey(trimmedKey)
   }
 
   static func validateHost(_ value: String) throws -> String {
@@ -39,11 +42,14 @@ struct VPSConfiguration: Codable, Equatable, Sendable {
     return "ssh-ed25519 " + data.base64EncodedString()
   }
 
-  var knownHost: String { (port == 22 ? host : "[\(host)]:\(port)") + " " + hostKey + "\n" }
+  var knownHost: String {
+    hostKey.isEmpty ? "" : (port == 22 ? host : "[\(host)]:\(port)") + " " + hostKey + "\n"
+  }
 }
 
 enum VPSIdentity {
   static func key(in root: URL) -> URL { root.appendingPathComponent("vps/identity_ed25519") }
+  static func knownHosts(in root: URL) -> URL { root.appendingPathComponent("vps/known_hosts") }
 
   static func prepare(in root: URL) throws -> URL {
     let key = key(in: root)
@@ -111,10 +117,15 @@ public actor VPSTunnelProvider: ConnectionProvider {
     do {
       try ConnectionContract.validateIngressEndpoint(endpoint)
       let directory = try await process.prepareDirectory()
-      let knownHosts = directory.appendingPathComponent("known_hosts")
+      let knownHosts: URL
+      if configuration.hostKey.isEmpty {
+        knownHosts = identity.deletingLastPathComponent().appendingPathComponent("known_hosts")
+      } else {
+        knownHosts = directory.appendingPathComponent("known_hosts")
+        try PrivateFiles.atomicWrite(Data(configuration.knownHost.utf8), to: knownHosts)
+      }
       let socket = directory.appendingPathComponent("ssh.sock")
       control = socket
-      try PrivateFiles.atomicWrite(Data(configuration.knownHost.utf8), to: knownHosts)
       try Task.checkCancellation()
       guard !stopped else { throw CancellationError() }
       try await process.launch(binary: URL(fileURLWithPath: "/usr/bin/ssh"), helper: helper,
@@ -139,7 +150,8 @@ public actor VPSTunnelProvider: ConnectionProvider {
     ["-F", "/dev/null", "-N", "-T", "-M", "-S", control.path,
       "-i", identity.path, "-l", VPSConfiguration.user, "-p", String(configuration.port),
       "-o", "BatchMode=yes", "-o", "IdentitiesOnly=yes", "-o", "IdentityAgent=none",
-      "-o", "StrictHostKeyChecking=yes", "-o", "UserKnownHostsFile=" + knownHosts.path,
+      "-o", "StrictHostKeyChecking=" + (configuration.hostKey.isEmpty ? "accept-new" : "yes"),
+      "-o", "UserKnownHostsFile=" + knownHosts.path,
       "-o", "GlobalKnownHostsFile=/dev/null", "-o", "ExitOnForwardFailure=yes",
       "-o", "ConnectTimeout=15", "-o", "ConnectionAttempts=1", "-o", "ServerAliveInterval=15",
       "-o", "ServerAliveCountMax=3", "-o", "ControlPersist=no", "-o", "ForwardAgent=no",

@@ -50,10 +50,14 @@ import Observation
     return try? VPSConfiguration(host: value.host, port: String(value.port), hostKey: value.hostKey)
   }
   var hasUnsavedChanges: Bool {
-    if domain.trimmingCharacters(in: .whitespacesAndNewlines) != savedDomain { return true }
+    let trimmedDomain = domain.trimmingCharacters(in: .whitespacesAndNewlines)
+    if trimmedDomain != savedDomain { return true }
     if providerID == .cloudflare { return !tokenDraft.isEmpty }
-    return vpsHost.trimmingCharacters(in: .whitespacesAndNewlines) != (savedVPS?.host ?? "")
-      || vpsPort != String(savedVPS?.port ?? 22) || vpsHostKey.trimmingCharacters(in: .whitespacesAndNewlines) != (savedVPS?.hostKey ?? "")
+    let trimmedHost = vpsHost.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    let effectiveHost = trimmedHost.isEmpty ? ((try? PublicConnectionContract.origin(trimmedDomain))?.host ?? "") : trimmedHost
+    return effectiveHost != (savedVPS?.host ?? "")
+      || vpsPort.trimmingCharacters(in: .whitespacesAndNewlines) != String(savedVPS?.port ?? 22)
+      || vpsHostKey.trimmingCharacters(in: .whitespacesAndNewlines) != (savedVPS?.hostKey ?? "")
   }
   var configured: Bool {
     (try? PublicConnectionContract.origin(savedDomain)) != nil
@@ -84,10 +88,12 @@ import Observation
     self.makeProvider = makeProvider
     self.makeVPSProvider = makeVPSProvider
     enabled = defaults.bool(forKey: enabledKey)
-    domain = defaults.string(forKey: domainKey) ?? ""
+    let savedDomain = defaults.string(forKey: domainKey) ?? ""
+    domain = savedDomain
     tokenSaved = providerID == .cloudflare ? ((try? credentials.exists(CloudflareContract.tokenAccount)) ?? true) : false
     let saved = defaults.data(forKey: Self.vpsKey).flatMap { try? JSONDecoder().decode(VPSConfiguration.self, from: $0) }
-    vpsHost = saved?.host ?? ""
+    let domainHost = (try? PublicConnectionContract.origin(savedDomain))?.host
+    vpsHost = saved.map { $0.host == domainHost ? "" : $0.host } ?? ""
     vpsPort = String(saved?.port ?? 22)
     vpsHostKey = saved?.hostKey ?? ""
     vpsKeyReady = FileManager.default.fileExists(atPath: VPSIdentity.key(in: dataRoot).path)
@@ -101,11 +107,15 @@ import Observation
       let origin = try PublicConnectionContract.origin(domain.trimmingCharacters(in: .whitespacesAndNewlines))
       let token = tokenDraft.trimmingCharacters(in: .whitespacesAndNewlines)
       if providerID == .vps {
-        let value = try VPSConfiguration(host: vpsHost, port: vpsPort, hostKey: vpsHostKey)
+        let value = try VPSConfiguration(host: vpsHost, port: vpsPort, hostKey: vpsHostKey, fallbackHost: origin.host)
         let root = dataRoot
-        _ = try await Task.detached(priority: .userInitiated) { try VPSIdentity.prepare(in: root) }.value
+        _ = try await Task.detached(priority: .userInitiated) {
+          let key = try VPSIdentity.prepare(in: root)
+          try? FileManager.default.removeItem(at: VPSIdentity.knownHosts(in: root))
+          return key
+        }.value
         defaults.set(try JSONEncoder().encode(value), forKey: Self.vpsKey)
-        vpsHost = value.host
+        vpsHost = value.host == origin.host ? "" : value.host
         vpsPort = String(value.port)
         vpsHostKey = value.hostKey
         vpsKeyReady = true
@@ -131,8 +141,11 @@ import Observation
     saving = true
     defer { saving = false }
     do {
-      _ = try VPSConfiguration.validateHost(vpsHost)
       let origin = try PublicConnectionContract.origin(domain.trimmingCharacters(in: .whitespacesAndNewlines))
+      let trimmedHost = vpsHost.trimmingCharacters(in: .whitespacesAndNewlines)
+      if !trimmedHost.isEmpty {
+        _ = try VPSConfiguration.validateHost(trimmedHost)
+      }
       let root = dataRoot
       let script = try await Task.detached(priority: .userInitiated) { try VPSIdentity.setupScript(origin: origin, root: root) }.value
       vpsKeyReady = true
@@ -154,7 +167,13 @@ import Observation
       defaults.removeObject(forKey: domainKey)
       domain = ""
       tokenDraft = ""
-      if providerID == .vps { defaults.removeObject(forKey: Self.vpsKey) }
+      if providerID == .vps {
+        defaults.removeObject(forKey: Self.vpsKey)
+        let root = dataRoot
+        await Task.detached(priority: .userInitiated) {
+          try? FileManager.default.removeItem(at: VPSIdentity.knownHosts(in: root))
+        }.value
+      }
       vpsHost = ""
       vpsPort = "22"
       vpsHostKey = ""

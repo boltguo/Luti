@@ -80,16 +80,16 @@ struct SettingsView: View {
       }
 
       if loginItem.status == .requiresApproval {
-        InlineNotice(
+        MDBanner(
           text: L10n.text("settings.allowLutiSystemSettingsLoginItems"),
-          icon: "exclamationmark.circle",
-          color: MDTheme.warning)
+          symbol: "exclamationmark.circle",
+          tone: .yellow)
       }
       if let error = loginItem.errorMessage {
-        InlineNotice(
+        MDBanner(
           text: error,
-          icon: "exclamationmark.triangle",
-          color: MDTheme.error)
+          symbol: "exclamationmark.triangle",
+          tone: .red)
           .textSelection(.enabled)
       }
 
@@ -174,28 +174,28 @@ struct SettingsView: View {
         MDList {
           ForEach(Array(AppLanguage.allCases.enumerated()), id: \.element.id) { index, option in
             let position = MDListRowPosition(index: index, count: AppLanguage.allCases.count)
+            let isSelected = language.selection == option
             Button {
               language.selection = option
             } label: {
               HStack(spacing: 16) {
                 Text(languageTitle(option))
                   .font(.system(size: 14, weight: .medium))
-                  .foregroundStyle(MDTheme.onSurface)
+                  .foregroundStyle(isSelected ? MDTheme.onSecondaryContainer : MDTheme.onSurface)
                   .frame(maxWidth: .infinity, alignment: .leading)
 
-                MDRadioMark(isSelected: language.selection == option)
+                MDRadioMark(isSelected: isSelected)
                   .frame(width: 40, height: 40)
               }
               .padding(.horizontal, 16)
               .padding(.vertical, 8)
               .frame(maxWidth: .infinity, minHeight: 56, alignment: .leading)
-              .background(MDListRowSurface(position: position))
-              .contentShape(position.shape)
+              .contentShape(position.shape(selected: isSelected))
             }
-            .buttonStyle(.plain)
+            .buttonStyle(MDRowButtonStyle(position: position, selected: isSelected))
             .accessibilityLabel(languageTitle(option))
             .accessibilityValue(
-              language.selection == option
+              isSelected
                 ? L10n.text("projects.selected")
                 : L10n.text("common.notSelected"))
             .accessibilityIdentifier("language-option-" + option.rawValue)

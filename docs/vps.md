@@ -15,34 +15,36 @@ exposed on a public interface. No WireGuard or Cloudflare Tunnel Token is needed
 1. Point a dedicated domain, such as `mcp.example.com`, at the VPS using DNS-only
    A/AAAA records. Allow inbound TCP on your SSH port (normally 22), 80 and 443 in
    the VPS firewall and cloud security group. Do not open 39393 to the Internet.
-2. Click **Self-hosted VPS** in Luti. Enter the HTTPS domain and VPS IP or DNS-only
-   SSH hostname. The SSH hostname must reach the VPS directly, even if the public
-   MCP domain will later use Cloudflare orange-cloud proxying.
+2. Click **Self-hosted VPS** in Luti. Enter the HTTPS domain (e.g. `mcp.example.com`). By default, Luti connects SSH directly to that domain and pins the server's SSH host public key automatically on first connection. (If your domain already uses orange-cloud proxying or you want strict manual verification, expand **SSH settings** to set a direct VPS IP or host public key.)
 3. Expand the setup guide and copy the server setup script. Review it and run it
    as root in the VPS console. The script installs the distribution's Caddy and
    OpenSSH packages, creates a dedicated `luti` account, and enables automatic
    HTTPS. It refuses to replace an existing website configuration or an unrelated
    `luti` account. The script configures this one Mac as the allowed connector.
-4. Copy the `ssh-ed25519` **server host public key** printed in that trusted VPS
-   console into Luti. Save the settings and start the runtime. Luti automatically
-   generates and keeps its own SSH identity; never copy its private key to the VPS.
+4. Save the settings in Luti and start the runtime. Luti automatically generates
+   and keeps its own SSH identity; never copy its private key to the VPS.
 5. Add the displayed `/mcp` URL to your MCP client using OAuth/DCR. Approve the
    request in Luti on this Mac, as with the Cloudflare connection.
 
 After the domain's HTTPS works, Cloudflare orange-cloud proxying is optional. Use
-**Full (strict)** so Cloudflare validates the VPS certificate. Caddy proxies every
-path, including `/mcp`, `/.well-known/*` and `/oauth/*`, preserving the original
-Host and Authorization headers. The app does not need Cloudflare DNS credentials.
+**Full (strict)** so Cloudflare validates the VPS certificate, and set your
+VPS IP in **SSH settings** so SSH keeps reaching the server directly. Caddy
+proxies every path, including `/mcp`, `/.well-known/*` and `/oauth/*`,
+preserving the original Host and Authorization headers. The app does not need
+Cloudflare DNS credentials.
 
 ## Ownership and recovery
 
-- Luti uses macOS's `/usr/bin/ssh`, with batch mode, a dedicated identity, strict
-  host-key verification, and no shell, password prompt, agent forwarding or user
-  SSH configuration. The VPS account permits only the loopback reverse forward;
-  SSH sessions and other forwarding destinations are disabled.
-- The private key is stored with mode `0600` under `~/.luti/vps/` (`development/vps/`
-  in Debug builds). Clearing connection settings keeps this identity. Host-key
-  changes require checking the new key in the VPS console and saving it explicitly.
+- Luti uses macOS's `/usr/bin/ssh`, with batch mode, a dedicated identity,
+  `accept-new` (or strict manual) host-key pinning, and no shell, password
+  prompt, agent forwarding or user SSH configuration. The VPS account permits
+  only the loopback reverse forward; SSH sessions and other forwarding
+  destinations are disabled.
+- The private key and pinned `known_hosts` are stored with mode `0600` under
+  `~/.luti/vps/` (`development/vps/` in Debug builds). Clearing connection
+  settings keeps the SSH identity. Re-saving or clearing resets auto-pinned
+  host keys; if an already-pinned server key changes unexpectedly, check the new
+  key in the VPS console and update or re-save the settings.
 - The SSH connection is supervised by the existing process owner. A dropped
   connection uses the existing retry backoff without restarting project jobs.
   Readiness checks the public OAuth metadata after SSH is established. A live

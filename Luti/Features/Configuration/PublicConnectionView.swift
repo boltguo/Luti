@@ -15,15 +15,15 @@ struct PublicConnectionView: View {
   }
 
   var body: some View {
-    VStack(alignment: .leading, spacing: 20) {
+    Group {
       if let message = connection.error
         ?? (connection.connection.state == .failed ? connection.connection.message : nil),
         !message.isEmpty
       {
-        ProviderInfoCallout(text: message, symbol: "exclamationmark.triangle", tone: .red)
+        MDBanner(text: message, symbol: "exclamationmark.triangle", tone: .red)
           .textSelection(.enabled)
       } else if connection.connection.state == .reconnecting, !connection.connection.message.isEmpty {
-        ProviderInfoCallout(text: connection.connection.message, symbol: "arrow.triangle.2.circlepath")
+        MDBanner(text: connection.connection.message, symbol: "arrow.triangle.2.circlepath")
           .textSelection(.enabled)
       }
 
@@ -63,7 +63,7 @@ struct PublicConnectionView: View {
         .disabled(model.active || connection.saving)
 
         if model.active {
-          ProviderInfoCallout(text: L10n.text("connection.stopToEdit"), symbol: "lock", tone: .gray)
+          MDBanner(text: L10n.text("connection.stopToEdit"), symbol: "lock", tone: .gray)
         }
       }
 
@@ -107,11 +107,6 @@ struct PublicConnectionView: View {
 
   private var vpsFields: some View {
     VStack(alignment: .leading, spacing: 16) {
-      MDInput(title: L10n.text("vps.host")) {
-        TextField("203.0.113.10", text: $connection.vpsHost)
-          .autocorrectionDisabled()
-          .accessibilityIdentifier("vps-host")
-      }
       MDDisclosure(title: L10n.text("vps.setup")) {
         VStack(alignment: .leading, spacing: 16) {
           ForEach(1...3, id: \.self) { step in
@@ -136,15 +131,22 @@ struct PublicConnectionView: View {
           }
         }
       }
-      MDInput(title: L10n.text("vps.hostKey")) {
-        TextField("ssh-ed25519 AAAA…", text: $connection.vpsHostKey)
-          .autocorrectionDisabled()
-          .accessibilityIdentifier("vps-host-key")
-      }
       MDDisclosure(title: L10n.text("vps.advanced")) {
-        MDInput(title: L10n.text("vps.sshPort")) {
-          TextField("22", text: $connection.vpsPort)
-            .accessibilityIdentifier("vps-ssh-port")
+        VStack(alignment: .leading, spacing: 16) {
+          MDInput(title: L10n.text("vps.host")) {
+            TextField("203.0.113.10", text: $connection.vpsHost)
+              .autocorrectionDisabled()
+              .accessibilityIdentifier("vps-host")
+          }
+          MDInput(title: L10n.text("vps.sshPort")) {
+            TextField("22", text: $connection.vpsPort)
+              .accessibilityIdentifier("vps-ssh-port")
+          }
+          MDInput(title: L10n.text("vps.hostKey")) {
+            TextField("ssh-ed25519 AAAA…", text: $connection.vpsHostKey)
+              .autocorrectionDisabled()
+              .accessibilityIdentifier("vps-host-key")
+          }
         }
       }
     }

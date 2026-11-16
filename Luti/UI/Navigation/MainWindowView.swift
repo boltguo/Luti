@@ -276,32 +276,64 @@ private struct MDNavigation: View {
   var body: some View {
     HStack(spacing: 0) {
       ForEach(AppTab.allCases) { tab in
+        let isSelected = selection == tab
         Button {
-          withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.18)) { selection = tab }
+          withAnimation(reduceMotion ? nil : MDMotion.fastSpatial) { selection = tab }
         } label: {
           Text(tab.title)
-            .font(.system(size: 14, weight: selection == tab ? .semibold : .medium))
-            .foregroundStyle(selection == tab ? MDTheme.primary : MDTheme.onSurfaceVariant)
+            .font(.system(size: 14, weight: isSelected ? .semibold : .medium))
             .frame(maxWidth: .infinity)
-            .frame(height: 44)
-            .contentShape(Rectangle())
-            .overlay(alignment: .bottom) {
-              if selection == tab {
-                UnevenRoundedRectangle(topLeadingRadius: 4, topTrailingRadius: 4)
-                  .fill(MDTheme.primary)
-                  .frame(width: 56, height: 4)
-                  .matchedGeometryEffect(id: "tab-indicator", in: indicator)
-              }
-            }
+            .frame(height: 48)
         }
-        .buttonStyle(.plain)
-        .accessibilityAddTraits(selection == tab ? .isSelected : [])
+        .buttonStyle(MDNavigationTabButtonStyle(isSelected: isSelected, indicator: indicator))
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
         .accessibilityIdentifier("tab-" + tab.rawValue)
       }
     }
     .padding(.horizontal, 8)
+    .frame(height: 48)
+    .clipped()
     .background(MDTheme.surface)
     .overlay(alignment: .bottom) { MDTheme.outlineVariant.frame(height: 1) }
     .accessibilityElement(children: .contain).accessibilityLabel(L10n.text("navigation.pageNavigation"))
+  }
+}
+
+private struct MDNavigationTabButtonStyle: ButtonStyle {
+  let isSelected: Bool
+  let indicator: Namespace.ID
+
+  func makeBody(configuration: Configuration) -> some View {
+    MDNavigationTabBody(
+      configuration: configuration,
+      isSelected: isSelected,
+      indicator: indicator)
+  }
+}
+
+private struct MDNavigationTabBody: View {
+  let configuration: ButtonStyleConfiguration
+  let isSelected: Bool
+  let indicator: Namespace.ID
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
+  @State private var isHovered = false
+
+  var body: some View {
+    let stateOpacity: Double = configuration.isPressed ? 0.10 : (isHovered ? 0.08 : 0)
+    configuration.label
+      .foregroundStyle(isSelected ? MDTheme.primary : (isHovered ? MDTheme.onSurface : MDTheme.onSurfaceVariant))
+      .background(MDTheme.primary.opacity(stateOpacity), in: Rectangle())
+      .contentShape(Rectangle())
+      .overlay(alignment: .bottom) {
+        if isSelected {
+          UnevenRoundedRectangle(topLeadingRadius: 3, topTrailingRadius: 3)
+            .fill(MDTheme.primary)
+            .frame(width: 56, height: 3)
+            .matchedGeometryEffect(id: "tab-indicator", in: indicator)
+        }
+      }
+      .animation(reduceMotion ? nil : MDMotion.fastEffects, value: isHovered)
+      .animation(reduceMotion ? nil : MDMotion.fastEffects, value: configuration.isPressed)
+      .onHover { isHovered = $0 }
   }
 }

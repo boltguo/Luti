@@ -295,8 +295,8 @@
 "connection.publicEnabled" = "Enable public HTTPS";
 "connection.transport" = "Transport";
 "vps.title" = "Self-hosted VPS";
-"vps.host" = "VPS IP or DNS-only hostname";
-"vps.hostKey" = "Server SSH host public key";
+"vps.host" = "SSH host or IP (optional, defaults to domain)";
+"vps.hostKey" = "Server SSH host public key (optional, auto-pins on first connect)";
 "vps.setup" = "Set up Ubuntu / Debian VPS";
 "vps.copySetup" = "Copy server setup script";
 "vps.scriptCopied" = "Setup script copied";
@@ -306,6 +306,6 @@
 "vps.step1.title" = "Point your domain to the VPS";
 "vps.step1.detail" = "Use a dedicated subdomain with DNS-only A/AAAA records. Allow inbound TCP SSH, 80 and 443 in the VPS firewall.";
 "vps.step2.title" = "Initialize the empty VPS once";
-"vps.step2.detail" = "Fill in the domain and VPS address, copy the script below and run it as root on your Ubuntu/Debian VPS. It creates a restricted SSH account and configures automatic HTTPS. Existing web servers are not replaced.";
-"vps.step3.title" = "Verify the server identity and save";
-"vps.step3.detail" = "Copy the ssh-ed25519 host public key from the trusted VPS console into the field below. Save, then start Luti. Orange-cloud proxying is optional after HTTPS works; use Full (strict).";
+"vps.step2.detail" = "Enter your domain above, copy the script below and run it as root on your Ubuntu/Debian VPS. It creates a restricted SSH account and configures automatic HTTPS. Existing web servers are not replaced.";
+"vps.step3.title" = "Save and start Luti";
+"vps.step3.detail" = "Save the settings and start Luti. It automatically pins the server SSH host key on first connection. If you later enable Cloudflare orange-cloud proxying (Full strict), set the VPS IP under SSH settings.";

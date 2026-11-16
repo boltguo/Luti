@@ -39,7 +39,7 @@ Luti connects an AI client to one approved project. The AI host handles reasonin
 |---|---|---|---|
 | **OpenAI Secure MCP Tunnel** | Tunnel ID + runtime API key | ChatGPT workspace association | ChatGPT, with no public endpoint |
 | **Cloudflare Tunnel** | HTTPS domain + Tunnel Token | OAuth approved via Luti popup on this Mac | Custom MCP clients using a stable public URL |
-| **Self-hosted VPS** | HTTPS domain + VPS address + server SSH host public key | OAuth approved on this Mac | Public MCP through your own VPS; [setup](docs/vps.md) |
+| **Self-hosted VPS** | HTTPS domain (optional SSH IP / host key in advanced) | OAuth approved on this Mac | Public MCP through your own VPS; [setup](docs/vps.md) |
 
 OpenAI uses its private, credential-bound loopback listener and outbound `tunnel-client`; Cloudflare adds an independent OAuth-protected listener for a named HTTPS domain. Any configured connection can start the runtime; all three can run together. Self-hosted VPS uses a restricted SSH reverse forward and the same native OAuth approval flow. See [VPS setup](docs/vps.md). Failed transports reconnect without restarting project jobs. Stop the runtime before changing connection settings; stopping also ends jobs and browser sessions. See [Cloudflare setup and authorization](docs/cloudflare.md).
 

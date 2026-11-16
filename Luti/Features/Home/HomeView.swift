@@ -24,7 +24,7 @@ struct HomeView: View {
       connectionSection
 
       if let error = model.errorText {
-        InlineNotice(text: error, icon: "exclamationmark.triangle", color: MDTheme.error)
+        MDBanner(text: error, symbol: "exclamationmark.triangle", tone: .red)
           .textSelection(.enabled)
       }
     }
@@ -36,17 +36,17 @@ struct HomeView: View {
   }
 
   private var enabledConnections: [EnabledConnectionItem] {
-    var items: [EnabledConnectionItem] = []
-    if model.openAIEnabled {
-      items.append(EnabledConnectionItem(
-        id: .openAI,
-        status: L10n.text(model.connectionStatusKey)))
+    ConnectionProviderID.allCases.compactMap { provider in
+      if provider == .openAI {
+        guard model.openAIEnabled else { return nil }
+        return EnabledConnectionItem(id: .openAI, status: L10n.text(model.connectionStatusKey))
+      }
+      let connection = model.publicConnection(for: provider)
+      guard connection.enabled else { return nil }
+      return EnabledConnectionItem(
+        id: provider,
+        status: L10n.text(connection.authorization.pending.isEmpty ? connection.statusKey : "cloudflare.pending"))
     }
-    for connection in model.publicConnections where connection.enabled {
-      items.append(EnabledConnectionItem(id: connection.providerID,
-        status: L10n.text(connection.authorization.pending.isEmpty ? connection.statusKey : "cloudflare.pending")))
-    }
-    return items
   }
 
   private var connectionSection: some View {
@@ -110,7 +110,7 @@ struct HomeView: View {
             .frame(maxWidth: .infinity)
         }
       }
-      .buttonStyle(MDButtonStyle())
+      .buttonStyle(MDButtonStyle(minHeight: 46))
       .controlSize(.large)
       .disabled(model.contextBusy || model.phase == .stopping
         || (!model.active && model.activeProject != nil && !model.canLaunch))

@@ -1,9 +1,9 @@
 import Foundation
 
 public enum ConnectionProviderID: String, Codable, CaseIterable, Hashable, Sendable, Identifiable {
+  case vps
   case openAI = "openai"
   case cloudflare
-  case vps
 
   public var id: String { rawValue }
   public var title: String {

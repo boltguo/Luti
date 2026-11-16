@@ -101,7 +101,7 @@ private actor FixtureProvider: ConnectionProvider {
   }
 
   func testProviderCatalogKeepsOnlySupportedTransports() {
-    XCTAssertEqual(ConnectionProviderID.allCases, [.openAI, .cloudflare, .vps])
+    XCTAssertEqual(ConnectionProviderID.allCases, [.vps, .openAI, .cloudflare])
     for removed in ["ngrok", "quick", "custom"] {
       XCTAssertNil(ConnectionProviderID(rawValue: removed))
     }
@@ -364,8 +364,12 @@ extension ConnectionProviderTests {
   func testVPSConfigurationRejectsOptionsURLsAndMalformedHostKeys() throws {
     let f = try Fixture(); defer { f.remove() }
     let key = try vpsPublicKey(f)
+    let fallback = try VPSConfiguration(host: "", port: "22", hostKey: "", fallbackHost: "vps.example.com")
+    XCTAssertEqual(fallback.host, "vps.example.com")
+    XCTAssertEqual(fallback.hostKey, "")
     for host in ["203.0.113.10", "vps.example.com", "2001:db8::1"] {
       XCTAssertNoThrow(try VPSConfiguration(host: host, port: "22", hostKey: key))
+      XCTAssertNoThrow(try VPSConfiguration(host: host, port: "22", hostKey: ""))
     }
     for host in ["-oProxyCommand=sh", "user@vps.example.com", "https://vps.example.com", "host\ncommand", "256.999.1.1", "host;touch /tmp/example"] {
       XCTAssertThrowsError(try VPSConfiguration(host: host, port: "22", hostKey: key), host)
@@ -373,7 +377,7 @@ extension ConnectionProviderTests {
     for port in ["0", "65536", "22 -oOption=value"] {
       XCTAssertThrowsError(try VPSConfiguration(host: "203.0.113.10", port: port, hostKey: key))
     }
-    for key in ["", "ssh-ed25519 AAAA", "ssh-rsa " + key.split(separator: " ")[1]] {
+    for key in ["ssh-ed25519 AAAA", "ssh-rsa " + key.split(separator: " ")[1]] {
       XCTAssertThrowsError(try VPSConfiguration(host: "203.0.113.10", port: "22", hostKey: key))
     }
   }
@@ -421,6 +425,23 @@ extension ConnectionProviderTests {
     XCTAssertTrue(parsed.contains("identityagent none\n"))
     XCTAssertTrue(parsed.contains("remoteforward [127.0.0.1]:39393 [127.0.0.1]:39394"))
     XCTAssertTrue(parsed.contains("userknownhostsfile " + f.root.appendingPathComponent("known_hosts").path))
+
+    let autoPin = try VPSConfiguration(host: "vps.example.com", port: "22", hostKey: "")
+    XCTAssertEqual(autoPin.knownHost, "")
+    let autoArgs = VPSTunnelProvider.arguments(configuration: autoPin,
+      identity: VPSIdentity.key(in: f.contextDataRoot), knownHosts: f.root.appendingPathComponent("known_hosts"),
+      control: f.root.appendingPathComponent("ssh.sock"), localPort: 39394)
+    let autoCheck = Process(), autoOutput = Pipe()
+    autoCheck.executableURL = URL(fileURLWithPath: "/usr/bin/ssh")
+    autoCheck.arguments = ["-G"] + autoArgs
+    autoCheck.standardOutput = autoOutput
+    autoCheck.standardError = FileHandle.nullDevice
+    try autoCheck.run()
+    let autoData = autoOutput.fileHandleForReading.readDataToEndOfFile()
+    autoCheck.waitUntilExit()
+    XCTAssertEqual(autoCheck.terminationStatus, 0)
+    let autoParsed = String(decoding: autoData, as: UTF8.self)
+    XCTAssertTrue(autoParsed.contains("stricthostkeychecking accept-new\n"))
   }
 
   func testVPSSetupSSHDRestrictionsApplyOnlyToTunnelUser() throws {
@@ -483,11 +504,15 @@ extension ConnectionProviderTests {
       makeVPSProvider: { _, _, _, _ in provider })
     addTeardownBlock { await model.stop(); f.remove() }
     model.addProject(f.root)
-    model.vps.domain = "https://vps.example.com"
-    model.vps.vpsHost = "203.0.113.10"
-    model.vps.vpsHostKey = try vpsPublicKey(f)
+    model.vps.domain = "vps.example.com"
+    let script = await model.vps.vpsSetupScript()
+    XCTAssertNotNil(script)
     await model.vps.save()
     XCTAssertNil(model.vps.error)
+    XCTAssertEqual(model.vps.savedDomain, "https://vps.example.com")
+    XCTAssertEqual(model.vps.vpsHost, "")
+    XCTAssertEqual(model.vps.vpsHostKey, "")
+    XCTAssertFalse(model.vps.hasUnsavedChanges)
     XCTAssertTrue(model.vps.configured)
     XCTAssertTrue(model.canLaunch)
     XCTAssertFalse(model.cloudflare.configured)
@@ -504,7 +529,8 @@ extension ConnectionProviderTests {
     let reopened = AppModel(contextDataRoot: f.contextDataRoot, defaults: f.defaults, credentials: store.client)
     addTeardownBlock { await reopened.stop() }
     XCTAssertTrue(reopened.vps.configured)
-    XCTAssertEqual(reopened.vps.vpsHost, "203.0.113.10")
+    XCTAssertEqual(reopened.vps.vpsHost, "")
+    XCTAssertFalse(reopened.vps.hasUnsavedChanges)
     XCTAssertFalse(reopened.cloudflare.enabled)
   }
 

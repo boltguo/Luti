@@ -39,7 +39,7 @@ Luti 把 AI 客户端连接到一个已授权项目。AI Host 负责推理和编
 |---|---|---|---|
 | **OpenAI Secure MCP Tunnel** | Tunnel ID + 运行 API Key | ChatGPT 工作区关联 | ChatGPT，无需公开入口 |
 | **Cloudflare Tunnel** | HTTPS 域名 + Tunnel Token | OAuth，在本机弹窗批准 | 通过固定公开地址连接的自定义 MCP 客户端 |
-| **VPS 自建** | HTTPS 域名 + VPS 地址 + SSH 主机公钥 | OAuth，在本机批准 | 通过自己的 VPS 中转；[部署说明](docs/vps.md) |
+| **VPS 自建** | HTTPS 域名（高级设置中可选填 SSH IP / 主机公钥） | OAuth，在本机批准 | 通过自己的 VPS 中转；[部署说明](docs/vps.md) |
 
 OpenAI 使用独立的回环监听和每次连接新生成的私有凭据，通过 `tunnel-client` 主动出站连接。Cloudflare 为固定 HTTPS 域名单独提供 OAuth 保护的入口。VPS 自建通过受限 SSH 反向转发提供独立的 OAuth 入口，见 [VPS 部署说明](docs/vps.md)。任意一种连接配置完成即可启动，三种连接可以同时运行；传输失败会重连，不重启项目任务。修改配置前先停止 Runtime；停止会结束 Job 和浏览器会话。参见 [Cloudflare 配置与本机授权](docs/cloudflare.md)。
 

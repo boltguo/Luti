@@ -6,14 +6,15 @@ struct OpenAIConnectionView: View {
   @State private var confirmClearConfiguration = false
 
   var body: some View {
-    VStack(alignment: .leading, spacing: 20) {
-      if let message = model.connectionError
+    Group {
+      if let message = model.connectionSettingsError
+        ?? model.connectionError
         ?? (model.connection.state == .failed ? model.connection.message : nil)
       {
-        ProviderInfoCallout(text: message, symbol: "exclamationmark.triangle", tone: .red)
+        MDBanner(text: message, symbol: "exclamationmark.triangle", tone: .red)
           .textSelection(.enabled)
       } else if model.connection.state == .reconnecting, !model.connection.message.isEmpty {
-        ProviderInfoCallout(text: model.connection.message, symbol: "arrow.triangle.2.circlepath")
+        MDBanner(text: model.connection.message, symbol: "arrow.triangle.2.circlepath")
           .textSelection(.enabled)
       }
 
@@ -65,7 +66,6 @@ struct OpenAIConnectionView: View {
                 .frame(maxWidth: .infinity)
             }
             .buttonStyle(MDConnectedButtonStyle(kind: .tonal, position: .first))
-            .frame(maxWidth: .infinity)
             .disabled(model.savingConnection)
             .accessibilityIdentifier("clear-connection-configuration")
           }
@@ -78,7 +78,6 @@ struct OpenAIConnectionView: View {
           }
           .buttonStyle(MDConnectedButtonStyle(
             kind: .filled, position: hasSavedConfiguration ? .last : .single))
-          .frame(maxWidth: .infinity)
           .disabled(!model.hasUnsavedConnection || model.savingConnection)
           .accessibilityIdentifier("save-configuration")
         }
@@ -86,15 +85,10 @@ struct OpenAIConnectionView: View {
       .disabled(!model.canEditConnection)
 
       if !model.canEditConnection && !model.savingConnection {
-        ProviderInfoCallout(
+        MDBanner(
           text: L10n.text("connection.stopToEdit"),
           symbol: "lock",
           tone: .gray)
-      }
-
-      if let message = model.connectionSettingsError {
-        InlineNotice(text: message, icon: "exclamationmark.triangle", color: MDTheme.error)
-          .textSelection(.enabled)
       }
     }
     .frame(maxWidth: .infinity, alignment: .leading)

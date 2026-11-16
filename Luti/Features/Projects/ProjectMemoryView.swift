@@ -65,7 +65,8 @@ struct ProjectMemoryView: View {
         }
 
         if let error {
-          InlineNotice(text: error, icon: "exclamationmark.triangle", color: MDTheme.error)
+          MDBanner(text: error, symbol: "exclamationmark.triangle", tone: .red)
+            .textSelection(.enabled)
         }
       }
     }
@@ -148,8 +149,8 @@ struct ProjectMemoryView: View {
         .font(.system(size: 12))
         .foregroundStyle(MDTheme.onSurfaceVariant)
         .textSelection(.enabled)
-      Divider()
-        .opacity(0.35)
+      MDDivider()
+        .opacity(0.6)
       Text(doc.content)
         .font(.system(size: 13))
         .foregroundStyle(MDTheme.onSurface)

@@ -7,7 +7,9 @@ enum PublicConnectionContract {
   static var localService: String { "http://127.0.0.1:\(port)" }
 
   static func origin(_ value: String) throws -> URL {
-    guard let url = URL(string: value), url.scheme?.lowercased() == "https",
+    let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+    let normalized = !trimmed.isEmpty && !trimmed.contains("://") ? "https://" + trimmed : trimmed
+    guard let url = URL(string: normalized), url.scheme?.lowercased() == "https",
       let host = url.host?.lowercased(), publicHostname(host),
       url.port == nil || url.port == 443, url.user == nil, url.password == nil,
       url.query == nil, url.fragment == nil, url.path.isEmpty || url.path == "/"

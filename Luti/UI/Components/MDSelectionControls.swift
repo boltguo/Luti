@@ -70,10 +70,13 @@ private struct MDFilterChoiceBody: View {
   let isSelected: Bool
   let isFocused: Bool
   @Environment(\.isEnabled) private var isEnabled
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
   @State private var isHovered = false
 
   private var shape: RoundedRectangle {
-    RoundedRectangle(cornerRadius: 18, style: .continuous)
+    RoundedRectangle(
+      cornerRadius: isSelected ? MDShape.largeIncreased : (configuration.isPressed ? MDShape.small : MDShape.large),
+      style: .continuous)
   }
 
   var body: some View {
@@ -88,9 +91,12 @@ private struct MDFilterChoiceBody: View {
       .overlay(
         shape.fill(
           MDTheme.primary.opacity(
-            configuration.isPressed ? 0.12 : isFocused ? 0.08 : isHovered ? 0.06 : 0)))
+            isEnabled ? (configuration.isPressed ? 0.10 : isFocused ? 0.10 : isHovered ? 0.08 : 0) : 0)))
       .contentShape(shape)
       .opacity(isEnabled ? 1 : 0.38)
+      .animation(reduceMotion ? nil : MDMotion.fastEffects, value: isHovered)
+      .animation(reduceMotion ? nil : MDMotion.fastSpatial, value: isSelected)
+      .animation(reduceMotion ? nil : MDMotion.fastSpatial, value: configuration.isPressed)
       .onHover { isHovered = $0 && isEnabled }
   }
 }

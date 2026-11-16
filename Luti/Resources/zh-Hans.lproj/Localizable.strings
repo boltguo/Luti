@@ -295,8 +295,8 @@
 "connection.publicEnabled" = "启用公网 HTTPS";
 "connection.transport" = "连接方式";
 "vps.title" = "VPS 自建";
-"vps.host" = "VPS IP 或仅 DNS 域名";
-"vps.hostKey" = "服务器 SSH 主机公钥";
+"vps.host" = "SSH 直连 IP 或域名（可选，默认使用上方域名）";
+"vps.hostKey" = "服务器 SSH 主机公钥（可选，留空首次连接自动信任）";
 "vps.setup" = "初始化 Ubuntu / Debian VPS";
 "vps.copySetup" = "复制服务器初始化脚本";
 "vps.scriptCopied" = "初始化脚本已复制";
@@ -306,6 +306,6 @@
 "vps.step1.title" = "将域名解析到 VPS";
 "vps.step1.detail" = "使用独立子域名，先添加仅 DNS 的 A/AAAA 记录。在 VPS 防火墙放行 SSH、80 和 443 的 TCP 端口。";
 "vps.step2.title" = "一次性初始化空 VPS";
-"vps.step2.detail" = "填入域名和 VPS 地址，复制下方脚本，在 Ubuntu/Debian VPS 上以 root 执行。脚本配置受限 SSH 账号和自动 HTTPS，不替换已有网站服务。";
-"vps.step3.title" = "核对服务器身份并保存";
-"vps.step3.detail" = "从可信的 VPS 控制台复制脚本输出的 ssh-ed25519 主机公钥，粘贴到下方后保存并启动 Luti。HTTPS 正常后可选开橙云，使用 Full (strict)。";
+"vps.step2.detail" = "在上方填入域名，复制下方脚本，在 Ubuntu/Debian VPS 上以 root 执行。脚本配置受限 SSH 账号和自动 HTTPS，不替换已有网站服务。";
+"vps.step3.title" = "保存并启动 Luti";
+"vps.step3.detail" = "保存配置并启动 Luti，首次连接时会自动信任并锁定服务器 SSH 主机公钥。HTTPS 正常后可选开橙云，并在下方 SSH 设置填写 VPS IP。";
